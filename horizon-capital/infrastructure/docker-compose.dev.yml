@@ -1,0 +1,24 @@
+version: "3.9"
+
+# Development overrides - hot reload for backend and frontend
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      target: development
+    volumes:
+      - ../backend:/app
+      - ../ml_training/artifacts:/app/ml_artifacts:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      APP_DEBUG: "true"
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ../frontend/src:/app/src
+    ports:
+      - "3000:5173"
+    command: npm run dev -- --host 0.0.0.0
