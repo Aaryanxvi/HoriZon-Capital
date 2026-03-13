@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Horizon Capital | Autonomous Terminal Agent</title>
+    
+    <!-- Google Fonts: Inter for UI, Newsreader for elegant headings -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+    
+    <!-- Spline Viewer Web Component -->
+    <script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.69/build/spline-viewer.js"></script>
+  </head>
+  <body>
+    <!-- Subtle WebGL Background Container -->
+    <div id="canvas-container">
+      <spline-viewer id="spline-bg" url="https://prod.spline.design/FEc5MPfuliTva4Vq/scene.splinecode"></spline-viewer>
+    </div>
+
+    <!-- Navigation (Glassmorphic) -->
+    <nav class="glass-nav">
+      <div class="nav-content">
+        <div class="logo">Horizon <span class="muted">Capital</span></div>
+        <div class="nav-links">
+          <a href="#about" data-hover>About</a>
+          <a href="#architecture" data-hover>Architecture</a>
+          <a href="#deploy" data-hover>Deploy</a>
+          <a href="https://github.com" target="_blank" data-hover>Docs</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="smooth-wrapper">
+      <div id="smooth-content">
+        
+        <!-- Hero Section -->
+        <section class="hero bento-grid-item fade-up">
+          <div class="hero-content">
+            <h1 class="hero-title">The Autonomous <br> Hedge Fund <br> <span class="accent-italic">Terminal Agent.</span></h1>
+            <p class="hero-subtitle">
+              A multi-agent, department-structured trading platform that runs entirely locally. 
+              Zero infrastructure required. Powered by consensus-driven AI debate.
+            </p>
+            <div class="hero-actions">
+              <a href="#deploy" class="btn btn-primary" data-hover>Download Terminal</a>
+              <a href="#architecture" class="btn btn-secondary" data-hover>Learn More</a>
+            </div>
+          </div>
+          <!-- Right side is left empty for the 3D canvas to breathe -->
+          <div class="hero-visual"></div>
+        </section>
+
+        <!-- Install / Terminal Section -->
+        <section id="deploy" class="install-section fade-up">
+          <div class="bento-box install-container">
+            <div class="install-text">
+              <h2 class="section-heading">Deploy Locally</h2>
+              <p>Run the Horizon Capital agent directly in your terminal. We support Python, SQLite, and an in-memory message bus for zero-infrastructure deployment.</p>
+              
+              <div class="cli-command">
+                <span class="prompt">$</span>
+                <code id="curl-cmd">curl -sL https://horizon.capital/install.sh | bash</code>
+                <button id="copy-btn" class="copy-btn" data-hover>
+                  <i data-lucide="copy"></i> Copy
+                </button>
+              </div>
+
+              <div class="gui-downloads">
+                <span>GUI Application Available for:</span>
+                <div class="os-links">
+                  <a href="#" data-hover><i data-lucide="apple"></i> macOS (Apple Silicon)</a>
+                  <a href="#" data-hover><i data-lucide="monitor"></i> Windows (x64)</a>
+                  <a href="#" data-hover><i data-lucide="terminal"></i> Linux (AppImage)</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="terminal-mockup">
+              <div class="terminal-header">
+                <div class="dots"><span></span><span></span><span></span></div>
+                <div class="title">CIO_MODE=AI horizon-terminal</div>
+              </div>
+              <div class="terminal-body" id="typewriter">
+                <!-- GSAP Typewriter inserts here -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bento Grid Architecture -->
+        <section id="architecture" class="architecture-section">
+          <div class="section-background"></div>
+          <div class="architecture-container">
+            <div class="section-header fade-up">
+              <h2 class="section-heading">Fund Intelligence. Localized.</h2>
+              <p>A true multi-agent architecture mirroring a quantitative hedge fund. Running entirely on your machine.</p>
+            </div>
+
+            <div class="bento-grid">
+              
+              <!-- Front Office (Span 2) -->
+              <div class="bento-card bento-span-2 fade-up">
+                <div class="card-content">
+                  <div class="card-icon"><i data-lucide="trending-up"></i></div>
+                  <h3>Front Office</h3>
+                  <p>Hunts for alpha using mathematical models. Employs HMM Regime Detection, FinBERT Sentiment Analysis, and an ensemble of proprietary strategy sub-agents to generate high-conviction signals.</p>
+                </div>
+              </div>
+
+              <!-- Middle Office (Span 1) -->
+              <div class="bento-card fade-up">
+                <div class="card-content">
+                  <div class="card-icon"><i data-lucide="shield-alert"></i></div>
+                  <h3>Middle Office</h3>
+                  <p>Dynamic risk boundary enforcement. Continuous historical VaR analysis and an automated hard-stop circuit breaker.</p>
+                </div>
+              </div>
+
+              <!-- Back Office (Span 1) -->
+              <div class="bento-card fade-up">
+                <div class="card-content">
+                  <div class="card-icon"><i data-lucide="database"></i></div>
+                  <h3>Back Office</h3>
+                  <p>Ensures feature pipeline integrity, calculates real-time NAV, and manages the robust SQLite local data store.</p>
+                </div>
+              </div>
+
+              <!-- Debate Engine (Span 2, Outline Accent) -->
+              <div class="bento-card bento-span-2 outline-accent fade-up">
+                <div class="card-content">
+                  <div class="card-icon"><i data-lucide="users"></i></div>
+                  <h3>Multi-Agent Debate Engine</h3>
+                  <p>No single neural network trades alone. Every signal triggers a rigorous debate between 4 distinct LLM personas. A trade is ultimately executed <em>only</em> upon formal mathematical consensus across the board.</p>
+                </div>
+              </div>
+
+              <!-- Executive (Span 3) -->
+              <div class="bento-card bento-span-3 fade-up">
+                <div class="card-content content-horizontal">
+                  <div class="card-icon"><i data-lucide="briefcase"></i></div>
+                  <div>
+                    <h3>The Executive Layer</h3>
+                    <p>Take manual control via Human-in-the-Loop oversight, or hand governance to the fully autonomous AI CIO for hands-free operation.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- Minimal Footer -->
+        <footer class="glass-footer">
+          <div class="footer-content">
+            <div class="footer-left">
+              <p>Horizon Capital Agent Runtime</p>
+              <p class="version">v0.2.0-beta</p>
+            </div>
+            <div class="footer-right">
+              <a href="#" data-hover>Documentation</a>
+              <a href="#" data-hover>GitHub</a>
+              <a href="#" data-hover>Twitter</a>
+            </div>
+          </div>
+        </footer>
+
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+  </body>
+</html>
