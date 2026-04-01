@@ -1156,3 +1156,83 @@ class TestPriceStaleness:
         updated_at = datetime.now(UTC) - timedelta(seconds=30)
         age = (datetime.now(UTC) - updated_at).total_seconds()
         assert age <= 60
+
+
+# =====================================================================
+# Dashboard Wiring (bus message → dashboard method)
+# =====================================================================
+
+
+class TestDashboardWiring:
+    @pytest.mark.asyncio
+    async def test_price_update_routes_to_watchlist(self):
+        from app.core.messaging import AgentMessage, MessageType
+        from app.tui.dashboard import TerminalDashboard
+
+        dash = TerminalDashboard()
+        msg = AgentMessage(
+            sender_id="data-ingestion-worker",
+            channel="horizon.market.price",
+            message_type=MessageType.PRICE_UPDATE,
+            payload={
+                "symbol": "RELIANCE.NSE",
+                "price": 2847.50,
+                "change_pct": 1.2,
+            },
+        )
+        dash.update_watchlist(msg.payload)
+        assert "RELIANCE.NSE" in dash._watchlist
+
+    @pytest.mark.asyncio
+    async def test_order_new_routes_to_pending(self):
+        from app.core.messaging import AgentMessage, MessageType
+        from app.tui.dashboard import TerminalDashboard
+
+        dash = TerminalDashboard()
+        msg = AgentMessage(
+            sender_id="portfolio-agent",
+            channel="horizon.execution.order.new",
+            message_type=MessageType.ORDER_NEW,
+            payload={
+                "signal_id": "abc-123",
+                "order_id": "ORD-001",
+                "symbol": "RELIANCE.NSE",
+                "side": "BUY",
+                "quantity": 100,
+                "order_type": "MARKET",
+                "status": "PENDING",
+            },
+        )
+        dash.add_pending_order(msg.payload)
+        assert len(dash._pending_orders) == 1
+
+    @pytest.mark.asyncio
+    async def test_order_fill_completes_pending(self):
+        from app.core.messaging import AgentMessage, MessageType
+        from app.tui.dashboard import TerminalDashboard
+
+        dash = TerminalDashboard()
+        dash.add_pending_order({
+            "order_id": "ORD-001",
+            "symbol": "RELIANCE.NSE",
+            "side": "BUY",
+            "quantity": 100,
+            "status": "PENDING",
+        })
+        fill_msg = AgentMessage(
+            sender_id="execution-agent",
+            channel="horizon.execution.order.fill",
+            message_type=MessageType.ORDER_FILL,
+            payload={
+                "order_id": "ORD-001",
+                "symbol": "RELIANCE.NSE",
+                "side": "BUY",
+                "quantity": 100,
+                "fill_price": 2847.50,
+                "status": "FILLED",
+                "timestamp": "2026-04-02T14:21:30",
+            },
+        )
+        dash.complete_order(fill_msg.payload)
+        assert len(dash._pending_orders) == 0
+        assert len(dash._trade_history) == 1
