@@ -2,6 +2,7 @@
 
 import abc
 import asyncio
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import text
@@ -130,9 +131,7 @@ class BaseAgent(abc.ABC):
                     "receiver_id": msg.receiver_id,
                     "channel": msg.channel,
                     "message_type": msg.message_type.value,
-                    "payload": (
-                        msg.model_dump_json(include={"payload"}).strip('{"payload":').rstrip("}")
-                    ),
+                    "payload": json.dumps(msg.payload, default=str),
                 },
             )
             await session.commit()

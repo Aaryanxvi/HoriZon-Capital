@@ -7,8 +7,7 @@ aggregated sentiment on ``horizon.features.{symbol}.sentiment``.
 
 import asyncio
 import uuid
-from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from dateutil import parser as dtparser
 from sqlalchemy import text
@@ -25,7 +24,7 @@ from app.core.logging import get_logger
 def _get_session_factory():
     from app.core.runtime import get_session_factory
     return get_session_factory()
-from app.core.messaging import AgentBus, AgentMessage, MessageType
+from app.core.messaging import AgentBus, AgentMessage, MessageType  # noqa: E402
 
 logger = get_logger("agent.sentiment")
 
@@ -145,7 +144,7 @@ class SentimentAgent(BaseAgent):
                     "url": None,
                     "engagement": post.get("score", 0) + post.get("num_comments", 0),
                     "publishedAt": datetime.fromtimestamp(
-                        post.get("created_utc", 0), tz=timezone.utc
+                        post.get("created_utc", 0), tz=UTC
                     ).isoformat()
                     if post.get("created_utc")
                     else None,
@@ -160,7 +159,7 @@ class SentimentAgent(BaseAgent):
         scores = self.scorer.score_batch(texts)
 
         # 3. Store each narrative in the database
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         narrative_ids: list[str] = []
 
         async with _get_session_factory()() as session:
@@ -256,7 +255,7 @@ class SentimentAgent(BaseAgent):
 
     async def _compute_aggregates(self, symbol: str) -> dict[str, dict]:
         """Compute and persist sentiment aggregates for each time window."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result: dict[str, dict] = {}
 
         async with _get_session_factory()() as session:
@@ -312,8 +311,7 @@ class SentimentAgent(BaseAgent):
                         VALUES
                             (:id, :symbol, :window, :avg_sent, :count,
                              :bull, :bear, :neutral, :now, :now)
-                        ON CONFLICT ON CONSTRAINT uq_sentiment_agg_symbol_window
-                        DO UPDATE SET
+                        ON CONFLICT(symbol, window) DO UPDATE SET
                             avg_sentiment = :avg_sent,
                             article_count = :count,
                             bull_pct = :bull,
@@ -352,6 +350,8 @@ class SentimentAgent(BaseAgent):
         all_symbols = [symbol] + related
         placeholders = ", ".join(f":s{i}" for i in range(len(all_symbols)))
         params = {f"s{i}": s for i, s in enumerate(all_symbols)}
+        cutoff = datetime.now(UTC) - timedelta(days=14)
+        params["cutoff"] = cutoff
 
         async with _get_session_factory()() as session:
             result = await session.execute(
@@ -360,7 +360,7 @@ class SentimentAgent(BaseAgent):
                     SELECT id, symbol, headline, sentiment_score, published_at
                     FROM narratives
                     WHERE symbol IN ({placeholders})
-                      AND published_at >= NOW() - INTERVAL '14 days'
+                      AND published_at >= :cutoff
                     ORDER BY published_at DESC
                     """
                 ),

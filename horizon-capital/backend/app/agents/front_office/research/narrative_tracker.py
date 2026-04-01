@@ -7,7 +7,7 @@ Also detects cross-asset narrative spillover (e.g., an AAPL narrative driving
 MSFT price action).
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from sqlalchemy import text
@@ -213,7 +213,7 @@ class NarrativeTracker:
                 {
                     "narrative_id": narrative_id,
                     "stage": stage,
-                    "now": datetime.now(timezone.utc),
+                    "now": datetime.now(UTC),
                 },
             )
             await session.commit()
@@ -224,6 +224,9 @@ class NarrativeTracker:
         days: int = 14,
     ) -> list[int]:
         """Query daily article counts for *symbol* over the last *days* days."""
+        from datetime import timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
@@ -231,12 +234,12 @@ class NarrativeTracker:
                     SELECT DATE(published_at) AS day, COUNT(*) AS cnt
                     FROM narratives
                     WHERE symbol = :symbol
-                      AND published_at >= NOW() - INTERVAL ':days days'
+                      AND published_at >= :cutoff
                     GROUP BY DATE(published_at)
                     ORDER BY day
                     """
                 ),
-                {"symbol": symbol, "days": days},
+                {"symbol": symbol, "cutoff": cutoff},
             )
             rows = result.fetchall()
             return [int(r[1]) for r in rows]
@@ -247,6 +250,9 @@ class NarrativeTracker:
         days: int = 14,
     ) -> list[float]:
         """Query daily average sentiment for *symbol* over the last *days* days."""
+        from datetime import timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
@@ -254,12 +260,12 @@ class NarrativeTracker:
                     SELECT DATE(published_at) AS day, AVG(sentiment_score) AS avg_sent
                     FROM narratives
                     WHERE symbol = :symbol
-                      AND published_at >= NOW() - INTERVAL ':days days'
+                      AND published_at >= :cutoff
                     GROUP BY DATE(published_at)
                     ORDER BY day
                     """
                 ),
-                {"symbol": symbol, "days": days},
+                {"symbol": symbol, "cutoff": cutoff},
             )
             rows = result.fetchall()
             return [float(r[1]) for r in rows]

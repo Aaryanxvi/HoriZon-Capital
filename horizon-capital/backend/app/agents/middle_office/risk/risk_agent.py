@@ -1,7 +1,8 @@
 """Risk Agent -- pre-trade validation and continuous portfolio risk monitoring."""
 
 import asyncio
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
 import numpy as np
 from sqlalchemy import text
@@ -19,13 +20,9 @@ def _get_session_factory():
     return get_session_factory()
 
 
-def _get_redis():
-    try:
-        from app.core.redis_client import redis_client
-        return redis_client
-    except Exception:
-        from app.core.kv_store import MemoryKVStore
-        return MemoryKVStore()
+def _get_kv():
+    from app.core.kv_store import get_kv_store
+    return get_kv_store()
 
 logger = get_logger("agent.risk")
 
@@ -49,8 +46,8 @@ class RiskAgent(BaseAgent):
             bus=bus,
         )
         self.var_calculator = VaRCalculator()
-        self.kill_switch = KillSwitch(bus=bus, redis=_get_redis())
-        self.redis = _get_redis()
+        self.kill_switch = KillSwitch(bus=bus, redis=_get_kv())
+        self.redis = _get_kv()
 
     # ------------------------------------------------------------------ #
     # Subscriptions
@@ -89,7 +86,11 @@ class RiskAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def _handle_signal(self, message: AgentMessage) -> None:
-        """Validate a proposed signal before it becomes an order."""
+        """Validate a proposed signal before it becomes an order.
+
+        On approval: emits RISK_APPROVED so PortfolioAgent can size the order.
+        On rejection: emits RISK_REJECTED (signal is blocked).
+        """
         payload = message.payload
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
@@ -120,6 +121,18 @@ class RiskAgent(BaseAgent):
         if await self.kill_switch.is_active():
             violations.append("Kill switch is active -- no new orders allowed")
 
+        # 5. Check daily loss limit
+        if not await self._check_daily_loss_limit():
+            violations.append(
+                f"Daily loss exceeds {settings.risk_daily_loss_limit_pct}% limit"
+            )
+
+        # 6. Check order rate limit
+        if not await self._check_order_rate_limit():
+            violations.append(
+                f"Order rate exceeds {settings.risk_max_orders_per_minute}/min limit"
+            )
+
         if violations:
             await self.emit(
                 channel="horizon.risk.alert",
@@ -129,11 +142,31 @@ class RiskAgent(BaseAgent):
                     "symbol": symbol,
                     "violations": violations,
                     "action": "REJECTED",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            await self.emit(
+                channel=f"horizon.risk.rejected.{symbol}",
+                message_type=MessageType.RISK_REJECTED,
+                payload={
+                    **payload,
+                    "violations": violations,
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
             logger.warning("signal_rejected", symbol=symbol, violations=violations)
         else:
+            # Gate passed -- emit RISK_APPROVED with full signal payload
+            await self.emit(
+                channel=f"horizon.risk.approved.{symbol}",
+                message_type=MessageType.RISK_APPROVED,
+                payload={
+                    **payload,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            # Increment order count for rate limiting
+            await self._increment_order_count()
             logger.info("signal_approved", symbol=symbol)
 
     # ------------------------------------------------------------------ #
@@ -174,7 +207,7 @@ class RiskAgent(BaseAgent):
             kill_active = True
 
         # Persist to risk_metrics table
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
@@ -184,12 +217,13 @@ class RiskAgent(BaseAgent):
                          max_drawdown, current_drawdown,
                          kill_switch_active, created_at, updated_at)
                     VALUES
-                        (gen_random_uuid(), :var_95, :var_99, :cvar_95,
+                        (:id, :var_95, :var_99, :cvar_95,
                          :max_dd, :current_dd,
                          :kill_active, :now, :now)
                     """
                 ),
                 {
+                    "id": str(uuid.uuid4()),
                     "var_95": var_95,
                     "var_99": var_99,
                     "cvar_95": cvar_95,
@@ -290,6 +324,63 @@ class RiskAgent(BaseAgent):
         if same_direction and pos.weight_pct > 3.0:
             return False
         return True
+
+    # ------------------------------------------------------------------ #
+    # Daily loss limit and order rate limiting
+    # ------------------------------------------------------------------ #
+
+    async def _check_daily_loss_limit(self) -> bool:
+        """Return True if daily realized+unrealized loss is within limit."""
+        nav_str = await self.redis.get("horizon:portfolio:nav")
+        if not nav_str:
+            return True
+        nav = float(nav_str)
+        if nav <= 0:
+            return True
+
+        # Sum unrealized + realized losses from current positions
+        async with _get_session_factory()() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT COALESCE(SUM(unrealized_pnl), 0) AS total_unrealized,
+                           COALESCE(SUM(realized_pnl), 0) AS total_realized
+                    FROM positions
+                    """
+                )
+            )
+            row = result.fetchone()
+
+        total_pnl = (row.total_unrealized or 0) + (row.total_realized or 0)
+        if total_pnl >= 0:
+            return True  # No loss
+
+        loss_pct = abs(total_pnl) / nav * 100
+        if loss_pct >= settings.risk_daily_loss_limit_pct:
+            logger.warning(
+                "daily_loss_limit_breach",
+                loss_pct=f"{loss_pct:.2f}",
+                limit=settings.risk_daily_loss_limit_pct,
+            )
+            return False
+        return True
+
+    async def _check_order_rate_limit(self) -> bool:
+        """Return True if order rate is within limit (max orders per minute)."""
+        count_str = await self.redis.get("horizon:orders:count_minute")
+        if not count_str:
+            return True
+        try:
+            count = int(count_str)
+        except (ValueError, TypeError):
+            return True
+        return count < settings.risk_max_orders_per_minute
+
+    async def _increment_order_count(self) -> None:
+        """Increment the per-minute order counter."""
+        count_str = await self.redis.get("horizon:orders:count_minute")
+        count = int(count_str) + 1 if count_str else 1
+        await self.redis.set("horizon:orders:count_minute", str(count), ex=60)
 
     # ------------------------------------------------------------------ #
     # Data loaders

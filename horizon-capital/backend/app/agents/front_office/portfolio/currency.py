@@ -1,37 +1,40 @@
 """Currency conversion utilities for multi-currency portfolios (INR / USD)."""
 
-from redis.asyncio import Redis
+from __future__ import annotations
 
 from app.core.logging import get_logger
 
 logger = get_logger("portfolio.currency")
 
-FOREX_KEY = "horizon:forex:USDINR"
+FOREX_KEY = "horizon:forex:usdinr"
 DEFAULT_USDINR = 83.0  # fallback rate
 
 
 class CurrencyConverter:
     """Async currency helper backed by a Redis-cached USD/INR rate.
 
-    The rate is expected to be refreshed by the market-data pipeline and
-    stored at ``horizon:forex:USDINR``.
+    Falls back to DEFAULT_USDINR (83.0) when Redis is unavailable (LOCAL mode).
+    The rate is refreshed by the market-data pipeline and stored at
+    ``horizon:forex:usdinr``.
     """
 
-    def __init__(self, redis: Redis) -> None:
-        self.redis = redis
+    def __init__(self, redis=None) -> None:  # noqa: ANN001
+        self._redis = redis
 
     # ------------------------------------------------------------------ #
     # Rate access
     # ------------------------------------------------------------------ #
 
     async def get_usd_inr_rate(self) -> float:
-        """Return the current USD/INR exchange rate from Redis."""
-        val = await self.redis.get(FOREX_KEY)
-        if val is not None:
-            try:
+        """Return the current USD/INR exchange rate from Redis (or default)."""
+        if self._redis is None:
+            return DEFAULT_USDINR
+        try:
+            val = await self._redis.get(FOREX_KEY)
+            if val is not None:
                 return float(val)
-            except (ValueError, TypeError):
-                logger.warning("invalid_forex_rate", raw=val)
+        except Exception:
+            logger.warning("forex_redis_error", fallback=DEFAULT_USDINR)
         return DEFAULT_USDINR
 
     # ------------------------------------------------------------------ #
