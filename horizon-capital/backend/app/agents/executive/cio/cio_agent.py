@@ -7,7 +7,7 @@ and can halt trading if systemic issues are detected.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -59,10 +59,13 @@ class CIOAgent(BaseAgent):
 
     async def _system_health_check(self) -> None:
         """Evaluate system health and publish CIO directive if needed."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Count recent critical alerts (last 5 minutes)
-        recent_critical = len(self._alerts[-10:])
+        recent_critical = sum(
+            1 for a in self._alerts[-20:]
+            if a.get("severity") in ("CRITICAL", "EMERGENCY")
+        )
 
         if recent_critical >= 5:
             await self.emit(
@@ -89,6 +92,6 @@ class CIOAgent(BaseAgent):
                 payload={
                     "directive": "EMERGENCY_HALT",
                     "reason": "Kill switch triggered by risk agent",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )

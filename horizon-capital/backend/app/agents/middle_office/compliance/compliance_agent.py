@@ -7,14 +7,18 @@ and orders for compliance violations.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
-from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 
 logger = get_logger("agent.compliance")
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 # Symbols that are restricted from trading (regulatory, sanctions, etc.)
 RESTRICTED_SYMBOLS: set[str] = set()
@@ -60,7 +64,7 @@ class ComplianceAgent(BaseAgent):
             violation = {
                 "type": "RESTRICTED_SYMBOL",
                 "symbol": symbol,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "message": f"Signal for restricted symbol: {symbol}",
             }
             self._violations.append(violation)
@@ -81,7 +85,7 @@ class ComplianceAgent(BaseAgent):
             violation = {
                 "type": "RESTRICTED_SYMBOL_ORDER",
                 "symbol": symbol,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "message": f"Order for restricted symbol: {symbol}",
             }
             self._violations.append(violation)
@@ -93,5 +97,58 @@ class ComplianceAgent(BaseAgent):
 
     async def _periodic_check(self) -> None:
         """Run periodic compliance checks (position limits, concentration)."""
-        # Placeholder for periodic compliance sweeps
-        pass
+        try:
+            async with _get_session_factory()() as session:
+                from sqlalchemy import text
+                result = await session.execute(
+                    text(
+                        "SELECT symbol, quantity, current_price FROM positions "
+                        "WHERE quantity != 0"
+                    )
+                )
+                positions = result.mappings().all()
+
+            if not positions:
+                return
+
+            # Check position concentration
+            total_value = sum(
+                abs(float(p["quantity"]) * float(p["current_price"]))
+                for p in positions
+            )
+            if total_value <= 0:
+                return
+
+            from app.config import settings
+            max_pct = settings.risk_max_position_pct / 100.0
+
+            for pos in positions:
+                value = abs(
+                    float(pos["quantity"]) * float(pos["current_price"])
+                )
+                concentration = value / total_value
+                if concentration > max_pct:
+                    violation = {
+                        "type": "CONCENTRATION_LIMIT",
+                        "symbol": pos["symbol"],
+                        "concentration_pct": round(
+                            concentration * 100, 2
+                        ),
+                        "limit_pct": round(max_pct * 100, 2),
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "message": (
+                            f"{pos['symbol']} concentration "
+                            f"{concentration:.1%} exceeds "
+                            f"{max_pct:.0%} limit"
+                        ),
+                    }
+                    self._violations.append(violation)
+                    await self.emit(
+                        channel="horizon.compliance.alert",
+                        message_type=MessageType.COMPLIANCE_ALERT,
+                        payload=violation,
+                    )
+        except Exception as exc:
+            logger.warning(
+                "compliance_periodic_check_error", error=str(exc)
+            )

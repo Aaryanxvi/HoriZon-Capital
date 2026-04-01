@@ -1,7 +1,9 @@
 """Portfolio Agent -- capital allocation, position sizing, and NAV tracking."""
 
 import asyncio
-from datetime import datetime, timezone
+import time
+import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -18,13 +20,9 @@ def _get_session_factory():
     return get_session_factory()
 
 
-def _get_redis():
-    try:
-        from app.core.redis_client import redis_client
-        return redis_client
-    except Exception:
-        from app.core.kv_store import MemoryKVStore
-        return MemoryKVStore()
+def _get_kv():
+    from app.core.kv_store import get_kv_store
+    return get_kv_store()
 
 logger = get_logger("agent.portfolio")
 
@@ -33,7 +31,8 @@ class PortfolioAgent(BaseAgent):
     """Manages capital allocation, position sizing, and portfolio snapshots.
 
     Subscribes to:
-      - ``horizon.signal.*``  -- approved signals to compute position sizes
+      - ``horizon.risk.approved.*``  -- risk-gated signals to compute position sizes
+      - ``horizon.debate.*``         -- debate conclusions (FULLY_AUTONOMOUS mode)
 
     Publishes:
       - ``horizon.portfolio.update``  -- after each snapshot refresh
@@ -46,15 +45,18 @@ class PortfolioAgent(BaseAgent):
             bus=bus,
         )
         self.optimizer = PortfolioOptimizer()
-        self.currency = CurrencyConverter(redis=_get_redis())
-        self.redis = _get_redis()
+        self.currency = CurrencyConverter(redis=_get_kv())
+        self.redis = _get_kv()
+        # Buffer for FULLY_AUTONOMOUS: symbol -> (signal_payload, buffered_at)
+        self._pending_signals: dict[str, tuple[dict, float]] = {}
 
     # ------------------------------------------------------------------ #
     # Subscriptions
     # ------------------------------------------------------------------ #
 
     async def _subscribe(self) -> None:
-        await self.bus.subscribe("horizon.signal.*", self.on_message)
+        await self.bus.subscribe("horizon.risk.approved.*", self.on_message)
+        await self.bus.subscribe("horizon.debate.*", self.on_message)
 
     # ------------------------------------------------------------------ #
     # Main loop -- snapshot every 60 seconds
@@ -73,18 +75,68 @@ class PortfolioAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def on_message(self, message: AgentMessage) -> None:
-        """Handle approved signals -- compute position size and forward."""
-        if message.message_type != MessageType.SIGNAL:
+        """Handle risk-approved signals and debate conclusions."""
+        if message.message_type == MessageType.RISK_APPROVED:
+            await self._handle_signal(message.payload)
+        elif message.message_type == MessageType.DEBATE_CONCLUSION:
+            await self._handle_debate_conclusion(message.payload)
+
+    async def _handle_signal(self, payload: dict) -> None:
+        """Process a risk-approved signal.
+
+        Immediate in PAPER/HUMAN mode, buffered in FULLY_AUTONOMOUS (awaits debate).
+        """
+        symbol = payload.get("symbol", "")
+        direction = payload.get("direction", 0)
+
+        if direction == 0:
             return
 
-        payload = message.payload
+        mode = await self._get_mode()
+        if mode == "FULLY_AUTONOMOUS":
+            # Buffer signal; wait for debate conclusion before sizing
+            self._pending_signals[symbol] = (payload, time.monotonic())
+            # Prune stale signals (older than 5 minutes)
+            now = time.monotonic()
+            stale = [s for s, (_, ts) in self._pending_signals.items() if now - ts > 300]
+            for s in stale:
+                del self._pending_signals[s]
+            logger.info("signal_buffered_awaiting_debate", symbol=symbol)
+            return
+
+        # PAPER_TRADING or HUMAN_APPROVAL: process immediately
+        await self._size_and_emit(payload, debate_id=None)
+
+    async def _handle_debate_conclusion(self, payload: dict) -> None:
+        """When debate approves a signal in FULLY_AUTONOMOUS mode, emit ORDER_NEW."""
+        decision = payload.get("decision", "").upper()
+        symbol = payload.get("symbol", "")
+        debate_id = payload.get("session_id")
+
+        if decision != "APPROVED":
+            # Discard buffered signal
+            self._pending_signals.pop(symbol, None)
+            logger.info("signal_rejected_by_debate", symbol=symbol)
+            return
+
+        entry = self._pending_signals.pop(symbol, None)
+        if entry is None:
+            logger.debug("no_buffered_signal_for_debate", symbol=symbol)
+            return
+
+        signal_payload, buffered_at = entry
+        if time.monotonic() - buffered_at > 300:
+            logger.warning("stale_signal_discarded", symbol=symbol)
+            return
+
+        await self._size_and_emit(signal_payload, debate_id=debate_id)
+
+    async def _size_and_emit(self, payload: dict, debate_id: str | None) -> None:
+        """Compute Kelly sizing and emit ORDER_NEW."""
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         strength = payload.get("strength", 0.0)
         exchange = payload.get("exchange", "")
-
-        if direction == 0:
-            return
 
         try:
             sizing = await self._compute_position_size(symbol, direction, strength, exchange)
@@ -96,9 +148,8 @@ class PortfolioAgent(BaseAgent):
             logger.info("zero_size", symbol=symbol)
             return
 
-        # Publish sized order request for execution agent
         await self.emit(
-            channel=f"horizon.execution.order.new",
+            channel="horizon.execution.order.new",
             message_type=MessageType.ORDER_NEW,
             payload={
                 "symbol": symbol,
@@ -107,9 +158,11 @@ class PortfolioAgent(BaseAgent):
                 "quantity": sizing["quantity"],
                 "order_type": "MARKET",
                 "signal_id": payload.get("signal_id"),
+                "debate_id": debate_id,
+                "stop_loss": payload.get("stop_loss"),
                 "kelly_fraction": sizing["kelly_f"],
                 "allocation_usd": sizing["allocation_usd"],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -139,7 +192,34 @@ class PortfolioAgent(BaseAgent):
 
         # Use strength as a proxy for win-rate (clamped)
         win_rate = max(0.51, min(strength, 0.85))
-        win_loss_ratio = 1.5  # default assumption
+        # Compute win/loss ratio from recent trades
+        try:
+            async with _get_session_factory()() as session:
+                result = await session.execute(
+                    text(
+                        "SELECT realized_pnl FROM fills "
+                        "WHERE realized_pnl IS NOT NULL "
+                        "ORDER BY created_at DESC LIMIT 100"
+                    )
+                )
+                pnls = [float(r[0]) for r in result.fetchall()]
+            if pnls:
+                wins = [p for p in pnls if p > 0]
+                losses = [abs(p) for p in pnls if p < 0]
+                avg_win = (
+                    sum(wins) / len(wins) if wins else 1.0
+                )
+                avg_loss = (
+                    sum(losses) / len(losses) if losses
+                    else 1.0
+                )
+                win_loss_ratio = max(
+                    0.5, min(avg_win / avg_loss, 5.0)
+                )
+            else:
+                win_loss_ratio = 1.5  # default when no history
+        except Exception:
+            win_loss_ratio = 1.5  # fallback
 
         kelly_f = self.optimizer.kelly_fraction(win_rate, win_loss_ratio)
 
@@ -161,11 +241,38 @@ class PortfolioAgent(BaseAgent):
         if held_symbols:
             # Simplified: use a flat penalty based on number of correlated holdings
             # Full implementation would load a precomputed correlation matrix
+            import json as _json
+
             import numpy as np
 
             n = len(held_symbols) + 1
-            corr = np.eye(n)  # identity = no correlation (conservative default)
             all_symbols = held_symbols + [symbol]
+
+            # Estimate correlation from recent returns data
+            try:
+                kv = _get_kv()
+                returns_data = []
+                for sym in all_symbols:
+                    hist_str = await kv.get(
+                        f"horizon:returns:{sym}"
+                    )
+                    if hist_str:
+                        returns_data.append(
+                            _json.loads(hist_str)
+                        )
+                if (
+                    len(returns_data) == n
+                    and all(len(r) >= 10 for r in returns_data)
+                ):
+                    arr = np.array(returns_data)
+                    corr = np.corrcoef(arr)
+                    # Ensure valid correlation matrix
+                    if np.isnan(corr).any():
+                        corr = np.eye(n)
+                else:
+                    corr = np.eye(n)  # insufficient data
+            except Exception:
+                corr = np.eye(n)  # fallback to no-correlation
             penalty = self.optimizer.correlation_penalty(
                 symbol=symbol,
                 positions=held_symbols,
@@ -228,7 +335,7 @@ class PortfolioAgent(BaseAgent):
         gross_leverage = (long_value + short_value) / nav if nav > 0 else 0.0
         net_leverage = (long_value - short_value) / nav if nav > 0 else 0.0
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
@@ -238,12 +345,13 @@ class PortfolioAgent(BaseAgent):
                          crypto_value, fno_value, gross_leverage, net_leverage,
                          usd_inr_rate, created_at, updated_at)
                     VALUES
-                        (gen_random_uuid(), :total, :cash_inr, :cash_usd, :equity,
+                        (:id, :total, :cash_inr, :cash_usd, :equity,
                          :crypto, :fno, :gross_lev, :net_lev,
                          :rate, :now, :now)
                     """
                 ),
                 {
+                    "id": str(uuid.uuid4()),
                     "total": nav,
                     "cash_inr": cash_inr,
                     "cash_usd": cash_usd,
@@ -339,3 +447,10 @@ class PortfolioAgent(BaseAgent):
             except (ValueError, TypeError):
                 pass
         return 0.0
+
+    async def _get_mode(self) -> str:
+        """Read current system mode from KV store, falling back to settings."""
+        mode = await self.redis.get("horizon:system:mode")
+        if mode and mode in ("PAPER_TRADING", "HUMAN_APPROVAL", "FULLY_AUTONOMOUS"):
+            return mode
+        return settings.system_mode.value

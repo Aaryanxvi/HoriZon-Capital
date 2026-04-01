@@ -6,13 +6,17 @@ Used by the dashboard API and the CIO overview.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 from sqlalchemy import text
 
-from app.core.database import async_session_factory
 from app.core.logging import get_logger
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 logger = get_logger("services.performance")
 
@@ -44,18 +48,18 @@ class PerformanceService:
             {sharpe, sortino, calmar, win_rate, profit_factor, alpha_india,
              alpha_us, max_drawdown, total_return, annualized_return, total_trades}
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Resolve start date
         if period == "YTD":
-            start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+            start = datetime(now.year, 1, 1, tzinfo=UTC)
         elif period == "ALL":
-            start = datetime(2000, 1, 1, tzinfo=timezone.utc)
+            start = datetime(2000, 1, 1, tzinfo=UTC)
         else:
             days = _PERIOD_DAYS.get(period, 30)
             start = now - timedelta(days=days)
 
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             # Equity curve from portfolio snapshots
             eq_rows = await session.execute(
                 text(
@@ -111,13 +115,15 @@ class PerformanceService:
         # Sharpe
         daily_rf = (1.05) ** (1 / 252) - 1
         excess = returns - daily_rf
-        sharpe = float(np.mean(excess) / np.std(excess, ddof=1) * np.sqrt(252)) if np.std(excess, ddof=1) > 0 else 0.0
+        std_excess = float(np.std(excess, ddof=1)) if len(excess) >= 2 else 0.0
+        sharpe = float(np.mean(excess) / std_excess * np.sqrt(252)) if std_excess > 0 else 0.0
 
         # Sortino
         downside = excess[excess < 0]
+        ds_std = float(np.std(downside, ddof=1)) if len(downside) >= 2 else 0.0
         sortino = (
-            float(np.mean(excess) / np.std(downside, ddof=1) * np.sqrt(252))
-            if len(downside) > 0 and np.std(downside, ddof=1) > 0
+            float(np.mean(excess) / ds_std * np.sqrt(252))
+            if ds_std > 0
             else 0.0
         )
 
@@ -146,12 +152,30 @@ class PerformanceService:
         win_rate = sum(1 for p in trade_pnls if p > 0) / total_trades if total_trades > 0 else 0.0
         gross_profit = sum(p for p in trade_pnls if p > 0)
         gross_loss = abs(sum(p for p in trade_pnls if p < 0))
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else (float("inf") if gross_profit > 0 else 0.0)
+        profit_factor = (
+            gross_profit / gross_loss if gross_loss > 0
+            else (float("inf") if gross_profit > 0 else 0.0)
+        )
 
-        # Alpha placeholders (vs NIFTY50 / SPX) -- require benchmark data
-        # In production these would be fetched from ohlcv for ^NSEI and ^GSPC
-        alpha_india = 0.0
-        alpha_us = 0.0
+        # Read alpha from KV store (performance_worker computes this)
+        try:
+            from app.core.kv_store import get_kv_store
+            kv = get_kv_store()
+            alpha_india_str = await kv.get(
+                "horizon:performance:alpha_india"
+            )
+            alpha_us_str = await kv.get(
+                "horizon:performance:alpha_us"
+            )
+            alpha_india = (
+                float(alpha_india_str) if alpha_india_str else 0.0
+            )
+            alpha_us = (
+                float(alpha_us_str) if alpha_us_str else 0.0
+            )
+        except Exception:
+            alpha_india = 0.0
+            alpha_us = 0.0
 
         snapshot = {
             "sharpe": round(sharpe, 4),
@@ -180,17 +204,17 @@ class PerformanceService:
 
         Suitable for charting on the frontend.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if period == "YTD":
-            start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+            start = datetime(now.year, 1, 1, tzinfo=UTC)
         elif period == "ALL":
-            start = datetime(2000, 1, 1, tzinfo=timezone.utc)
+            start = datetime(2000, 1, 1, tzinfo=UTC)
         else:
             days = _PERIOD_DAYS.get(period, 30)
             start = now - timedelta(days=days)
 
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             rows = await session.execute(
                 text(
                     """
@@ -219,7 +243,7 @@ class PerformanceService:
 
         Groups realized PnL by the originating signal's ``strategy_name``.
         """
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             rows = await session.execute(
                 text(
                     """
