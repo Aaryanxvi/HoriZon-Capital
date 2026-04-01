@@ -2,7 +2,7 @@
 
 import abc
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -121,7 +121,7 @@ class BaseAgent(abc.ABC):
                     INSERT INTO agent_messages
                         (message_id, sender_id, receiver_id, channel, message_type, payload)
                     VALUES
-                        (:message_id, :sender_id, :receiver_id, :channel, :message_type, :payload::jsonb)
+                        (:message_id, :sender_id, :receiver_id, :channel, :message_type, :payload)
                     """
                 ),
                 {
@@ -130,10 +130,31 @@ class BaseAgent(abc.ABC):
                     "receiver_id": msg.receiver_id,
                     "channel": msg.channel,
                     "message_type": msg.message_type.value,
-                    "payload": msg.model_dump_json(include={"payload"}).strip('{"payload":').rstrip("}"),
+                    "payload": (
+                        msg.model_dump_json(include={"payload"}).strip('{"payload":').rstrip("}")
+                    ),
                 },
             )
             await session.commit()
+
+    async def emit_state(
+        self,
+        state: str,
+        current_task: str | None = None,
+    ) -> None:
+        """Publish an AGENT_STATE_CHANGE message with optional task description."""
+        msg = AgentMessage(
+            sender_id=self.agent_id,
+            channel="horizon.agent.state",
+            message_type=MessageType.AGENT_STATE_CHANGE,
+            payload={
+                "agent_id": self.agent_id,
+                "state": state,
+                "department": self.department,
+                "current_task": current_task,
+            },
+        )
+        await self.bus.publish(msg)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -143,7 +164,7 @@ class BaseAgent(abc.ABC):
         """Publish a heartbeat every 10 seconds on ``horizon.system.health``."""
         try:
             while self._running:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 await self.bus.publish(
                     AgentMessage(
                         sender_id=self.agent_id,
@@ -177,13 +198,15 @@ class BaseAgent(abc.ABC):
 
     async def _register(self) -> None:
         """Upsert into ``agent_states`` with status RUNNING."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
                     """
-                    INSERT INTO agent_states (agent_id, agent_type, status, last_heartbeat, config, metrics, created_at, updated_at)
-                    VALUES (:agent_id, :agent_type, 'RUNNING', :now, '{}'::jsonb, '{}'::jsonb, :now, :now)
+                    INSERT INTO agent_states
+                        (agent_id, agent_type, status, last_heartbeat,
+                         config, metrics, created_at, updated_at)
+                    VALUES (:agent_id, :agent_type, 'RUNNING', :now, '{}', '{}', :now, :now)
                     ON CONFLICT (agent_id) DO UPDATE
                     SET status = 'RUNNING',
                         last_heartbeat = :now,
@@ -214,7 +237,7 @@ class BaseAgent(abc.ABC):
                     "status": status,
                     "error_message": error_message,
                     "agent_id": self.agent_id,
-                    "now": datetime.now(timezone.utc),
+                    "now": datetime.now(UTC),
                 },
             )
             await session.commit()

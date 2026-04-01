@@ -2939,3 +2939,65 @@ class TestPriceUpdate:
         assert deserialized.message_type == MessageType.PRICE_UPDATE
         assert deserialized.payload["symbol"] == "RELIANCE.NSE"
         assert deserialized.payload["price"] == 2847.50
+
+
+class TestPortfolioUpdatePayload:
+    @pytest.mark.asyncio
+    async def test_portfolio_update_contains_position_details(self):
+        """PORTFOLIO_UPDATE payload should include a list of position dicts."""
+        from app.core.messaging import AgentMessage, MessageType
+        msg = AgentMessage(
+            sender_id="position-monitor-worker",
+            channel="horizon.portfolio.update",
+            message_type=MessageType.PORTFOLIO_UPDATE,
+            payload={
+                "nav": 1_024_350.0,
+                "cash": 241_000.0,
+                "positions": [
+                    {
+                        "symbol": "RELIANCE.NSE",
+                        "qty": 100,
+                        "avg_cost": 2_805.0,
+                        "current_price": 2_847.50,
+                        "unrealized_pnl": 4250.0,
+                        "side": "LONG",
+                    },
+                ],
+                "total_unrealized": 4250.0,
+                "total_realized": 0.0,
+            },
+        )
+        positions = msg.payload["positions"]
+        assert isinstance(positions, list)
+        assert len(positions) == 1
+        assert positions[0]["symbol"] == "RELIANCE.NSE"
+        assert positions[0]["qty"] == 100
+
+
+class TestAgentCurrentTask:
+    @pytest.mark.asyncio
+    async def test_emit_state_publishes_current_task(self):
+        from unittest.mock import AsyncMock
+        from app.agents.base_agent import BaseAgent
+
+        class StubAgent(BaseAgent):
+            async def run(self): pass
+            async def on_message(self, msg): pass
+
+        bus = AsyncMock()
+        bus.publish = AsyncMock()
+        bus.subscribe = AsyncMock()
+        agent = StubAgent(
+            agent_id="test-strat",
+            agent_type="strategy",
+            bus=bus,
+            department="front_office",
+        )
+        await agent.emit_state("ANALYZING", current_task="momentum scan RELIANCE str=0.82")
+
+        bus.publish.assert_called_once()
+        msg = bus.publish.call_args[0][0]
+        assert msg.payload["state"] == "ANALYZING"
+        assert msg.payload["current_task"] == "momentum scan RELIANCE str=0.82"
+        assert msg.payload["agent_id"] == "test-strat"
+        assert msg.payload["department"] == "front_office"
