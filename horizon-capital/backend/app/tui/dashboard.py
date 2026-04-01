@@ -440,9 +440,9 @@ class TerminalDashboard:
         )
 
         layout["body"].split_row(
-            Layout(name="left", ratio=1),
-            Layout(name="center", ratio=1.3),
-            Layout(name="right", ratio=1),
+            Layout(name="left", ratio=3),
+            Layout(name="center", ratio=4),
+            Layout(name="right", ratio=3),
         )
 
         layout["left"].split_column(
