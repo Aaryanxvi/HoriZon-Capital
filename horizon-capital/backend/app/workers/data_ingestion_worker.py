@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
 from app.config import settings
-from app.core.database import async_session_factory
+from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
+from app.core.resilience import CircuitBreaker, with_timeout
 from app.data_layer.data_manager import DataManager
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 logger = get_logger("worker.data_ingestion")
 
@@ -21,6 +26,7 @@ COINGECKO_POLL_INTERVAL = 60
 FOREX_POLL_INTERVAL = 300  # 5 minutes
 RECONNECT_DELAY = 10
 MAX_RECONNECT_ATTEMPTS = 5
+FETCH_TIMEOUT = 30.0  # seconds per symbol fetch
 
 
 class DataIngestionWorker:
@@ -38,6 +44,10 @@ class DataIngestionWorker:
         self.data_manager = DataManager()
         self._running: bool = False
         self._tasks: list[asyncio.Task] = []
+        # Circuit breakers for external data feeds
+        self._yahoo_cb = CircuitBreaker("yahoo", failure_threshold=5, recovery_timeout=120)
+        self._crypto_cb = CircuitBreaker("coingecko", failure_threshold=5, recovery_timeout=120)
+        self._forex_cb = CircuitBreaker("forex", failure_threshold=3, recovery_timeout=300)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -112,23 +122,88 @@ class DataIngestionWorker:
         logger.error("data_ingestion_worker.feeds_failed_all_retries")
 
     async def _monitor_feed_health(self) -> None:
-        """Periodically check feed health and attempt reconnection if needed."""
+        """Periodically check feed health, attempt reconnection, and publish heartbeat."""
+        reconnect_attempts = 0
         try:
             while self._running:
                 await asyncio.sleep(60)
                 try:
-                    # Publish feed status heartbeat
-                    await redis_client.hset(
+                    # Publish feed status heartbeat with circuit breaker states
+                    await get_kv_store().hset(
                         "horizon:worker:data_ingestion",
                         mapping={
                             "status": "RUNNING",
-                            "last_check": datetime.now(timezone.utc).isoformat(),
+                            "last_check": datetime.now(UTC).isoformat(),
+                            "yahoo_circuit": self._yahoo_cb.state.value,
+                            "crypto_circuit": self._crypto_cb.state.value,
+                            "forex_circuit": self._forex_cb.state.value,
                         },
                     )
+
+                    # Check if feeds need reconnection
+                    feed_healthy = await self._check_feed_connectivity()
+                    if not feed_healthy and reconnect_attempts < MAX_RECONNECT_ATTEMPTS:
+                        reconnect_attempts += 1
+                        logger.warning(
+                            "feed_reconnection_attempt",
+                            attempt=reconnect_attempts,
+                        )
+                        try:
+                            await self.data_manager.stop_all()
+                            await asyncio.sleep(RECONNECT_DELAY)
+                            await self.data_manager.start_all()
+                            reconnect_attempts = 0  # Reset on success
+                            logger.info("feed_reconnection_success")
+                        except Exception as exc:
+                            logger.error("feed_reconnection_failed", error=str(exc))
+                    elif feed_healthy:
+                        reconnect_attempts = 0
+
                 except Exception as exc:
                     logger.error("data_ingestion_worker.health_check_error", error=str(exc))
         except asyncio.CancelledError:
             pass
+
+    async def _check_feed_connectivity(self) -> bool:
+        """Quick connectivity check — returns True if feeds are responsive."""
+        try:
+            kv = get_kv_store()
+            last_eod = await kv.get("horizon:data:eod_updated")
+            last_crypto = await kv.get("horizon:data:crypto_updated")
+            if not last_eod and not last_crypto:
+                return False
+            return True
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+    # Price publishing helper
+    # ------------------------------------------------------------------
+
+    async def _publish_price_update(self, symbol: str, price: float) -> None:
+        """Publish a PRICE_UPDATE message for the dashboard watchlist."""
+        from app.core.messaging import AgentMessage, MessageType
+        from app.core.runtime import get_bus
+
+        kv = get_kv_store()
+        prev_str = await kv.get(f"horizon:price:prev_close:{symbol}")
+        prev_close = float(prev_str) if prev_str else price
+        change_pct = ((price - prev_close) / prev_close * 100) if prev_close else 0.0
+
+        bus = get_bus()
+        await bus.publish(
+            AgentMessage(
+                sender_id="data-ingestion-worker",
+                channel="horizon.market.price",
+                message_type=MessageType.PRICE_UPDATE,
+                payload={
+                    "symbol": symbol,
+                    "price": price,
+                    "change_pct": round(change_pct, 2),
+                    "prev_close": prev_close,
+                },
+            )
+        )
 
     # ------------------------------------------------------------------
     # Periodic tasks
@@ -136,17 +211,43 @@ class DataIngestionWorker:
 
     async def _poll_yahoo_eod(self) -> None:
         """Poll Yahoo Finance every 60 s for end-of-day OHLCV data."""
+        from app.core.resilience import CircuitOpenError
         try:
             while self._running:
                 try:
                     symbols = settings.all_symbols
                     logger.debug("polling_yahoo_eod", symbols_count=len(symbols))
 
-                    # Trigger Yahoo feed to fetch latest daily bars
-                    # The YahooFeed.subscribe + callbacks handle persistence
+                    # Seed prev_close from current KV price before fetching new data
+                    kv = get_kv_store()
+                    for symbol in symbols:
+                        prev_key = f"horizon:price:prev_close:{symbol}"
+                        existing = await kv.get(prev_key)
+                        if not existing:
+                            current = await kv.get(f"horizon:price:{symbol}")
+                            if current:
+                                await kv.set(prev_key, current)
+
                     for symbol in symbols:
                         try:
-                            await self.data_manager.yahoo_feed.fetch_latest(symbol)
+                            await self._yahoo_cb.call(
+                                with_timeout,
+                                self.data_manager.yahoo_feed.fetch_latest(symbol),
+                                FETCH_TIMEOUT,
+                                operation_name=f"yahoo_fetch_{symbol}",
+                            )
+                            # Publish live price update to bus for dashboard watchlist
+                            try:
+                                price_str = await kv.get(f"horizon:price:{symbol}")
+                                if price_str:
+                                    await self._publish_price_update(symbol, float(price_str))
+                            except Exception:
+                                pass  # Non-critical for dashboard
+                        except CircuitOpenError:
+                            logger.debug("yahoo_circuit_open_skipping", symbol=symbol)
+                            break  # Skip remaining symbols when circuit is open
+                        except TimeoutError:
+                            logger.warning("yahoo_fetch_timeout", symbol=symbol)
                         except Exception as exc:
                             logger.warning(
                                 "yahoo_eod_fetch_error",
@@ -154,10 +255,9 @@ class DataIngestionWorker:
                                 error=str(exc),
                             )
 
-                    # Notify that new data is available
-                    await redis_client.publish(
-                        "horizon.data.eod_updated",
-                        datetime.now(timezone.utc).isoformat(),
+                    await get_kv_store().set(
+                        "horizon:data:eod_updated",
+                        datetime.now(UTC).isoformat(),
                     )
 
                 except Exception as exc:
@@ -169,6 +269,7 @@ class DataIngestionWorker:
 
     async def _poll_coingecko(self) -> None:
         """Poll CoinGecko every 60 s for crypto price data."""
+        from app.core.resilience import CircuitOpenError
         try:
             while self._running:
                 try:
@@ -179,9 +280,31 @@ class DataIngestionWorker:
                     ]
                     logger.debug("polling_coingecko", symbols=crypto_symbols)
 
+                    kv = get_kv_store()
                     for symbol in crypto_symbols:
                         try:
-                            await self.data_manager.crypto_feed.fetch_latest(symbol)
+                            await self._crypto_cb.call(
+                                with_timeout,
+                                self.data_manager.crypto_feed.fetch_latest(symbol),
+                                FETCH_TIMEOUT,
+                                operation_name=f"crypto_fetch_{symbol}",
+                            )
+                            # Publish live price update to bus for dashboard watchlist
+                            try:
+                                # CoinGecko stores by raw id (e.g. "bitcoin") or mapped symbol
+                                raw = symbol.lower().split("-")[0]
+                                price_str = await kv.get(
+                                    f"horizon:price:{raw}"
+                                ) or await kv.get(f"horizon:price:{symbol}")
+                                if price_str:
+                                    await self._publish_price_update(symbol, float(price_str))
+                            except Exception:
+                                pass  # Non-critical for dashboard
+                        except CircuitOpenError:
+                            logger.debug("crypto_circuit_open_skipping", symbol=symbol)
+                            break
+                        except TimeoutError:
+                            logger.warning("crypto_fetch_timeout", symbol=symbol)
                         except Exception as exc:
                             logger.warning(
                                 "coingecko_fetch_error",
@@ -189,9 +312,9 @@ class DataIngestionWorker:
                                 error=str(exc),
                             )
 
-                    await redis_client.publish(
-                        "horizon.data.crypto_updated",
-                        datetime.now(timezone.utc).isoformat(),
+                    await get_kv_store().set(
+                        "horizon:data:crypto_updated",
+                        datetime.now(UTC).isoformat(),
                     )
 
                 except Exception as exc:
@@ -203,15 +326,25 @@ class DataIngestionWorker:
 
     async def _refresh_forex(self) -> None:
         """Refresh forex (USD/INR) rate every 5 minutes."""
+        from app.core.resilience import CircuitOpenError
         try:
             while self._running:
                 try:
-                    rate = await self.data_manager.get_forex_rate()
+                    rate = await self._forex_cb.call(
+                        with_timeout,
+                        self.data_manager.get_forex_rate(),
+                        FETCH_TIMEOUT,
+                        operation_name="forex_rate",
+                    )
                     if rate is not None:
-                        await redis_client.set("horizon:forex:usd_inr", str(rate))
+                        await get_kv_store().set("horizon:forex:usd_inr", str(rate))
                         logger.debug("forex_rate_refreshed", usd_inr=rate)
                     else:
                         logger.warning("forex_rate_unavailable")
+                except CircuitOpenError:
+                    logger.debug("forex_circuit_open_skipping")
+                except TimeoutError:
+                    logger.warning("forex_rate_timeout")
                 except Exception as exc:
                     logger.error("forex_refresh_error", error=str(exc))
 
@@ -226,7 +359,7 @@ class DataIngestionWorker:
     async def _check_backfill(self) -> None:
         """On startup, if no OHLCV data exists trigger a historical backfill."""
         try:
-            async with async_session_factory() as session:
+            async with _get_session_factory()() as session:
                 result = await session.execute(
                     text("SELECT COUNT(*) AS cnt FROM ohlcv")
                 )
@@ -248,6 +381,7 @@ class DataIngestionWorker:
         """Use Yahoo Finance to backfill 5 years of daily OHLCV for all symbols."""
         try:
             import yfinance as yf
+
             from app.data_layer.data_normalizer import NormalizedOHLCV
 
             symbols = settings.all_symbols
@@ -272,7 +406,7 @@ class DataIngestionWorker:
                         bar = NormalizedOHLCV(
                             symbol=symbol.split(".")[0],
                             exchange=exchange,
-                            timestamp=ts.to_pydatetime().replace(tzinfo=timezone.utc),
+                            timestamp=ts.to_pydatetime().replace(tzinfo=UTC),
                             timeframe="1d",
                             open=float(row["Open"]),
                             high=float(row["High"]),

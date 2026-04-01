@@ -10,8 +10,8 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Callable, Coroutine
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import orjson
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     TICK = "TICK"
     OHLCV = "OHLCV"
     FEATURE_UPDATE = "FEATURE_UPDATE"
@@ -35,6 +35,8 @@ class MessageType(str, Enum):
     ORDER_NEW = "ORDER_NEW"
     ORDER_UPDATE = "ORDER_UPDATE"
     ORDER_FILL = "ORDER_FILL"
+    ORDER_APPROVE = "ORDER_APPROVE"
+    ORDER_REJECT = "ORDER_REJECT"
     PORTFOLIO_UPDATE = "PORTFOLIO_UPDATE"
     CIO_COMMAND = "CIO_COMMAND"
     HEARTBEAT = "HEARTBEAT"
@@ -50,11 +52,30 @@ class MessageType(str, Enum):
     DEPARTMENT_STATUS = "DEPARTMENT_STATUS"
     CIO_DIRECTIVE = "CIO_DIRECTIVE"
     CIO_CHAT = "CIO_CHAT"
+    # Phase 2: Continuous learning & adaptation
+    ALPHA_DECAY = "ALPHA_DECAY"
+    ALPHA_SNAPSHOT = "ALPHA_SNAPSHOT"
+    REGIME_TRANSITION = "REGIME_TRANSITION"
+    ADAPTATION_ACTION = "ADAPTATION_ACTION"
+    AGENT_STATE_CHANGE = "AGENT_STATE_CHANGE"
+    # Macro regime signal (published by MacroFactorWorker)
+    MACRO_REGIME_UPDATE = "MACRO_REGIME_UPDATE"
+    # Phase 7-10: System services
+    SYSTEM = "SYSTEM"
+    ALERT = "ALERT"
+    HEALTH_SNAPSHOT = "HEALTH_SNAPSHOT"
+    TRADE_EXECUTED = "TRADE_EXECUTED"
+    # Production trading hardening
+    RISK_APPROVED = "RISK_APPROVED"
+    RISK_REJECTED = "RISK_REJECTED"
+    ORDER_CANCEL_ALL = "ORDER_CANCEL_ALL"
+    # Live price updates for dashboard watchlist
+    PRICE_UPDATE = "PRICE_UPDATE"
 
 
 class AgentMessage(BaseModel):
     message_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     sender_id: str
     receiver_id: str = "*"  # "*" = broadcast
     channel: str
