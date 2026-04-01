@@ -1,19 +1,17 @@
 """Rich-based terminal dashboard for Horizon Capital.
 
-Renders a live-updating TUI showing:
-  - System status bar (mode, storage backend, uptime, CIO mode)
-  - Agent status table grouped by department
-  - Recent signals
-  - Current regime per market scope
-  - Risk metrics snapshot
-  - Recent debate summaries
-  - Live log tail
+Renders a live-updating 3-column Intelligence Hub TUI showing:
+  - Header: system mode, CIO mode, NAV, VaR, drawdown, uptime
+  - Left column: agent status with current tasks, alerts
+  - Center column: live watchlist with sparklines and signal direction
+  - Right column: portfolio positions with P&L, risk metrics
+  - Bottom strip: pending orders and trade history
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from rich.console import Console
@@ -25,7 +23,6 @@ from rich.text import Text
 
 from app.config import settings
 
-
 DEPARTMENT_COLORS = {
     "front_office": "bright_blue",
     "middle_office": "bright_yellow",
@@ -33,12 +30,22 @@ DEPARTMENT_COLORS = {
     "executive": "bright_red",
 }
 
-DEPARTMENT_LABELS = {
-    "front_office": "Front Office",
-    "middle_office": "Middle Office",
-    "back_office": "Back Office",
-    "executive": "Executive",
-}
+SPARKLINE_CHARS = "▁▂▃▄▅▆▇█"
+
+
+def render_sparkline(values: list[float], width: int = 0) -> str:
+    """Render a list of values as a Unicode sparkline string."""
+    if not values:
+        return ""
+    if width and len(values) > width:
+        values = values[-width:]
+    mn, mx = min(values), max(values)
+    spread = mx - mn
+    if spread == 0:
+        return SPARKLINE_CHARS[3] * len(values)
+    return "".join(
+        SPARKLINE_CHARS[min(int((v - mn) / spread * 7), 7)] for v in values
+    )
 
 
 class TerminalDashboard:
@@ -49,43 +56,86 @@ class TerminalDashboard:
         self._running = False
         self._agent_statuses: dict[str, dict[str, Any]] = {}
         self._signals: list[dict[str, Any]] = []
-        self._regimes: dict[str, dict[str, Any]] = {}
         self._risk: dict[str, Any] = {}
-        self._debates: list[dict[str, Any]] = []
-        self._logs: list[str] = []
-        self._start_time: datetime = datetime.now(timezone.utc)
-        self._portfolio: dict[str, Any] = {"nav": 0.0, "cash": 0.0, "positions": 0}
+        self._start_time: datetime = datetime.now(UTC)
+        self._portfolio: dict[str, Any] = {
+            "nav": 0.0, "cash": 0.0, "positions": [],
+        }
+        self._alerts: list[dict[str, Any]] = []
+        self._watchlist: dict[str, dict[str, Any]] = {}
+        self._pending_orders: list[dict[str, Any]] = []
+        self._trade_history: list[dict[str, Any]] = []
+
+        # Pixel agent office view
+        from app.tui.pixel_agents import PixelAgentVisualizer
+        self.pixel_agents = PixelAgentVisualizer()
 
     # -- Data update methods (called by the orchestrator) ----------------
 
+    def add_alert(self, alert: dict[str, Any]) -> None:
+        self._alerts.insert(0, alert)
+        self._alerts = self._alerts[:20]
+
     def update_agent_status(self, agent_id: str, status: dict[str, Any]) -> None:
         self._agent_statuses[agent_id] = status
+        dept = status.get("department", "")
+        agent_state = status.get("status", status.get("state", "IDLE"))
+        self.pixel_agents.update_state(agent_id, agent_state, department=dept)
 
     def add_signal(self, signal: dict[str, Any]) -> None:
         self._signals.insert(0, signal)
-        self._signals = self._signals[:20]  # keep last 20
-
-    def update_regime(self, scope: str, data: dict[str, Any]) -> None:
-        self._regimes[scope] = data
+        self._signals = self._signals[:20]
 
     def update_risk(self, data: dict[str, Any]) -> None:
         self._risk = data
 
-    def add_debate(self, debate: dict[str, Any]) -> None:
-        self._debates.insert(0, debate)
-        self._debates = self._debates[:10]
-
-    def add_log(self, line: str) -> None:
-        self._logs.append(line)
-        self._logs = self._logs[-30:]  # keep last 30
-
     def update_portfolio(self, data: dict[str, Any]) -> None:
         self._portfolio = data
+
+    def update_watchlist(self, data: dict[str, Any]) -> None:
+        """Update a symbol's price data in the watchlist."""
+        symbol = data.get("symbol", "")
+        if not symbol:
+            return
+        if symbol not in self._watchlist:
+            self._watchlist[symbol] = {
+                "price": 0.0,
+                "change_pct": 0.0,
+                "prev_close": 0.0,
+                "history": [],
+            }
+        entry = self._watchlist[symbol]
+        entry["price"] = data.get("price", entry["price"])
+        entry["change_pct"] = data.get("change_pct", 0.0)
+        entry["prev_close"] = data.get("prev_close", entry.get("prev_close", 0.0))
+        entry["history"].append(entry["price"])
+        if len(entry["history"]) > 20:
+            entry["history"] = entry["history"][-20:]
+
+    def add_pending_order(self, order: dict[str, Any]) -> None:
+        """Add an order to the pending orders list."""
+        self._pending_orders.insert(0, order)
+        self._pending_orders = self._pending_orders[:20]
+
+    def complete_order(self, fill: dict[str, Any]) -> None:
+        """Move a filled order from pending to trade history."""
+        order_id = fill.get("order_id", "")
+        self._pending_orders = [
+            o for o in self._pending_orders if o.get("order_id") != order_id
+        ]
+        self._trade_history.insert(0, fill)
+        self._trade_history = self._trade_history[:20]
+
+    def remove_order(self, order_id: str) -> None:
+        """Remove a rejected/cancelled order from pending."""
+        self._pending_orders = [
+            o for o in self._pending_orders if o.get("order_id") != order_id
+        ]
 
     # -- Layout builders -------------------------------------------------
 
     def _build_header(self) -> Panel:
-        uptime = datetime.now(timezone.utc) - self._start_time
+        uptime = datetime.now(UTC) - self._start_time
         hours, remainder = divmod(int(uptime.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
 
@@ -97,227 +147,319 @@ class TerminalDashboard:
         mode = settings.system_mode.value
         mode_color = mode_colors.get(mode, "white")
 
+        nav = self._portfolio.get("nav", 0.0)
+        var_95 = self._risk.get("var_95", 0.0)
+        curr_dd = self._risk.get("current_drawdown", 0.0)
+        dd_color = "red" if curr_dd > 5.0 else "yellow" if curr_dd > 2.0 else "green"
+
         header = Text()
         header.append("HORIZON CAPITAL ", style="bold white")
         header.append("v0.2.0 ", style="dim")
-        header.append(" | ", style="dim")
-        header.append("Mode: ", style="white")
+        header.append("│ ", style="dim")
         header.append(f"{mode}", style=f"bold {mode_color}")
-        header.append(" | ", style="dim")
-        header.append("CIO: ", style="white")
+        header.append(" │ ", style="dim")
+        header.append("CIO:", style="white")
         cio_mode = settings.cio_mode.value
         cio_color = "cyan" if cio_mode == "HUMAN" else "bright_red"
         header.append(f"{cio_mode}", style=f"bold {cio_color}")
-        header.append(" | ", style="dim")
-        header.append("Storage: ", style="white")
-        header.append(f"{settings.storage_backend.value}", style="green")
-        header.append(" | ", style="dim")
-        header.append("Uptime: ", style="white")
-        header.append(f"{hours:02d}:{minutes:02d}:{seconds:02d}", style="cyan")
-        header.append(" | ", style="dim")
+        header.append(" │ ", style="dim")
         header.append("NAV: ", style="white")
-        header.append(f"${self._portfolio.get('nav', 0.0):,.2f}", style="bold green")
+        header.append(f"${nav:,.2f}", style="bold green")
+        header.append(" │ ", style="dim")
+        header.append("VaR: ", style="white")
+        header.append(f"{var_95:.4f}", style="bright_red")
+        header.append(" │ ", style="dim")
+        header.append("DD: ", style="white")
+        header.append(f"{curr_dd:.1f}%", style=f"{dd_color}")
+        header.append(" │ ", style="dim")
+        header.append(f"{hours:02d}:{minutes:02d}:{seconds:02d}", style="cyan")
 
         return Panel(header, style="blue", height=3)
 
     def _build_agents_table(self) -> Panel:
-        table = Table(show_header=True, header_style="bold cyan", expand=True)
-        table.add_column("Agent", style="white", width=22)
-        table.add_column("Dept", width=14)
-        table.add_column("Status", width=12)
-        table.add_column("Heartbeat", width=12)
-        table.add_column("Retries", width=8, justify="right")
-
         status_colors = {
-            "RUNNING": "green",
-            "INIT": "yellow",
-            "STOPPED": "red",
-            "CRASHED": "bold red",
-            "DEAD": "bold red on white",
-            "UNRESPONSIVE": "yellow",
+            "RUNNING": "green", "ANALYZING": "green",
+            "DEBATING": "blue", "EXECUTING": "bright_red",
+            "INIT": "yellow", "STOPPED": "red",
+            "CRASHED": "bold red", "IDLE": "dim",
         }
 
+        lines: list[Text] = []
         if not self._agent_statuses:
-            table.add_row("(no agents registered)", "", "", "", "")
+            lines.append(Text("  (no agents registered)", style="dim"))
         else:
-            # Group by department
-            by_dept: dict[str, list[tuple[str, dict]]] = {}
-            for agent_id, info in sorted(self._agent_statuses.items()):
-                dept = info.get("department", "unassigned")
-                if dept not in by_dept:
-                    by_dept[dept] = []
-                by_dept[dept].append((agent_id, info))
+            for agent_id in sorted(self._agent_statuses.keys()):
+                info = self._agent_statuses[agent_id]
+                status = info.get("status", info.get("state", "IDLE"))
+                s_color = status_colors.get(status, "dim")
+                current_task = info.get("current_task")
 
-            dept_order = ["front_office", "middle_office", "back_office", "executive"]
-            for dept in dept_order:
-                agents = by_dept.pop(dept, [])
-                if not agents:
-                    continue
-
-                # Department header row
-                label = DEPARTMENT_LABELS.get(dept, dept)
-                color = DEPARTMENT_COLORS.get(dept, "white")
-                table.add_row(
-                    f"[bold {color}]{label}[/]",
-                    "", "", "", "",
+                line = Text()
+                line.append(" ● ", style=s_color)
+                name = agent_id[:18]
+                line.append(
+                    f"{name:<18} ", style="white" if status != "IDLE" else "dim"
                 )
+                line.append(f"{status}", style=s_color)
+                lines.append(line)
 
-                for agent_id, info in agents:
-                    status = info.get("status", "UNKNOWN")
-                    s_color = status_colors.get(status, "white")
-                    hb = info.get("last_heartbeat", "--")
-                    if isinstance(hb, str) and len(hb) > 19:
-                        hb = hb[11:19]
-                    retries = str(info.get("retries", 0))
-                    table.add_row(
-                        f"  {agent_id}",
-                        "",
-                        f"[{s_color}]{status}[/]",
-                        str(hb),
-                        retries,
-                    )
+                if current_task and status not in ("IDLE", "STOPPED"):
+                    task_line = Text()
+                    task_line.append(f"     {current_task[:40]}", style="dim")
+                    lines.append(task_line)
 
-            # Any remaining (unassigned)
-            for dept, agents in by_dept.items():
-                for agent_id, info in agents:
-                    status = info.get("status", "UNKNOWN")
-                    s_color = status_colors.get(status, "white")
-                    hb = info.get("last_heartbeat", "--")
-                    if isinstance(hb, str) and len(hb) > 19:
-                        hb = hb[11:19]
-                    retries = str(info.get("retries", 0))
-                    table.add_row(agent_id, dept, f"[{s_color}]{status}[/]", str(hb), retries)
+        content = Text("\n").join(lines) if lines else Text("(no agents)")
+        return Panel(content, title="[bold]Agents[/bold]", border_style="cyan")
 
-        return Panel(table, title="[bold]Agents[/bold]", border_style="cyan")
+    def _build_alerts_panel(self) -> Panel:
+        if not self._alerts:
+            return Panel("[dim]No alerts[/dim]", title="[bold]Alerts[/bold]",
+                         border_style="bright_red")
 
-    def _build_regime_panel(self) -> Panel:
-        if not self._regimes:
-            return Panel("Awaiting regime data...", title="[bold]Market Regimes[/bold]",
-                         border_style="magenta")
-
-        lines: list[str] = []
-        regime_colors = {
-            "BULL": "green",
-            "BEAR": "red",
-            "NEUTRAL": "yellow",
-            "CRISIS": "bold red",
-            "HIGH_VOLATILITY": "magenta",
+        severity_colors = {
+            "INFO": "cyan",
+            "WARNING": "yellow",
+            "CRITICAL": "red",
+            "EMERGENCY": "bold red on white",
         }
-        for scope in ["INDIA", "US", "CRYPTO"]:
-            data = self._regimes.get(scope, {})
-            regime = data.get("regime", "--")
-            conf = data.get("confidence", 0.0)
-            drift = data.get("drift_level", "NONE")
-            color = regime_colors.get(regime, "white")
-            drift_indicator = " [yellow]![/yellow]" if drift == "WARNING" else ""
-            drift_indicator = " [red]!![/red]" if drift == "DRIFT" else drift_indicator
-            lines.append(
-                f"  [{color}]{scope:8s}[/] [{color}]{regime:16s}[/] "
-                f"conf={conf:.1%}{drift_indicator}"
+        lines: list[str] = []
+        for a in self._alerts[:6]:
+            sev = a.get("severity", "INFO")
+            color = severity_colors.get(sev, "white")
+            title = a.get("title", a.get("message", ""))
+            lines.append(f"  [{color}]{sev:9s}[/] {title}")
+
+        return Panel("\n".join(lines), title="[bold]Alerts[/bold]",
+                     border_style="bright_red")
+
+    def _build_watchlist_panel(self) -> Panel:
+        if not self._watchlist:
+            return Panel(
+                "[dim]Awaiting price data...[/dim]",
+                title="[bold]Watchlist[/bold]",
+                border_style="green",
             )
 
-        return Panel("\n".join(lines), title="[bold]Market Regimes[/bold]",
-                     border_style="magenta")
-
-    def _build_signals_panel(self) -> Panel:
-        if not self._signals:
-            return Panel("No signals yet...", title="[bold]Recent Signals[/bold]",
-                         border_style="green")
-
         table = Table(show_header=True, header_style="bold green", expand=True)
-        table.add_column("Time", width=8)
         table.add_column("Symbol", width=14)
-        table.add_column("Dir", width=5)
-        table.add_column("Str", width=6, justify="right")
-        table.add_column("Strategy", width=16)
+        table.add_column("Trend", width=10)
+        table.add_column("Price", width=12, justify="right")
+        table.add_column("Chg%", width=7, justify="right")
+        table.add_column("Signal", width=6, justify="center")
 
-        for sig in self._signals[:8]:
-            ts = sig.get("timestamp", "")
-            if isinstance(ts, str) and len(ts) > 19:
-                ts = ts[11:19]
-            symbol = sig.get("symbol", "--")
-            direction = sig.get("direction", 0)
-            dir_str = "[green]BUY[/]" if direction > 0 else "[red]SELL[/]" if direction < 0 else "HOLD"
-            strength = f"{sig.get('strength', 0.0):.2f}"
-            strategy = sig.get("strategy_name", "--")
-            table.add_row(str(ts), symbol, dir_str, strength, strategy)
+        # Get latest signal per symbol
+        latest_signals: dict[str, int] = {}
+        for sig in self._signals:
+            sym = sig.get("symbol", "")
+            if sym and sym not in latest_signals:
+                latest_signals[sym] = sig.get("direction", 0)
 
-        return Panel(table, title="[bold]Recent Signals[/bold]", border_style="green")
+        for symbol in sorted(self._watchlist.keys()):
+            data = self._watchlist[symbol]
+            price = data["price"]
+            change_pct = data["change_pct"]
+            history = data["history"]
+
+            price_color = "green" if change_pct >= 0 else "red"
+            arrow = "▲" if change_pct > 0 else "▼" if change_pct < 0 else " "
+
+            spark = render_sparkline(history, width=10)
+
+            direction = latest_signals.get(symbol, 0)
+            if direction > 0:
+                sig_str = "[bold green]BUY↑[/]"
+            elif direction < 0:
+                sig_str = "[bold red]SELL↓[/]"
+            else:
+                sig_str = "[dim]—[/]"
+
+            if ".NSE" in symbol or ".BSE" in symbol:
+                price_str = f"₹{price:,.2f}"
+            else:
+                price_str = f"${price:,.2f}"
+
+            table.add_row(
+                f"[{price_color}]{symbol}[/]",
+                f"[dim]{spark}[/]",
+                f"[{price_color}]{price_str}[/]",
+                f"[{price_color}]{arrow}{change_pct:+.1f}%[/]",
+                sig_str,
+            )
+
+        return Panel(table, title="[bold]Watchlist[/bold]", border_style="green")
+
+    def _build_portfolio_panel(self) -> Panel:
+        positions = self._portfolio.get("positions", [])
+        cash = self._portfolio.get("cash", 0.0)
+        nav = self._portfolio.get("nav", 0.0)
+
+        lines: list[str] = []
+        cash_pct = (cash / nav * 100) if nav > 0 else 0
+        lines.append(
+            f"  [dim]Cash[/dim]{'':>20} ${cash:>12,.0f} [dim]({cash_pct:.0f}%)[/]"
+        )
+
+        if not positions:
+            lines.append("  [dim]No open positions[/dim]")
+        elif isinstance(positions, list):
+            for pos in positions[:8]:
+                symbol = pos.get("symbol", "?")
+                qty = pos.get("qty", 0)
+                pnl = pos.get("unrealized_pnl", 0.0)
+                pnl_color = "green" if pnl >= 0 else "red"
+                if ".NSE" in symbol or ".BSE" in symbol:
+                    pnl_str = f"₹{pnl:+,.0f}"
+                else:
+                    pnl_str = f"${pnl:+,.0f}"
+                lines.append(
+                    f"  {symbol:<18} ×{qty:<6} [{pnl_color}]{pnl_str:>10}[/]"
+                )
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold]Portfolio[/bold]",
+            border_style="magenta",
+        )
 
     def _build_risk_panel(self) -> Panel:
         if not self._risk:
-            return Panel("Awaiting risk computation...", title="[bold]Risk Metrics[/bold]",
-                         border_style="red")
+            return Panel(
+                "Awaiting risk data...",
+                title="[bold]Risk[/bold]",
+                border_style="red",
+            )
 
         var_95 = self._risk.get("var_95", 0.0)
         var_99 = self._risk.get("var_99", 0.0)
         max_dd = self._risk.get("max_drawdown", 0.0)
         curr_dd = self._risk.get("current_drawdown", 0.0)
+        sharpe = self._risk.get("sharpe_30d", 0.0)
         kill = self._risk.get("kill_switch_active", False)
 
-        kill_str = "[bold red]ACTIVE[/bold red]" if kill else "[green]OFF[/green]"
         dd_color = "red" if curr_dd > 5.0 else "yellow" if curr_dd > 2.0 else "green"
 
         lines = [
-            f"  VaR (95%)   : {var_95:>8.4f}",
-            f"  VaR (99%)   : {var_99:>8.4f}",
-            f"  Max Drawdown: {max_dd:>8.2f}%",
-            f"  Curr Drawdown: [{dd_color}]{curr_dd:>7.2f}%[/]",
-            f"  Kill Switch : {kill_str}",
+            f"  [dim]VaR (95%)[/dim]   {var_95:>10.4f}",
+            f"  [dim]VaR (99%)[/dim]   {var_99:>10.4f}",
+            f"  [dim]Max DD[/dim]      {max_dd:>10.2f}%",
+            f"  [dim]Curr DD[/dim]     [{dd_color}]{curr_dd:>9.2f}%[/]",
+            f"  [dim]Sharpe 30d[/dim]  {sharpe:>10.2f}",
         ]
-        return Panel("\n".join(lines), title="[bold]Risk Metrics[/bold]",
-                     border_style="red")
+        if kill:
+            lines.append("  [bold red]KILL SWITCH   ACTIVE[/bold red]")
 
-    def _build_debates_panel(self) -> Panel:
-        if not self._debates:
-            return Panel("No debates yet...", title="[bold]Debates[/bold]",
-                         border_style="yellow")
+        return Panel("\n".join(lines), title="[bold]Risk[/bold]", border_style="red")
 
-        lines: list[str] = []
-        for d in self._debates[:5]:
-            symbol = d.get("symbol", "--")
-            consensus = d.get("consensus", "--")
-            conf = d.get("consensus_confidence", 0.0)
-            rounds = d.get("rounds", 0)
-            color = "green" if consensus in ("BUY", "STRONG_BUY") else \
-                    "red" if consensus in ("SELL", "STRONG_SELL") else "yellow"
-            lines.append(
-                f"  {symbol:12s} [{color}]{consensus:12s}[/] "
-                f"conf={conf:.1%}  rounds={rounds}"
+    def _build_orders_panel(self) -> Panel:
+        if not self._pending_orders:
+            return Panel(
+                "[dim]No pending orders[/dim]",
+                title="[bold]Pending Orders[/bold]",
+                border_style="cyan",
             )
 
-        return Panel("\n".join(lines), title="[bold]Debates[/bold]",
-                     border_style="yellow")
+        table = Table(show_header=True, header_style="bold cyan", expand=True)
+        table.add_column("ID", width=8)
+        table.add_column("Side", width=5)
+        table.add_column("Symbol", width=14)
+        table.add_column("Qty", width=6, justify="right")
+        table.add_column("Status", width=18)
 
-    def _build_log_panel(self) -> Panel:
-        if not self._logs:
-            return Panel("...", title="[bold]Log[/bold]", border_style="dim")
-        text = "\n".join(self._logs[-12:])
-        return Panel(text, title="[bold]Log[/bold]", border_style="dim")
+        status_colors = {
+            "PENDING": "yellow",
+            "AWAITING_APPROVAL": "yellow",
+            "IN_DEBATE": "blue",
+            "SUBMITTED": "cyan",
+            "PARTIAL": "yellow",
+        }
+
+        for order in self._pending_orders[:6]:
+            oid = str(order.get("order_id", ""))[-8:]
+            side = order.get("side", "?")
+            side_color = "green" if side == "BUY" else "red"
+            symbol = order.get("symbol", "?")
+            qty = str(order.get("quantity", 0))
+            status = order.get("status", "PENDING")
+            s_color = status_colors.get(status, "white")
+
+            table.add_row(
+                f"[dim]{oid}[/]",
+                f"[{side_color}]{side}[/]",
+                symbol,
+                qty,
+                f"[{s_color}]{status}[/]",
+            )
+
+        return Panel(table, title="[bold]Pending Orders[/bold]", border_style="cyan")
+
+    def _build_trades_panel(self) -> Panel:
+        if not self._trade_history:
+            return Panel(
+                "[dim]No trades yet[/dim]",
+                title="[bold]Trade History[/bold]",
+                border_style="cyan",
+            )
+
+        table = Table(show_header=True, header_style="bold cyan", expand=True)
+        table.add_column("Time", width=6)
+        table.add_column("Side", width=5)
+        table.add_column("Symbol", width=14)
+        table.add_column("Qty @ Price", width=18)
+        table.add_column("Status", width=8)
+
+        for trade in self._trade_history[:6]:
+            ts = trade.get("timestamp", "")
+            if isinstance(ts, str) and len(ts) > 16:
+                ts = ts[11:16]
+            elif not ts:
+                ts = "--:--"
+            side = trade.get("side", "?")
+            side_color = "green" if side == "BUY" else "red"
+            symbol = trade.get("symbol", "?")
+            qty = trade.get("quantity", 0)
+            fill_price = trade.get("fill_price", 0.0)
+            status = trade.get("status", "FILLED")
+
+            table.add_row(
+                f"[dim]{ts}[/]",
+                f"[{side_color}]{side}[/]",
+                symbol,
+                f"{qty} @ {fill_price:,.2f}",
+                f"[green]{status}[/]",
+            )
+
+        return Panel(table, title="[bold]Trade History[/bold]", border_style="cyan")
 
     def build_layout(self) -> Layout:
-        """Compose the full dashboard layout."""
+        """Compose the full 3-column Intelligence Hub layout."""
         layout = Layout()
         layout.split_column(
             Layout(self._build_header(), name="header", size=3),
             Layout(name="body"),
-            Layout(self._build_log_panel(), name="logs", size=14),
+            Layout(name="orders", size=10),
         )
 
         layout["body"].split_row(
             Layout(name="left", ratio=1),
+            Layout(name="center", ratio=1.3),
             Layout(name="right", ratio=1),
         )
 
         layout["left"].split_column(
             Layout(self._build_agents_table(), name="agents"),
-            Layout(self._build_signals_panel(), name="signals"),
+            Layout(self._build_alerts_panel(), name="alerts", size=8),
         )
 
+        layout["center"].update(self._build_watchlist_panel())
+
         layout["right"].split_column(
-            Layout(self._build_regime_panel(), name="regime", size=7),
-            Layout(self._build_risk_panel(), name="risk", size=9),
-            Layout(self._build_debates_panel(), name="debates"),
+            Layout(self._build_portfolio_panel(), name="portfolio"),
+            Layout(self._build_risk_panel(), name="risk", size=10),
+        )
+
+        layout["orders"].split_row(
+            Layout(self._build_orders_panel(), name="pending", ratio=1),
+            Layout(self._build_trades_panel(), name="history", ratio=1),
         )
 
         return layout
@@ -327,7 +469,7 @@ class TerminalDashboard:
     async def run(self) -> None:
         """Start the live dashboard. Blocks until stopped."""
         self._running = True
-        self._start_time = datetime.now(timezone.utc)
+        self._start_time = datetime.now(UTC)
 
         with Live(
             self.build_layout(),
