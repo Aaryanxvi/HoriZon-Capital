@@ -6,7 +6,7 @@ that have gone silent (no heartbeat within the threshold window).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -41,7 +41,7 @@ class HealthChecker:
             Each dict: ``{agent_id, agent_type, status, last_heartbeat,
             seconds_since, healthy}``.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         threshold = now - timedelta(seconds=HEARTBEAT_THRESHOLD_SECONDS)
 
         async with async_session_factory() as session:
@@ -68,7 +68,7 @@ class HealthChecker:
                 healthy = status != "RUNNING"  # only unhealthy if supposed to be running
             else:
                 if last_hb.tzinfo is None:
-                    last_hb = last_hb.replace(tzinfo=timezone.utc)
+                    last_hb = last_hb.replace(tzinfo=UTC)
                 seconds_since = (now - last_hb).total_seconds()
                 healthy = last_hb >= threshold or status in ("STOPPED", "PAUSED")
 
@@ -124,7 +124,10 @@ class HealthChecker:
         try:
             async with async_session_factory() as session:
                 count_result = await session.execute(
-                    text("SELECT COUNT(*), SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) FROM agent_states")
+                    text(
+                        "SELECT COUNT(*), SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END)"
+                        " FROM agent_states"
+                    )
                 )
                 row = count_result.fetchone()
                 if row:
@@ -154,7 +157,7 @@ class HealthChecker:
             "agents_healthy": max(agents_healthy, 0),
             "agents_unhealthy": len(unhealthy_agents),
             "unhealthy_agents": [a["agent_id"] for a in unhealthy_agents],
-            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "checked_at": datetime.now(UTC).isoformat(),
         }
 
         logger.info("system_health_checked", status=overall_status)

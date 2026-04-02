@@ -1,21 +1,29 @@
 """Application configuration via pydantic-settings (.env loading)."""
 
-from enum import Enum
+import secrets
+from enum import StrEnum
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class StorageBackend(str, Enum):
+def _generate_secret() -> str:
+    """Generate a cryptographically secure random hex key."""
+    return secrets.token_hex(32)
+
+
+class StorageBackend(StrEnum):
     LOCAL = "LOCAL"           # SQLite + in-memory bus (no infra needed)
     POSTGRES = "POSTGRES"     # PostgreSQL + Redis (production)
 
 
-class SystemMode(str, Enum):
+class SystemMode(StrEnum):
     PAPER_TRADING = "PAPER_TRADING"
     HUMAN_APPROVAL = "HUMAN_APPROVAL"
     FULLY_AUTONOMOUS = "FULLY_AUTONOMOUS"
 
 
-class CIOMode(str, Enum):
+class CIOMode(StrEnum):
     HUMAN = "HUMAN"     # User acts as CIO via interactive chat
     AI = "AI"           # AI CIO agent runs autonomously
 
@@ -29,17 +37,32 @@ class Settings(BaseSettings):
 
     # App
     app_env: str = "development"
-    app_secret_key: str = "changeme_generate_a_random_32_byte_hex"
-    app_debug: bool = True
+    app_secret_key: str = ""
+    app_debug: bool = False
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+
+    @field_validator("app_secret_key", mode="before")
+    @classmethod
+    def _auto_generate_app_secret(cls, v: str) -> str:
+        if not v or "changeme" in v:
+            return _generate_secret()
+        return v
 
     # Database
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "horizon"
     postgres_user: str = "horizon"
-    postgres_password: str = "changeme_in_production"
+    postgres_password: str = ""
+
+    @field_validator("postgres_password", mode="before")
+    @classmethod
+    def _auto_generate_pg_password(cls, v: str) -> str:
+        if not v or "changeme" in v:
+            return _generate_secret()
+        return v
 
     @property
     def database_url(self) -> str:
@@ -67,14 +90,28 @@ class Settings(BaseSettings):
         return f"redis://{self.redis_host}:{self.redis_port}/0"
 
     # JWT
-    jwt_secret_key: str = "changeme_generate_a_random_32_byte_hex"
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
 
+    @field_validator("jwt_secret_key", mode="before")
+    @classmethod
+    def _auto_generate_jwt_secret(cls, v: str) -> str:
+        if not v or "changeme" in v:
+            return _generate_secret()
+        return v
+
     # Default CIO credentials
     cio_default_username: str = "admin"
-    cio_default_password: str = "changeme"
+    cio_default_password: str = ""
+
+    @field_validator("cio_default_password", mode="before")
+    @classmethod
+    def _auto_generate_cio_password(cls, v: str) -> str:
+        if not v or v == "changeme":
+            return secrets.token_urlsafe(16)
+        return v
 
     # Zerodha
     zerodha_api_key: str = ""
@@ -102,6 +139,13 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
 
+    # Department AI routing: which provider each department uses.
+    # Values: "auto" (any available), "claude", "openai", "gemini", "none"
+    ai_front_office: str = "auto"
+    ai_middle_office: str = "auto"
+    ai_back_office: str = "auto"
+    ai_executive: str = "auto"
+
     # Alerts
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -116,11 +160,20 @@ class Settings(BaseSettings):
     storage_backend: StorageBackend = StorageBackend.LOCAL
     cio_mode: CIOMode = CIOMode.HUMAN
 
+    # Initial capital (paper trading starting balance)
+    initial_capital_usd: float = 1_000_000.0
+    initial_capital_inr: float = 10_000_000.0
+
+    # LLM rate limits
+    llm_max_calls_per_minute: int = 60
+
     # Risk defaults
     risk_max_drawdown_pct: float = 10.0
     risk_max_position_pct: float = 5.0
     risk_max_leverage: float = 1.0
     risk_var_limit_pct: float = 3.0
+    risk_daily_loss_limit_pct: float = 5.0
+    risk_max_orders_per_minute: int = 10
 
     # Trading universe
     india_symbols: str = "RELIANCE.NSE,TCS.NSE,INFY.NSE,HDFCBANK.NSE,ICICIBANK.NSE"
@@ -133,6 +186,27 @@ class Settings(BaseSettings):
         for s in [self.india_symbols, self.us_symbols, self.crypto_symbols]:
             symbols.extend([x.strip() for x in s.split(",") if x.strip()])
         return symbols
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() in ("production", "prod")
+
+    def validate_production_secrets(self) -> list[str]:
+        """Return warnings for insecure defaults. Called at startup."""
+        warnings: list[str] = []
+        if not self.anthropic_api_key and not self.openai_api_key and not self.google_api_key:
+            warnings.append(
+                "No LLM API keys configured — debates will auto-approve signals"
+            )
+        if not self.alpaca_api_key and not self.zerodha_api_key:
+            warnings.append(
+                "No broker API keys configured — only paper trading with simulated fills"
+            )
+        return warnings
 
 
 settings = Settings()

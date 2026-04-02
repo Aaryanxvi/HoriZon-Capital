@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from redis.asyncio import Redis
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
@@ -18,15 +15,15 @@ SYSTEM_MODE_KEY = "horizon:system:mode"
 
 
 class KillSwitch:
-    """Redis-backed kill switch.
+    """KV-backed kill switch (Redis in production, MemoryKVStore in LOCAL).
 
     When activated the switch:
-    1. Sets ``horizon:system:kill_switch`` to ``1`` in Redis.
+    1. Sets ``horizon:system:kill_switch`` to ``1`` in the KV store.
     2. Overrides ``horizon:system:mode`` to ``PAPER_TRADING``.
     3. Publishes a ``KILL_SWITCH`` event so every agent is notified immediately.
     """
 
-    def __init__(self, bus: AgentBus, redis: Redis) -> None:
+    def __init__(self, bus: AgentBus, redis: Any) -> None:
         self.bus = bus
         self.redis = redis
 
@@ -49,8 +46,18 @@ class KillSwitch:
                 payload={
                     "active": True,
                     "reason": reason,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
+            )
+        )
+
+        # Cancel all open broker orders
+        await self.bus.publish(
+            AgentMessage(
+                sender_id="risk.kill_switch",
+                channel="horizon.execution.order.cancel_all",
+                message_type=MessageType.ORDER_CANCEL_ALL,
+                payload={"reason": reason},
             )
         )
 
@@ -66,7 +73,7 @@ class KillSwitch:
                 message_type=MessageType.KILL_SWITCH,
                 payload={
                     "active": False,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
         )

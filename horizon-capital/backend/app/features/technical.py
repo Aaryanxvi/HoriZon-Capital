@@ -346,7 +346,7 @@ class TechnicalIndicators:
 
         # Volatility (3): StdDev, ATR, Bollinger Bands
         out["stddev_20"] = cls.stddev(close, 20)
-        out[f"atr_14"] = cls.atr(out, 14)
+        out["atr_14"] = cls.atr(out, 14)
         bb = cls.bollinger_bands(close, 20, 2.0)
         out = pd.concat([out, bb], axis=1)
 
@@ -362,20 +362,20 @@ class TechnicalIndicators:
         # Volume (4): OBV, VWAP, MFI, A/D Line
         out["obv"] = cls.obv(out)
         out["vwap"] = cls.vwap(out)
-        out[f"mfi_14"] = cls.mfi(out, 14)
+        out["mfi_14"] = cls.mfi(out, 14)
         out["ad_line"] = cls.ad_line(out)
 
         # Additional (8): ADX, CCI, Williams %R, ROC, PSAR, Keltner, Donchian, TRIX
-        out[f"adx_14"] = cls.adx(out, 14)
-        out[f"cci_20"] = cls.cci(out, 20)
-        out[f"williams_r_14"] = cls.williams_r(out, 14)
-        out[f"roc_12"] = cls.roc(close, 12)
+        out["adx_14"] = cls.adx(out, 14)
+        out["cci_20"] = cls.cci(out, 20)
+        out["williams_r_14"] = cls.williams_r(out, 14)
+        out["roc_12"] = cls.roc(close, 12)
         psar_df = cls.psar(out)
         out = pd.concat([out, psar_df], axis=1)
         keltner = cls.keltner_channel(out, 20)
         out = pd.concat([out, keltner], axis=1)
         donchian = cls.donchian_channel(out, 20)
         out = pd.concat([out, donchian], axis=1)
-        out[f"trix_15"] = cls.trix(close, 15)
+        out["trix_15"] = cls.trix(close, 15)
 
         return out

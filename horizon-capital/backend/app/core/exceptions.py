@@ -25,7 +25,7 @@ class NotFoundError(HorizonError):
         super().__init__(f"{resource} '{identifier}' not found", code="NOT_FOUND")
 
 
-class RiskLimitBreached(HorizonError):
+class RiskLimitBreached(HorizonError):  # noqa: N818
     def __init__(self, limit_name: str, value: float, threshold: float):
         super().__init__(
             f"Risk limit '{limit_name}' breached: {value:.4f} > {threshold:.4f}",
@@ -33,7 +33,7 @@ class RiskLimitBreached(HorizonError):
         )
 
 
-class KillSwitchActive(HorizonError):
+class KillSwitchActive(HorizonError):  # noqa: N818
     def __init__(self):
         super().__init__("Kill switch is active — all trading halted", code="KILL_SWITCH")
 

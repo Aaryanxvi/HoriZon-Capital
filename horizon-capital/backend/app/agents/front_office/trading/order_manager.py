@@ -1,7 +1,7 @@
 """Order state machine and persistence layer."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -52,7 +52,7 @@ class OrderManager:
             The created order (mirrors the ``orders`` table row).
         """
         order_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         async with _get_session_factory()() as session:
             await session.execute(
@@ -86,7 +86,12 @@ class OrderManager:
             )
             await session.commit()
 
-        order = {**order_data, "id": str(order_id), "status": "PENDING", "created_at": now.isoformat()}
+        order = {
+            **order_data,
+            "id": str(order_id),
+            "status": "PENDING",
+            "created_at": now.isoformat(),
+        }
         logger.info("order_created", order_id=str(order_id), symbol=order_data["symbol"])
         return order
 
@@ -120,7 +125,7 @@ class OrderManager:
             )
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
@@ -160,7 +165,7 @@ class OrderManager:
     ) -> dict:
         """Record a fill against an order and return the fill record."""
         fill_id = uuid.uuid4()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         async with _get_session_factory()() as session:
             await session.execute(
@@ -214,6 +219,7 @@ class OrderManager:
         side: str,
         qty: float,
         price: float,
+        stop_loss_price: float | None = None,
     ) -> None:
         """Upsert into the positions table after a fill.
 
@@ -225,7 +231,7 @@ class OrderManager:
         qty:  Filled quantity.
         price:  Fill price.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Determine currency from exchange
         currency = "INR" if exchange in ("NSE", "BSE") else "USD"
@@ -233,7 +239,10 @@ class OrderManager:
         async with _get_session_factory()() as session:
             # Fetch existing position
             result = await session.execute(
-                text("SELECT id, side, quantity, avg_entry_price, realized_pnl FROM positions WHERE symbol = :sym AND exchange = :exch LIMIT 1"),
+                text(
+                    "SELECT id, side, quantity, avg_entry_price, realized_pnl"
+                    " FROM positions WHERE symbol = :sym AND exchange = :exch LIMIT 1"
+                ),
                 {"sym": symbol, "exch": exchange},
             )
             existing = result.fetchone()
@@ -247,20 +256,24 @@ class OrderManager:
                         INSERT INTO positions
                             (id, symbol, exchange, side, quantity, avg_entry_price,
                              current_price, unrealized_pnl, realized_pnl,
-                             weight_pct, currency, created_at, updated_at)
+                             weight_pct, currency, stop_loss_price,
+                             created_at, updated_at)
                         VALUES
-                            (gen_random_uuid(), :symbol, :exchange, :side, :qty,
+                            (:id, :symbol, :exchange, :side, :qty,
                              :price, :price, 0.0, 0.0,
-                             0.0, :currency, :now, :now)
+                             0.0, :currency, :stop_loss,
+                             :now, :now)
                         """
                     ),
                     {
+                        "id": str(uuid.uuid4()),
                         "symbol": symbol,
                         "exchange": exchange,
                         "side": pos_side,
                         "qty": qty,
                         "price": price,
                         "currency": currency,
+                        "stop_loss": stop_loss_price,
                         "now": now,
                     },
                 )
@@ -274,7 +287,10 @@ class OrderManager:
                     if existing.side == "LONG":
                         # Adding to long
                         new_qty = old_qty + qty
-                        new_avg = ((old_avg * old_qty) + (price * qty)) / new_qty if new_qty > 0 else price
+                        new_avg = (
+                            ((old_avg * old_qty) + (price * qty)) / new_qty
+                            if new_qty > 0 else price
+                        )
                         new_side = "LONG"
                         realized_delta = 0.0
                     else:
@@ -299,7 +315,10 @@ class OrderManager:
                     else:
                         # Adding to short
                         new_qty = old_qty + qty
-                        new_avg = ((old_avg * old_qty) + (price * qty)) / new_qty if new_qty > 0 else price
+                        new_avg = (
+                            ((old_avg * old_qty) + (price * qty)) / new_qty
+                            if new_qty > 0 else price
+                        )
                         new_side = "SHORT"
                         realized_delta = 0.0
                 else:
@@ -313,6 +332,7 @@ class OrderManager:
                         UPDATE positions
                         SET side = :side, quantity = :qty, avg_entry_price = :avg,
                             current_price = :price, realized_pnl = :realized,
+                            stop_loss_price = COALESCE(:stop_loss, stop_loss_price),
                             updated_at = :now
                         WHERE id = :id
                         """
@@ -324,6 +344,7 @@ class OrderManager:
                         "avg": new_avg,
                         "price": price,
                         "realized": new_realized,
+                        "stop_loss": stop_loss_price,
                         "now": now,
                     },
                 )

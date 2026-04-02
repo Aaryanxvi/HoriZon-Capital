@@ -7,7 +7,7 @@ and investor-facing summaries.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -51,7 +51,7 @@ class IRAgent(BaseAgent):
 
     async def _generate_report(self) -> None:
         """Generate and publish a performance report."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         nav = self._latest_portfolio.get("nav", 0.0)
 
         report = {

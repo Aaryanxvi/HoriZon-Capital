@@ -37,6 +37,7 @@ HELP_TEXT = """
   [green]kill-switch[/]         Toggle kill switch
   [green]symbols[/]             Show trading universe
   [green]config[/]              Show current configuration
+  [green]dashboard[/]           Show full-screen live dashboard (Ctrl+C to return)
   [green]office[/]              Show pixel agent office (animated ASCII agents)
   [green]data[/]                Show live market data (prices, OHLCV, features, feeds)
   [green]help[/]                Show this help
@@ -198,6 +199,7 @@ class CommandHandler:
             "health": self._cmd_health,
             "models": self._cmd_models,
             "office": self._cmd_office,
+            "dashboard": self._cmd_dashboard,
             "orders": self._cmd_orders,
             "approve": self._cmd_approve,
             "reject": self._cmd_reject,
@@ -1648,6 +1650,18 @@ class CommandHandler:
             return "\n".join(lines)
         except Exception as exc:
             return f"[yellow]Model stats unavailable: {exc}[/yellow]"
+
+    async def _cmd_dashboard(self, args: list[str]) -> str:
+        """Show the full-screen live dashboard. Press Ctrl+C to return to REPL."""
+        if not self._dashboard:
+            return "[yellow]Dashboard not available.[/yellow]"
+
+        console.print("[dim]Launching dashboard... Press Ctrl+C to return to REPL.[/dim]")
+        try:
+            await self._dashboard.run()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            self._dashboard.stop()
+        return None
 
     async def _cmd_office(self, args: list[str]) -> str:
         """Show the pixel agent office with animated ASCII characters."""

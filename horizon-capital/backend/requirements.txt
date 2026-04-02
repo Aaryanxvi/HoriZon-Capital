@@ -34,6 +34,11 @@ ta==0.11.0
 hmmlearn==0.3.2
 scikit-learn==1.5.2
 arch==7.1.0
+scipy>=1.11.0
+statsmodels>=0.14.0
+
+# ML - Regime detection (Phase 2.5: Statistical Jump Model)
+# jumpmodels>=0.1.0  # optional -- install for Jump Model regime detector
 
 # ML - Sentiment
 transformers==4.45.2

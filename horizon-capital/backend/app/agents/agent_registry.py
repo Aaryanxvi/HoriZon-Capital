@@ -1,6 +1,6 @@
 """AgentRegistry -- CRUD operations on the ``agent_states`` table."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -27,20 +27,21 @@ class AgentRegistry:
         """Insert or update an agent's entry in ``agent_states``."""
         import orjson
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         config_json = orjson.dumps(config or {}).decode()
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
                     """
                     INSERT INTO agent_states
-                        (agent_id, agent_type, status, last_heartbeat, config, metrics, created_at, updated_at)
+                        (agent_id, agent_type, status, last_heartbeat,
+                         config, metrics, created_at, updated_at)
                     VALUES
-                        (:agent_id, :agent_type, 'RUNNING', :now, :config::jsonb, '{}'::jsonb, :now, :now)
+                        (:agent_id, :agent_type, 'RUNNING', :now, :config, '{}', :now, :now)
                     ON CONFLICT (agent_id) DO UPDATE
                     SET agent_type = :agent_type,
                         status = 'RUNNING',
-                        config = :config::jsonb,
+                        config = :config,
                         last_heartbeat = :now,
                         updated_at = :now,
                         error_message = NULL
@@ -70,14 +71,14 @@ class AgentRegistry:
                 {
                     "agent_id": agent_id,
                     "status": status,
-                    "now": datetime.now(timezone.utc),
+                    "now": datetime.now(UTC),
                 },
             )
             await session.commit()
 
     async def update_heartbeat(self, agent_id: str) -> None:
         """Bump the ``last_heartbeat`` timestamp for the agent."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(

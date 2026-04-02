@@ -32,13 +32,6 @@ class FrontOfficeManager(DepartmentManager):
         except ImportError:
             logger.warning("sentiment_agent_not_available")
 
-        # Strategy
-        try:
-            from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
-            agents.append(EnsembleSelector(bus=self.bus))
-        except ImportError:
-            logger.warning("ensemble_selector_not_available")
-
         # Trading
         try:
             from app.agents.front_office.trading.execution_agent import ExecutionAgent
@@ -52,6 +45,13 @@ class FrontOfficeManager(DepartmentManager):
             agents.append(PortfolioAgent(bus=self.bus))
         except ImportError:
             logger.warning("portfolio_agent_not_available")
+
+        # Strategy
+        try:
+            from app.agents.front_office.strategy.strategy_agent import StrategyAgent
+            agents.append(StrategyAgent(bus=self.bus))
+        except ImportError:
+            logger.warning("strategy_agent_not_available")
 
         # Investor Relations
         try:

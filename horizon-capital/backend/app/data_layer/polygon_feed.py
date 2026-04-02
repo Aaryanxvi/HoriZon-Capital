@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import httpx
@@ -119,7 +119,7 @@ class PolygonFeed(BaseFeed):
                 NormalizedOHLCV(
                     symbol=clean,
                     exchange="NASDAQ",
-                    timestamp=datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc),
+                    timestamp=datetime.fromtimestamp(ts_ms / 1000, tz=UTC),
                     timeframe=f"{multiplier}{timespan[0]}",  # e.g. "1d"
                     open=float(r["o"]),
                     high=float(r["h"]),
@@ -152,7 +152,7 @@ class PolygonFeed(BaseFeed):
         return NormalizedTick(
             symbol=clean,
             exchange="NASDAQ",
-            timestamp=datetime.fromtimestamp(ts_ns / 1e9, tz=timezone.utc),
+            timestamp=datetime.fromtimestamp(ts_ns / 1e9, tz=UTC),
             last_price=float(result["p"]),
             volume=int(result.get("s", 0)),
             currency="USD",

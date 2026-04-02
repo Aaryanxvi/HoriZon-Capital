@@ -2,24 +2,25 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-from typing import Any
 
 from sqlalchemy import text
 
 from app.config import settings
-from app.core.database import async_session_factory
+from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
 from app.data_layer.alpaca_feed import AlpacaFeed
-from app.data_layer.crypto_feed import CryptoFeed
-from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick
-from app.data_layer.forex_feed import ForexFeed
-from app.data_layer.polygon_feed import PolygonFeed
-from app.data_layer.yahoo_feed import YahooFeed
-from app.data_layer.zerodha_feed import ZerodhaFeed
-from app.models.market_data import OHLCV
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
+from app.data_layer.crypto_feed import CryptoFeed  # noqa: E402
+from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick  # noqa: E402
+from app.data_layer.forex_feed import ForexFeed  # noqa: E402
+from app.data_layer.polygon_feed import PolygonFeed  # noqa: E402
+from app.data_layer.yahoo_feed import YahooFeed  # noqa: E402
+from app.data_layer.zerodha_feed import ZerodhaFeed  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -112,23 +113,34 @@ class DataManager:
         """Store latest quote in Redis HSET and publish on a channel."""
         redis_key = f"horizon:quote:{tick.symbol}"
         try:
-            await redis_client.hset(redis_key, mapping=tick.to_redis_dict())
-            # Set a TTL so stale quotes auto-expire after 1 hour
-            await redis_client.expire(redis_key, 3600)
-
-            # Publish for real-time subscribers
+            kv = get_kv_store()
+            await kv.hset(redis_key, mapping=tick.to_redis_dict())
+            await kv.expire(redis_key, 3600)
             channel = f"horizon.market.{tick.exchange}.{tick.symbol}"
-            await redis_client.publish(channel, json.dumps(tick.to_redis_dict()))
+            await kv.publish(channel, json.dumps(tick.to_redis_dict()))
         except Exception:
-            logger.exception("data_manager.tick_redis_error", symbol=tick.symbol)
+            logger.warning("data_manager.tick_write_error", symbol=tick.symbol)
 
     # ------------------------------------------------------------------
     # OHLCV handling -> Postgres
     # ------------------------------------------------------------------
     async def _handle_ohlcv(self, bar: NormalizedOHLCV) -> None:
-        """Upsert OHLCV bar into Postgres via async session."""
+        """Upsert OHLCV bar into Postgres and cache latest price in KV."""
+        # Cache latest price for portfolio agent / paper broker.
+        # Store under both raw symbol (e.g. "RELIANCE") and canonical
+        # symbol with exchange (e.g. "RELIANCE.NSE") so lookups work
+        # regardless of which format the caller uses.
         try:
-            async with async_session_factory() as session:
+            kv = get_kv_store()
+            price_str = str(bar.close)
+            await kv.set(f"horizon:price:{bar.symbol}", price_str)
+            if bar.exchange and bar.exchange != "UNKNOWN":
+                await kv.set(f"horizon:price:{bar.symbol}.{bar.exchange}", price_str)
+        except Exception:
+            logger.warning("data_manager.price_cache_error", symbol=bar.symbol)
+
+        try:
+            async with _get_session_factory()() as session:
                 # Use raw SQL upsert to handle the unique constraint gracefully
                 stmt = text(
                     """
@@ -163,8 +175,8 @@ class DataManager:
                 )
                 await session.commit()
         except Exception:
-            logger.exception(
-                "data_manager.ohlcv_postgres_error",
+            logger.warning(
+                "data_manager.ohlcv_write_error",
                 symbol=bar.symbol,
                 timeframe=bar.timeframe,
             )
@@ -175,7 +187,7 @@ class DataManager:
     async def get_quote(self, symbol: str) -> NormalizedTick | None:
         """Return the latest cached tick for *symbol* from Redis."""
         redis_key = f"horizon:quote:{symbol}"
-        data = await redis_client.hgetall(redis_key)
+        data = await get_kv_store().hgetall(redis_key)
         if not data:
             return None
         try:

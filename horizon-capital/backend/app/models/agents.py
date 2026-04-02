@@ -6,7 +6,7 @@ from sqlalchemy import BigInteger, DateTime, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, TimestampMixin
 
 
 class AgentState(Base, TimestampMixin):
@@ -14,7 +14,8 @@ class AgentState(Base, TimestampMixin):
 
     agent_id: Mapped[str] = mapped_column(String(100), primary_key=True)
     agent_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="STOPPED")  # RUNNING, PAUSED, ERROR, STOPPED
+    # RUNNING, PAUSED, ERROR, STOPPED
+    status: Mapped[str] = mapped_column(String(20), default="STOPPED")
     last_heartbeat: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     config: Mapped[dict] = mapped_column(JSONB, default=dict)
     metrics: Mapped[dict] = mapped_column(JSONB, default=dict)

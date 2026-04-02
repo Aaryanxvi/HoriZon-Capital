@@ -2,16 +2,16 @@
 
 import uuid
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
-from sqlalchemy import DateTime, Float, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import DateTime, Float, Index, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class OrderStatus(str, Enum):
+class OrderStatus(StrEnum):
     PENDING = "PENDING"
     OPEN = "OPEN"
     PARTIAL = "PARTIAL"
@@ -20,12 +20,12 @@ class OrderStatus(str, Enum):
     REJECTED = "REJECTED"
 
 
-class OrderSide(str, Enum):
+class OrderSide(StrEnum):
     BUY = "BUY"
     SELL = "SELL"
 
 
-class OrderType(str, Enum):
+class OrderType(StrEnum):
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP = "STOP"
@@ -44,7 +44,8 @@ class Order(Base, UUIDMixin, TimestampMixin):
     stop_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default=OrderStatus.PENDING.value)
     broker: Mapped[str] = mapped_column(String(20), nullable=False)  # PAPER, ALPACA, ZERODHA
-    mode: Mapped[str] = mapped_column(String(20), nullable=False)  # PAPER_TRADING, HUMAN_APPROVAL, FULLY_AUTONOMOUS
+    # PAPER_TRADING, HUMAN_APPROVAL, FULLY_AUTONOMOUS
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
     signal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     debate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     broker_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

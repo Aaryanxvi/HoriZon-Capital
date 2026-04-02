@@ -14,8 +14,10 @@ export class WebSocketManager {
   private url: string;
   private intentionallyClosed = false;
 
-  constructor(url = "ws://localhost:8000/ws/dashboard") {
-    this.url = url;
+  constructor(url?: string) {
+    // Auto-detect base URL from current page (works with dynamic port in desktop mode)
+    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    this.url = url ?? `${wsProto}//${window.location.host}/ws/dashboard`;
   }
 
   // ---------------------------------------------------------------------------
@@ -26,7 +28,8 @@ export class WebSocketManager {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     const token = localStorage.getItem("token");
-    const urlWithAuth = token ? `${this.url}?token=${token}` : this.url;
+    const sep = this.url.includes("?") ? "&" : "?";
+    const urlWithAuth = token ? `${this.url}${sep}token=${token}` : this.url;
 
     this.intentionallyClosed = false;
     this.ws = new WebSocket(urlWithAuth);

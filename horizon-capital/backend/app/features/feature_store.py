@@ -7,7 +7,7 @@ symbol.  Redis hashes provide low-latency reads for the live trading pipeline.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -37,15 +37,17 @@ class FeatureStore:
         The ``features`` table is expected to have columns:
         ``symbol, timestamp, features (JSONB), version, created_at, updated_at``.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with async_session_factory() as session:
             await session.execute(
                 text(
                     """
-                    INSERT INTO features (symbol, timestamp, features, version, created_at, updated_at)
-                    VALUES (:symbol, :ts, :features::jsonb, :version, :now, :now)
+                    INSERT INTO features
+                        (symbol, timestamp, features, version, created_at, updated_at)
+                    VALUES (:symbol, :ts, :features, :version, :now, :now)
                     ON CONFLICT (symbol, timestamp, version)
-                    DO UPDATE SET features = EXCLUDED.features, updated_at = EXCLUDED.updated_at
+                    DO UPDATE SET features = EXCLUDED.features,
+                        updated_at = EXCLUDED.updated_at
                     """
                 ),
                 {

@@ -7,7 +7,7 @@ orders that have been pending too long.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -38,7 +38,7 @@ class OperationsAgent(BaseAgent):
         order_id = payload.get("order_id", "")
 
         if message.message_type == MessageType.ORDER_NEW:
-            self._pending_orders[order_id] = datetime.now(timezone.utc)
+            self._pending_orders[order_id] = datetime.now(UTC)
         elif message.message_type in (MessageType.ORDER_FILL, MessageType.ORDER_UPDATE):
             status = payload.get("status", "")
             if status in ("FILLED", "CANCELLED", "REJECTED"):
@@ -55,7 +55,7 @@ class OperationsAgent(BaseAgent):
 
     async def _check_stuck_orders(self) -> None:
         """Flag orders that have been pending beyond threshold."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stuck = []
 
         for order_id, created_at in list(self._pending_orders.items()):

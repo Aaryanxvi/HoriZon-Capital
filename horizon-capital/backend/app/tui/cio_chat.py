@@ -8,8 +8,6 @@ Uses the configured LLM to interpret user intent and map to system actions:
 
 from __future__ import annotations
 
-from typing import Any
-
 from app.core.logging import get_logger
 
 logger = get_logger("tui.cio_chat")

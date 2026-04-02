@@ -58,9 +58,13 @@ class OHLCVResponse(BaseModel):
 class RegimeResponse(BaseModel):
     """Current market regime classification."""
 
-    regime: str = Field(..., description="Detected regime label, e.g. 'trending', 'mean_reverting', 'volatile'")
+    regime: str = Field(
+        ..., description="Detected regime label, e.g. 'trending', 'mean_reverting', 'volatile'"
+    )
     confidence: float = Field(..., ge=0.0, le=1.0)
-    features: dict[str, float] = Field(default_factory=dict, description="Feature values that drove the classification")
+    features: dict[str, float] = Field(
+        default_factory=dict, description="Feature values that drove the classification"
+    )
     timestamp: datetime
     model_version: str | None = None
 

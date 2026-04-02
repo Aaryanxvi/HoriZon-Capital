@@ -17,8 +17,7 @@ When any of these rates drops below its control limit, a WARNING (at
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Tuple
+from dataclasses import dataclass
 
 from app.core.logging import get_logger
 
@@ -187,7 +186,7 @@ class LFRDriftDetector:
         if not predicted_positive:
             self._npv.update(1.0 if not actual_positive else 0.0)
 
-    def check_drift(self) -> Tuple[str, dict]:
+    def check_drift(self) -> tuple[str, dict]:
         """Check whether concept drift has been detected.
 
         Returns

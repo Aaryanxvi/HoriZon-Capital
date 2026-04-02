@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -110,7 +110,11 @@ class AlpacaFeed(BaseFeed):
                     self._ws = ws
 
                     # Authenticate
-                    auth_msg = {"action": "auth", "key": settings.alpaca_api_key, "secret": settings.alpaca_api_secret}
+                    auth_msg = {
+                        "action": "auth",
+                        "key": settings.alpaca_api_key,
+                        "secret": settings.alpaca_api_secret,
+                    }
                     await ws.send(json.dumps(auth_msg))
                     resp = json.loads(await ws.recv())
                     logger.info("alpaca_feed.ws_auth_response", resp=resp)
@@ -186,7 +190,7 @@ class AlpacaFeed(BaseFeed):
             exchange="NASDAQ",
             timestamp=datetime.fromisoformat(
                 trade["t"].replace("Z", "+00:00")
-            ) if "t" in trade else datetime.now(timezone.utc),
+            ) if "t" in trade else datetime.now(UTC),
             last_price=float(trade["p"]),
             volume=int(trade.get("s", 0)),
             currency="USD",

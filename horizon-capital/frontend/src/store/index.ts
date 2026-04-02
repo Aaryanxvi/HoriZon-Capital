@@ -8,7 +8,8 @@ import type {
   RiskMetrics,
   SystemMode,
 } from "@/api/client";
-import { login as apiLogin } from "@/api/client";
+import { login as apiLogin, getAgents } from "@/api/client";
+import wsManager from "@/api/websocket";
 
 // ---------------------------------------------------------------------------
 // Auth Store
@@ -73,12 +74,15 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
 
 interface AgentState {
   agents: Agent[];
+  loading: boolean;
   setAgents: (agents: Agent[]) => void;
   updateAgent: (agentId: string, updates: Partial<Agent>) => void;
+  fetchAgents: () => Promise<void>;
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   agents: [],
+  loading: false,
 
   setAgents: (agents) => set({ agents }),
 
@@ -88,7 +92,60 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     );
     set({ agents });
   },
+
+  fetchAgents: async () => {
+    set({ loading: true });
+    try {
+      const agents = await getAgents();
+      set({ agents, loading: false });
+    } catch {
+      set({ loading: false });
+    }
+  },
 }));
+
+let _agentPollingInterval: ReturnType<typeof setInterval> | null = null;
+let _wsUnsub: (() => void) | null = null;
+
+/**
+ * Start polling agents every 10s + subscribe to WebSocket agent updates.
+ * Call once on app mount. Returns a cleanup function.
+ */
+export function initAgentPolling(): () => void {
+  const store = useAgentStore.getState();
+  store.fetchAgents();
+
+  _agentPollingInterval = setInterval(() => {
+    useAgentStore.getState().fetchAgents();
+  }, 10_000);
+
+  // Subscribe to WebSocket agent status updates
+  _wsUnsub = wsManager.subscribe("horizon.agent.*", (data: unknown) => {
+    const msg = data as { agent_id?: string; status?: string };
+    if (msg.agent_id && msg.status) {
+      const statusMap: Record<string, "active" | "paused" | "error"> = {
+        RUNNING: "active",
+        PAUSED: "paused",
+        CRASHED: "error",
+        ERROR: "error",
+      };
+      useAgentStore.getState().updateAgent(msg.agent_id, {
+        status: statusMap[msg.status] ?? "active",
+      });
+    }
+  });
+
+  return () => {
+    if (_agentPollingInterval) {
+      clearInterval(_agentPollingInterval);
+      _agentPollingInterval = null;
+    }
+    if (_wsUnsub) {
+      _wsUnsub();
+      _wsUnsub = null;
+    }
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Trade Store

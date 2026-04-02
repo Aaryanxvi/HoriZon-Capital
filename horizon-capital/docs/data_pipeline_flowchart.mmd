@@ -1,0 +1,145 @@
+flowchart TD
+    subgraph DATA_SOURCES["DATA SOURCES"]
+        YF["Yahoo Finance\nyahoo_feed.py\n_fetch_sync()"]
+        ALP["Alpaca\nalpaca_feed.py\n_ws_loop() / _rest_fetch()"]
+        CG["CoinGecko\ncrypto_feed.py\n_fetch_prices()"]
+        PG["Polygon.io\npolygon_feed.py\nget_ohlcv()"]
+        ZR["Zerodha\nzerodha_feed.py\n_mock_loop()"]
+        FX["Forex USD/INR\nforex_feed.py\n_fetch_sync()"]
+    end
+
+    subgraph PARSERS["FEED-SPECIFIC PARSERS"]
+        P1["Yahoo Parser\nDataFrame -> NormalizedOHLCV"]
+        P2["Alpaca Parser\nJSON -> NormalizedTick"]
+        P3["CoinGecko Parser\nJSON -> NormalizedTick"]
+        P4["Polygon Parser\nJSON -> NormalizedOHLCV"]
+        P5["Zerodha Parser\nMock -> NormalizedTick"]
+        P6["Forex Parser\nyfinance -> NormalizedTick"]
+    end
+
+    YF --> P1
+    ALP --> P2
+    CG --> P3
+    PG --> P4
+    ZR --> P5
+    FX --> P6
+
+    subgraph NORMALIZER["DATA NORMALIZER  --  data_normalizer.py"]
+        NT["NormalizedTick\nsymbol, exchange, timestamp\nlast_price, bid, ask, volume"]
+        NO["NormalizedOHLCV\nsymbol, exchange, timestamp\nopen, high, low, close, volume"]
+    end
+
+    P1 --> NO
+    P2 --> NT
+    P3 --> NT
+    P4 --> NO
+    P5 --> NT
+    P6 --> NT
+
+    subgraph CB["CIRCUIT BREAKER  --  resilience.py"]
+        CBS["CircuitBreaker.call()\nCLOSED -> OPEN -> HALF_OPEN\nYahoo/CG: 5 fails, 120s recovery\nForex: 3 fails, 300s recovery"]
+    end
+
+    NT --> CBS
+    NO --> CBS
+
+    subgraph INGEST["DATA INGESTION WORKER  --  data_ingestion_worker.py"]
+        DM["DataManager\n_handle_tick() / _handle_ohlcv()"]
+    end
+
+    CBS --> DM
+
+    subgraph STORAGE["PERSISTENCE LAYER"]
+        DB[("SQLite / PostgreSQL\nohlcv table\nINSERT ON CONFLICT UPDATE\nlocal_storage.py")]
+        KV[("KV Cache\nhorizon:price:SYMBOL\nhorizon:quote:SYMBOL\nhorizon:forex:usd_inr\nTTL 5 min")]
+    end
+
+    DM --> DB
+    DM --> KV
+
+    subgraph FEATURES["FEATURE COMPUTATION WORKER  --  feature_computation_worker.py\nEvery 5 min, reads last 500 bars"]
+        direction TB
+        TI["TechnicalIndicators.compute_all()\n23 Indicators via ta library\n---\nSMA 20/50/200, EMA 12/26/50/200\nRSI, MACD, MACD Signal, MACD Hist\nBollinger Upper/Mid/Lower/Width, ATR\nStochastic %K/%D, ADX, +DI, -DI\nOBV, VWAP"]
+        VF["VolatilityFeatures.compute_all()\n3 Volatility Features\n---\nRealized Vol (log-returns std x sqrt252)\nParkinson Vol (high-low estimator)\nGarman-Klass Vol (OHLC estimator)"]
+        RFV["Regime Feature Vector\nregime_agent.py\n---\n2D: log-returns + rolling 20-bar vol\nInput for HMM / Jump Model"]
+    end
+
+    DB --> TI
+    TI --> VF
+    VF --> RFV
+
+    subgraph FSTORE["FEATURE STORE"]
+        FDB[("PostgreSQL\nfeature_snapshots table\nINSERT ON CONFLICT")]
+        FKV[("Redis / MemoryKV\nhorizon:features:SYMBOL:1d\nTTL 2 hours")]
+    end
+
+    RFV --> FDB
+    RFV --> FKV
+
+    subgraph STRATEGY["STRATEGY AGENTS  --  strategy_agent.py\nPolls every 60s"]
+        SA["Ensemble Selector\n---\nMomentum Strategy\nMean Reversion Strategy\nVolatility Strategy\nCrisis Strategy\nArbitrage Detector\nOptions Strategy"]
+        SIG["Signal Generation\ndirection: BUY/SELL/HOLD\nstrength: 0.0 - 1.0\n---\nEmit on horizon.signal.SYMBOL\nINSERT INTO signals"]
+    end
+
+    FKV --> SA
+    SA --> SIG
+
+    subgraph DEBATE["DEBATE ENGINE  --  debate_engine.py"]
+        D1["4 Parallel Debaters via asyncio.gather()\n---\nSTRATEGY debater\nRISK debater\nSENTIMENT debater\nPORTFOLIO debater"]
+        D2["Vote Tally\nFOR / AGAINST / ABSTAIN\n---\nAPPROVED if score > 0.6\nAND >= 3 FOR votes"]
+        D3[("debate_sessions +\ndebate_arguments tables")]
+    end
+
+    SIG --> D1
+    D1 --> D2
+    D2 --> D3
+
+    subgraph EXECUTION["EXECUTION AGENT  --  execution_agent.py"]
+        MODE{"System Mode?"}
+        PAPER["PaperBroker\nImmediate execution"]
+        HUMAN["PENDING\nAwait CIO approval"]
+        AUTO["Real Broker\nAlpaca or Zerodha"]
+        FILL["Record Fill\nINSERT INTO fills\nUpdate positions\nEmit horizon.execution.order.fill"]
+    end
+
+    D2 -->|APPROVED| MODE
+    MODE -->|PAPER_TRADING| PAPER
+    MODE -->|HUMAN_APPROVAL| HUMAN
+    MODE -->|FULLY_AUTONOMOUS| AUTO
+    PAPER --> FILL
+    HUMAN -->|CIO approves| FILL
+    AUTO --> FILL
+
+    subgraph PERF["PERFORMANCE WORKER  --  performance_worker.py\nSnapshot every 15 min"]
+        PM["Metrics Computed\n---\nTotal Return, Annualized Return\nSharpe Ratio, Sortino Ratio\nCalmar Ratio, Max Drawdown\nWin Rate, Profit Factor\nJensen Alpha vs NIFTY50\nJensen Alpha vs S&P500"]
+        PS[("performance_snapshots table\n+\nhorizon:performance:PERIOD\n1d / 7d / 30d / 90d / YTD / ALL")]
+    end
+
+    FILL --> PM
+    PM --> PS
+
+    %% Styling
+    classDef source fill:#1a3a5c,stroke:#0d2137,color:#fff
+    classDef parser fill:#2a5a3c,stroke:#1a3a2c,color:#fff
+    classDef norm fill:#3a6a8c,stroke:#2a5a7c,color:#fff
+    classDef cb fill:#8b4513,stroke:#5a2d0c,color:#fff
+    classDef store fill:#4a4a6a,stroke:#3a3a5a,color:#fff
+    classDef feature fill:#2a6a6a,stroke:#1a5a5a,color:#fff
+    classDef strategy fill:#5a3a7a,stroke:#4a2a6a,color:#fff
+    classDef debate fill:#6a5a2a,stroke:#5a4a1a,color:#fff
+    classDef exec fill:#7a3a3a,stroke:#5a2a2a,color:#fff
+    classDef perf fill:#3a5a3a,stroke:#2a4a2a,color:#fff
+    classDef decision fill:#cc7722,stroke:#995511,color:#fff
+
+    class YF,ALP,CG,PG,ZR,FX source
+    class P1,P2,P3,P4,P5,P6 parser
+    class NT,NO norm
+    class CBS cb
+    class DM cb
+    class DB,KV,FDB,FKV,D3,PS store
+    class TI,VF,RFV feature
+    class SA,SIG strategy
+    class D1,D2 debate
+    class PAPER,HUMAN,AUTO,FILL exec
+    class PM perf
+    class MODE decision

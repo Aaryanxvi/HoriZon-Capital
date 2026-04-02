@@ -13,11 +13,8 @@ covariances:
 from __future__ import annotations
 
 import pathlib
-from typing import Tuple
 
-import joblib
 import numpy as np
-from hmmlearn.hmm import GaussianHMM
 
 from app.core.logging import get_logger
 
@@ -25,9 +22,26 @@ logger = get_logger("regime.hmm_model")
 
 REGIME_NAMES = ["BULL", "BEAR", "HIGH_VOL", "CRISIS"]
 
+try:
+    import joblib as _joblib
+    from hmmlearn.hmm import GaussianHMM as _GaussianHMM
+    _HMM_AVAILABLE = True
+except ImportError:
+    _joblib = None  # type: ignore[assignment]
+    _GaussianHMM = None  # type: ignore[assignment]
+    _HMM_AVAILABLE = False
+    logger.warning(
+        "hmmlearn_not_available",
+        reason="hmmlearn or joblib not installed; HMM regime model disabled",
+    )
+
 
 class HMMRegimeModel:
     """4-state Gaussian HMM trained on return + volatility features."""
+
+    @classmethod
+    def is_available(cls) -> bool:
+        return _HMM_AVAILABLE
 
     def __init__(
         self,
@@ -36,8 +50,10 @@ class HMMRegimeModel:
         n_iter: int = 200,
         random_state: int = 42,
     ) -> None:
+        if not _HMM_AVAILABLE:
+            raise ImportError("hmmlearn is not installed. Install it with: pip install hmmlearn")
         self.n_components = n_components
-        self._model = GaussianHMM(
+        self._model = _GaussianHMM(
             n_components=n_components,
             covariance_type=covariance_type,
             n_iter=n_iter,
@@ -80,7 +96,7 @@ class HMMRegimeModel:
     # Prediction
     # ------------------------------------------------------------------
 
-    def predict(self, features: np.ndarray) -> Tuple[str, float]:
+    def predict(self, features: np.ndarray) -> tuple[str, float]:
         """Predict the current regime.
 
         Parameters
@@ -117,7 +133,7 @@ class HMMRegimeModel:
         """Persist the model and state mapping to disk via joblib."""
         path = pathlib.Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(
+        _joblib.dump(
             {"model": self._model, "state_map": self._state_to_regime, "fitted": self._fitted},
             path,
         )
@@ -125,7 +141,7 @@ class HMMRegimeModel:
 
     def load(self, path: str | pathlib.Path) -> None:
         """Load a previously saved model."""
-        data = joblib.load(path)
+        data = _joblib.load(path)
         self._model = data["model"]
         self._state_to_regime = data["state_map"]
         self._fitted = data["fitted"]

@@ -9,14 +9,18 @@ class AgentStateResponse(BaseModel):
     """Current operational state of an AI agent."""
 
     agent_id: str
-    agent_type: str = Field(..., description="'regime', 'strategy', 'risk', 'portfolio', 'sentiment', 'execution'")
+    agent_type: str = Field(
+        ..., description="'regime', 'strategy', 'risk', 'portfolio', 'sentiment', 'execution'"
+    )
     status: str = Field(..., description="'running', 'paused', 'error', 'stopped'")
     uptime_seconds: float
     last_heartbeat: datetime
     current_task: str | None = None
     error_message: str | None = None
     config: dict[str, str | float | bool] = Field(default_factory=dict)
-    metrics: dict[str, float] = Field(default_factory=dict, description="Agent-specific runtime metrics")
+    metrics: dict[str, float] = Field(
+        default_factory=dict, description="Agent-specific runtime metrics"
+    )
 
     model_config = {"from_attributes": True}
 

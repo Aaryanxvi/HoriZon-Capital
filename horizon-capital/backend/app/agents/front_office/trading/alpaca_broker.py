@@ -1,6 +1,6 @@
 """Alpaca broker adapter -- places orders via the Alpaca Markets REST API."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -20,8 +20,15 @@ class AlpacaBroker:
     """
 
     def __init__(self) -> None:
-        self.base_url = settings.alpaca_base_url.rstrip("/")
-        self.headers = {
+        pass  # Credentials read dynamically from settings
+
+    @property
+    def base_url(self) -> str:
+        return settings.alpaca_base_url.rstrip("/")
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
             "APCA-API-KEY-ID": settings.alpaca_api_key,
             "APCA-API-SECRET-KEY": settings.alpaca_api_secret,
             "Content-Type": "application/json",
@@ -30,6 +37,33 @@ class AlpacaBroker:
     # ------------------------------------------------------------------ #
     # Public API
     # ------------------------------------------------------------------ #
+
+    async def get_account(self) -> dict | None:
+        """Fetch account info from Alpaca (equity, buying power, cash)."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/v2/account",
+                    headers=self.headers,
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "account_number": data.get("account_number", ""),
+                    "equity": float(data.get("equity", 0)),
+                    "buying_power": float(data.get("buying_power", 0)),
+                    "cash": float(data.get("cash", 0)),
+                    "portfolio_value": float(data.get("portfolio_value", 0)),
+                    "status": data.get("status", ""),
+                    "currency": data.get("currency", "USD"),
+                    "pattern_day_trader": data.get("pattern_day_trader", False),
+                }
+            else:
+                logger.error("alpaca_account_error", status_code=resp.status_code)
+                return None
+        except httpx.HTTPError as exc:
+            logger.error("alpaca_account_http_error", error=str(exc))
+            return None
 
     async def execute(self, order: dict) -> dict | None:
         """Place an order via the Alpaca API.
@@ -97,7 +131,7 @@ class AlpacaBroker:
                     "fill_price": filled_avg,
                     "commission": 0.0,
                     "slippage": 0.0,
-                    "filled_at": data.get("filled_at") or datetime.now(timezone.utc).isoformat(),
+                    "filled_at": data.get("filled_at") or datetime.now(UTC).isoformat(),
                     "broker": "ALPACA",
                     "alpaca_status": data.get("status"),
                 }
@@ -147,3 +181,40 @@ class AlpacaBroker:
         except httpx.HTTPError as exc:
             logger.error("alpaca_status_http_error", error=str(exc))
             return None
+
+    async def cancel_order(self, broker_order_id: str) -> bool:
+        """Cancel an order via Alpaca API."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.delete(
+                    f"{self.base_url}/v2/orders/{broker_order_id}",
+                    headers=self.headers,
+                )
+            return resp.status_code in (200, 204)
+        except httpx.HTTPError as exc:
+            logger.error("alpaca_cancel_error", error=str(exc))
+            return False
+
+    async def get_positions(self) -> list[dict]:
+        """Fetch current positions from Alpaca."""
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/v2/positions",
+                    headers=self.headers,
+                )
+            if resp.status_code == 200:
+                return [
+                    {
+                        "symbol": p["symbol"],
+                        "qty": float(p["qty"]),
+                        "avg_entry": float(p["avg_entry_price"]),
+                        "current_price": float(p["current_price"]),
+                        "side": "LONG" if float(p["qty"]) > 0 else "SHORT",
+                    }
+                    for p in resp.json()
+                ]
+            return []
+        except httpx.HTTPError as exc:
+            logger.error("alpaca_positions_error", error=str(exc))
+            return []

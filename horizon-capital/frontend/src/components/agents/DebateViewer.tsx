@@ -168,7 +168,7 @@ export default function DebateViewer({ compact = false }: DebateViewerProps) {
       {/* Debate entries */}
       <div className={clsx("space-y-3", compact ? "max-h-[300px]" : "max-h-[500px]", "overflow-y-auto")}>
         <AnimatePresence>
-          {active.entries.slice(0, visibleEntries).map((entry, i) => {
+          {active.entries.slice(0, visibleEntries).map((entry) => {
             const VoteIcon = VOTE_ICON[entry.position];
             const agentStatus: AgentStatus = "DEBATING";
 

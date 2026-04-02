@@ -7,12 +7,42 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.redis_client import redis_client
+from app.core.messaging import AgentMessage, MessageType
+from app.core.runtime import get_bus, get_db
 from app.dependencies import get_current_user
 from app.models.agents import AgentState
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+# ---------------------------------------------------------------------------
+# Status → pixel state mapping
+# ---------------------------------------------------------------------------
+
+_STATUS_TO_PIXEL: dict[str, str] = {
+    "RUNNING": "ANALYZING",
+    "INIT": "IDLE",
+    "PAUSED": "IDLE",
+    "CRASHED": "ERROR",
+    "ERROR": "ERROR",
+    "STOPPED": "IDLE",
+}
+
+_AGENT_TYPE_DEPARTMENT: dict[str, str] = {
+    "regime-agent": "front_office",
+    "regime_agent": "front_office",
+    "strategy-agent": "front_office",
+    "strategy_agent": "front_office",
+    "sentiment-agent": "front_office",
+    "sentiment_agent": "front_office",
+    "risk-manager": "middle_office",
+    "risk_manager": "middle_office",
+    "portfolio-manager": "middle_office",
+    "portfolio_manager": "middle_office",
+    "debate-moderator": "middle_office",
+    "debate_moderator": "middle_office",
+    "execution-agent": "back_office",
+    "execution_agent": "back_office",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +59,8 @@ class AgentStateOut(BaseModel):
     error_message: str | None = None
     created_at: datetime
     updated_at: datetime
+    department: str = ""
+    pixel_state: str = "IDLE"
 
     model_config = {"from_attributes": True}
 
@@ -58,10 +90,14 @@ async def list_agents(
     result = await db.execute(stmt)
     rows = result.scalars().all()
 
-    return AgentListResponse(
-        agents=[AgentStateOut.model_validate(r) for r in rows],
-        count=len(rows),
-    )
+    agents = []
+    for r in rows:
+        out = AgentStateOut.model_validate(r)
+        out.department = _AGENT_TYPE_DEPARTMENT.get(out.agent_type, "")
+        out.pixel_state = _STATUS_TO_PIXEL.get(out.status, "IDLE")
+        agents.append(out)
+
+    return AgentListResponse(agents=agents, count=len(agents))
 
 
 @router.post("/{agent_id}/pause", response_model=AgentActionResponse)
@@ -90,11 +126,15 @@ async def pause_agent(
     agent.status = "PAUSED"
     await db.flush()
 
-    # Notify agent via Redis
-    await redis_client.publish(
-        f"horizon.agent.command.{agent_id}",
-        f'{{"command": "pause", "agent_id": "{agent_id}"}}',
+    # Notify agent via message bus
+    bus = get_bus()
+    msg = AgentMessage(
+        sender_id="api",
+        channel=f"horizon.agent.command.{agent_id}",
+        message_type=MessageType.AGENT_STATUS,
+        payload={"command": "pause", "agent_id": agent_id},
     )
+    await bus.publish(msg)
 
     return AgentActionResponse(
         agent_id=agent_id,
@@ -129,10 +169,14 @@ async def resume_agent(
     agent.status = "RUNNING"
     await db.flush()
 
-    await redis_client.publish(
-        f"horizon.agent.command.{agent_id}",
-        f'{{"command": "resume", "agent_id": "{agent_id}"}}',
+    bus = get_bus()
+    msg = AgentMessage(
+        sender_id="api",
+        channel=f"horizon.agent.command.{agent_id}",
+        message_type=MessageType.AGENT_STATUS,
+        payload={"command": "resume", "agent_id": agent_id},
     )
+    await bus.publish(msg)
 
     return AgentActionResponse(
         agent_id=agent_id,

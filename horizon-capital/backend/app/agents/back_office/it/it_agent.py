@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import platform
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -46,7 +46,7 @@ class ITAgent(BaseAgent):
 
     async def _health_check(self) -> None:
         """Gather system metrics and publish status."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         status = {
             "platform": platform.system(),

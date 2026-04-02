@@ -1,13 +1,16 @@
 """Market data models: instruments, OHLCV, ticks."""
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    BigInteger, DateTime, Float, Index, Integer, String, Text,
+    BigInteger,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin

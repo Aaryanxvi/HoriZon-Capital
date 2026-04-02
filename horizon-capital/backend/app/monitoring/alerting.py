@@ -7,7 +7,7 @@ is read from ``app.config.settings``.
 from __future__ import annotations
 
 import smtplib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -152,7 +152,7 @@ class AlertService:
             ``{severity, telegram_sent, email_sent, timestamp}``.
         """
         severity = severity.upper()
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
         formatted = (
             f"<b>[{severity}]</b> Horizon Capital\n"
             f"<code>{timestamp}</code>\n\n"

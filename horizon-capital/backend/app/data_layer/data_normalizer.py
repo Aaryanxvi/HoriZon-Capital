@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ class NormalizedTick(BaseModel):
 
     symbol: str = Field(..., description="Canonical symbol, e.g. RELIANCE")
     exchange: str = Field(..., description="Exchange code, e.g. NSE, NASDAQ")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_price: float
     bid: float | None = None
     ask: float | None = None

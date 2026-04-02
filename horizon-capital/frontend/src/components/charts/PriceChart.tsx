@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import type { IChartApi, ISeriesApi, CandlestickData, Time } from "lightweight-charts";
+import type { IChartApi, CandlestickData, Time } from "lightweight-charts";
 
 interface RegimeZone {
   from: number;
@@ -19,12 +19,12 @@ interface PriceChartProps {
   height?: number;
 }
 
-const REGIME_COLORS = {
+export const REGIME_COLORS = {
   BULL: "rgba(16, 185, 129, 0.06)",
   BEAR: "rgba(239, 68, 68, 0.06)",
   HIGH_VOL: "rgba(245, 158, 11, 0.06)",
   CRISIS: "rgba(139, 92, 246, 0.06)",
-};
+} as const;
 
 function generateCandleData(): CandlestickData[] {
   const data: CandlestickData[] = [];

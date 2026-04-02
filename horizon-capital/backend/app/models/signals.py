@@ -1,10 +1,8 @@
 """Trading signal model."""
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Float, Index, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin

@@ -31,10 +31,16 @@ class AttributionResponse(BaseModel):
 
     period: str
     total_pnl: float
-    by_strategy: dict[str, float] = Field(default_factory=dict, description="PnL keyed by strategy name")
-    by_symbol: dict[str, float] = Field(default_factory=dict, description="PnL keyed by ticker symbol")
+    by_strategy: dict[str, float] = Field(
+        default_factory=dict, description="PnL keyed by strategy name"
+    )
+    by_symbol: dict[str, float] = Field(
+        default_factory=dict, description="PnL keyed by ticker symbol"
+    )
     by_sector: dict[str, float] = Field(default_factory=dict, description="PnL keyed by sector")
-    by_factor: dict[str, float] = Field(default_factory=dict, description="PnL keyed by risk factor")
+    by_factor: dict[str, float] = Field(
+        default_factory=dict, description="PnL keyed by risk factor"
+    )
     timestamp: datetime
 
     model_config = {"from_attributes": True}

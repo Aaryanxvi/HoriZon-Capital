@@ -37,4 +37,18 @@ class MiddleOfficeManager(DepartmentManager):
         except ImportError:
             logger.warning("operations_agent_not_available")
 
+        # Debate
+        try:
+            from app.agents.middle_office.debate_agent import DebateAgent
+            agents.append(DebateAgent(bus=self.bus))
+        except ImportError:
+            logger.warning("debate_agent_not_available")
+
+        # Alpha Monitor (Phase 2)
+        try:
+            from app.agents.middle_office.alpha_monitor import AlphaMonitorAgent
+            agents.append(AlphaMonitorAgent(bus=self.bus))
+        except ImportError:
+            logger.warning("alpha_monitor_agent_not_available")
+
         return agents

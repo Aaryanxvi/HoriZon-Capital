@@ -7,9 +7,7 @@ for pub/sub so no external infrastructure is needed.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Coroutine
 from fnmatch import fnmatch
-from typing import Any
 
 from app.core.messaging import AgentMessage, MessageHandler
 
@@ -53,7 +51,7 @@ class MemoryBus:
             while self._running:
                 try:
                     message = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 channel = message.channel

@@ -9,9 +9,8 @@ import {
   ShieldAlert,
   TrendingUp,
   Terminal,
-  Menu,
-  X,
-  Hexagon,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import clsx from "clsx";
 import { useSystemStore } from "@/store";
@@ -26,55 +25,25 @@ const NAV_ITEMS = [
   { to: "/cio", icon: Terminal, label: "CIO" },
 ] as const;
 
-const MODE_COLORS: Record<string, string> = {
-  autonomous: "bg-accent-red text-white",
-  supervised: "bg-accent-yellow text-black",
-  manual: "bg-accent-blue text-white",
-};
-
 const MODE_LABELS: Record<string, string> = {
   autonomous: "AUTO",
-  supervised: "HUMAN",
+  supervised: "SUPERVISED",
   manual: "PAPER",
 };
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const location = useLocation();
   const mode = useSystemStore((s) => s.mode);
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-horizon-border">
-        <div className="relative">
-          <Hexagon className="w-8 h-8 text-accent-blue" strokeWidth={1.5} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-2 h-2 bg-accent-blue rounded-full" />
-          </div>
-        </div>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden whitespace-nowrap"
-            >
-              <h1 className="text-lg font-bold text-white tracking-tight">
-                Horizon<span className="text-accent-blue">Capital</span>
-              </h1>
-              <p className="text-[10px] text-gray-500 -mt-0.5 tracking-wider uppercase">
-                AI Trading System
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-1">
+  return (
+    <motion.aside
+      animate={{ width: collapsed ? 56 : 200 }}
+      transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      className="flex-shrink-0 bg-horizon-dark border-r border-horizon-border/50 h-full overflow-hidden flex flex-col"
+    >
+      {/* Nav items */}
+      <nav className="flex-1 py-3 px-1.5 space-y-0.5">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => {
           const isActive =
             to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
@@ -82,15 +51,14 @@ export default function Sidebar() {
             <NavLink
               key={to}
               to={to}
-              onClick={() => setMobileOpen(false)}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 relative",
                 isActive
-                  ? "bg-accent-blue/10 text-accent-blue border border-accent-blue/20"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent"
+                  ? "bg-white/[0.08] text-white"
+                  : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
               )}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
+              <Icon className={clsx("w-[18px] h-[18px] flex-shrink-0", isActive && "text-accent-blue")} />
               <AnimatePresence>
                 {!collapsed && (
                   <motion.span
@@ -103,92 +71,33 @@ export default function Sidebar() {
                   </motion.span>
                 )}
               </AnimatePresence>
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute left-0 w-0.5 h-6 bg-accent-blue rounded-r-full"
-                />
-              )}
             </NavLink>
           );
         })}
       </nav>
 
-      {/* Mode Badge */}
-      <div className="px-4 py-4 border-t border-horizon-border">
-        <div
-          className={clsx(
-            "flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold tracking-wider",
-            MODE_COLORS[mode]
-          )}
-        >
-          <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
-          {!collapsed && <span>{MODE_LABELS[mode]} MODE</span>}
+      {/* Bottom: mode + collapse */}
+      <div className="px-2 pb-2 space-y-1">
+        {/* Mode indicator */}
+        <div className={clsx(
+          "flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[10px] font-semibold tracking-wider",
+          "bg-white/[0.04] text-gray-500"
+        )}>
+          <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+          {!collapsed && <span>{MODE_LABELS[mode]}</span>}
         </div>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-center py-1.5 text-gray-600 hover:text-gray-400 transition-colors rounded-md hover:bg-white/[0.03]"
+        >
+          {collapsed
+            ? <ChevronsRight className="w-3.5 h-3.5" />
+            : <ChevronsLeft className="w-3.5 h-3.5" />
+          }
+        </button>
       </div>
-
-      {/* Collapse Toggle (desktop) */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="hidden lg:flex items-center justify-center py-3 border-t border-horizon-border text-gray-500 hover:text-gray-300 transition-colors"
-      >
-        <Menu className="w-4 h-4" />
-      </button>
-    </div>
-  );
-
-  return (
-    <>
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-horizon-card rounded-lg border border-horizon-border text-gray-400"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-
-      {/* Mobile overlay */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black/60 z-40"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Mobile sidebar */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.aside
-            initial={{ x: -280 }}
-            animate={{ x: 0 }}
-            exit={{ x: -280 }}
-            transition={{ type: "spring", damping: 25, stiffness: 250 }}
-            className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-horizon-dark border-r border-horizon-border z-50"
-          >
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-300"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            {sidebarContent}
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
-      {/* Desktop sidebar */}
-      <motion.aside
-        animate={{ width: collapsed ? 72 : 240 }}
-        transition={{ type: "spring", damping: 25, stiffness: 250 }}
-        className="hidden lg:block flex-shrink-0 bg-horizon-dark border-r border-horizon-border h-screen overflow-hidden relative"
-      >
-        {sidebarContent}
-      </motion.aside>
-    </>
+    </motion.aside>
   );
 }

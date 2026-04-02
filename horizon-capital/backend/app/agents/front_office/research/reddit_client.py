@@ -118,6 +118,9 @@ class RedditClient:
             Each dict contains ``title``, ``body``, ``score``,
             ``num_comments``, ``created_utc``, and ``subreddit``.
         """
+        if not self.client_id or not self.client_secret:
+            return []
+
         subreddits = subreddits or DEFAULT_SUBREDDITS
 
         loop = asyncio.get_running_loop()

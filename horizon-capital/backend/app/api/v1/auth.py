@@ -3,16 +3,20 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.config import settings
+from app.core.resilience import RateLimiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
-    verify_password,
     hash_password,
+    verify_password,
 )
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Rate limit: 5 login attempts per 60 seconds
+_login_limiter = RateLimiter(name="auth_login", max_calls=5, window_seconds=60.0)
 
 # Pre-hash the default password at module load so verify_password works
 _hashed_default_password: str | None = None
@@ -28,6 +32,12 @@ def _get_hashed_default_password() -> str:
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest) -> TokenResponse:
     """Authenticate the CIO user and return a JWT token pair."""
+    if not await _login_limiter.acquire():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again in 60 seconds.",
+        )
+
     if body.username != settings.cio_default_username:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

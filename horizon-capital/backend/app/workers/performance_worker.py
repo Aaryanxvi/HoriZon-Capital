@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
 from sqlalchemy import text
 
-from app.core.database import async_session_factory
+from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 logger = get_logger("worker.performance")
 
@@ -35,7 +40,7 @@ class PerformanceService:
     @staticmethod
     def _period_start(period: str) -> datetime:
         """Return the UTC datetime that marks the start of the given period."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if period == "1d":
             return now - timedelta(days=1)
         if period == "7d":
@@ -45,9 +50,9 @@ class PerformanceService:
         if period == "90d":
             return now - timedelta(days=90)
         if period == "YTD":
-            return datetime(now.year, 1, 1, tzinfo=timezone.utc)
+            return datetime(now.year, 1, 1, tzinfo=UTC)
         # ALL -- go back far enough
-        return datetime(2000, 1, 1, tzinfo=timezone.utc)
+        return datetime(2000, 1, 1, tzinfo=UTC)
 
     # ------------------------------------------------------------------
     # Data loading
@@ -56,7 +61,7 @@ class PerformanceService:
     @staticmethod
     async def _load_equity_curve(since: datetime) -> np.ndarray:
         """Load portfolio total_value time series from portfolio_snapshots."""
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
@@ -76,7 +81,7 @@ class PerformanceService:
     @staticmethod
     async def _load_trades(since: datetime) -> list[dict[str, Any]]:
         """Load closed trade PnL from fills + orders."""
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
@@ -147,7 +152,7 @@ class PerformanceService:
             return 0.0
         excess = returns - risk_free_rate / TRADING_DAYS_PER_YEAR
         downside = excess[excess < 0]
-        if len(downside) == 0:
+        if len(downside) < 2:
             return 0.0
         downside_std = float(np.std(downside, ddof=1))
         if downside_std == 0:
@@ -203,6 +208,97 @@ class PerformanceService:
         return float(gross_profit / gross_loss)
 
     # ------------------------------------------------------------------
+    # Alpha vs benchmark
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def _load_benchmark_returns(
+        benchmark_symbol: str,
+        since: datetime,
+    ) -> np.ndarray:
+        """Load benchmark OHLCV and return daily close returns.
+
+        Tries local DB first (symbol may exist from backfill), then
+        falls back to yfinance for on-demand fetch.
+        """
+        # Try local DB
+        async with _get_session_factory()() as session:
+            result = await session.execute(
+                text(
+                    """
+                    SELECT close
+                    FROM ohlcv
+                    WHERE symbol = :symbol AND timeframe = '1d'
+                      AND timestamp >= :since
+                    ORDER BY timestamp ASC
+                    """
+                ),
+                {"symbol": benchmark_symbol, "since": since},
+            )
+            rows = result.fetchall()
+
+        if len(rows) >= 10:
+            closes = np.array([r.close for r in rows], dtype=np.float64)
+            if len(closes) < 2:
+                return np.array([], dtype=np.float64)
+            return np.diff(closes) / np.where(closes[:-1] == 0, 1.0, closes[:-1])
+
+        # Fallback: fetch from yfinance
+        try:
+            import yfinance as yf
+
+            yf_map = {
+                "NIFTY50": "^NSEI",
+                "SPX": "^GSPC",
+                "SP500": "^GSPC",
+            }
+            ticker_symbol = yf_map.get(benchmark_symbol, benchmark_symbol)
+            ticker = yf.Ticker(ticker_symbol)
+
+            days_back = (datetime.now(UTC) - since).days + 5
+            period = f"{max(days_back, 30)}d"
+            hist = ticker.history(period=period)
+
+            if hist.empty or len(hist) < 2:
+                return np.array([], dtype=np.float64)
+
+            closes = hist["Close"].values.astype(np.float64)
+            return np.diff(closes) / np.where(closes[:-1] == 0, 1.0, closes[:-1])
+        except Exception:
+            return np.array([], dtype=np.float64)
+
+    @classmethod
+    def _compute_alpha(
+        cls,
+        portfolio_returns: np.ndarray,
+        benchmark_returns: np.ndarray,
+    ) -> float:
+        """Compute Jensen's alpha: annualized excess return vs benchmark.
+
+        Alpha = annualized(portfolio_return - beta * benchmark_return)
+        Uses simple excess return when there's insufficient data for regression.
+        """
+        if len(portfolio_returns) < 5 or len(benchmark_returns) < 5:
+            return 0.0
+
+        # Align lengths (use the shorter series)
+        n = min(len(portfolio_returns), len(benchmark_returns))
+        p_ret = portfolio_returns[-n:]
+        b_ret = benchmark_returns[-n:]
+
+        # Compute beta via OLS: beta = cov(p, b) / var(b)
+        b_var = float(np.var(b_ret, ddof=1))
+        if b_var == 0:
+            return 0.0
+        beta = float(np.cov(p_ret, b_ret)[0, 1] / b_var)
+
+        # Jensen's alpha (daily)
+        daily_alpha = float(np.mean(p_ret) - beta * np.mean(b_ret))
+
+        # Annualize
+        return float(daily_alpha * TRADING_DAYS_PER_YEAR)
+
+    # ------------------------------------------------------------------
     # Full snapshot
     # ------------------------------------------------------------------
 
@@ -211,6 +307,22 @@ class PerformanceService:
         since = self._period_start(period)
         equity = await self._load_equity_curve(since)
         trades = await self._load_trades(since)
+        portfolio_returns = self._compute_returns(equity)
+
+        # Compute alpha against NIFTY 50 and S&P 500
+        alpha_india = 0.0
+        alpha_us = 0.0
+        if len(portfolio_returns) >= 5:
+            try:
+                nifty_returns = await self._load_benchmark_returns("NIFTY50", since)
+                alpha_india = round(self._compute_alpha(portfolio_returns, nifty_returns), 6)
+            except Exception:
+                pass
+            try:
+                spx_returns = await self._load_benchmark_returns("SPX", since)
+                alpha_us = round(self._compute_alpha(portfolio_returns, spx_returns), 6)
+            except Exception:
+                pass
 
         return {
             "period": period,
@@ -222,8 +334,8 @@ class PerformanceService:
             "max_drawdown": round(self._max_drawdown(equity), 6),
             "win_rate": round(self._win_rate(trades), 4),
             "profit_factor": round(self._profit_factor(trades), 4),
-            "alpha_india": 0.0,  # TODO: benchmark against NIFTY
-            "alpha_us": 0.0,  # TODO: benchmark against SPX
+            "alpha_india": alpha_india,
+            "alpha_us": alpha_us,
             "total_trades": len([t for t in trades if t["side"] == "SELL"]),
             "attribution": {},
         }
@@ -242,13 +354,16 @@ class PerformanceWorker:
         self._running = True
         logger.info("performance_worker.starting")
 
-        while self._running:
-            try:
-                await self._compute_and_store_all()
-            except Exception as exc:
-                logger.error("performance_worker.snapshot_error", error=str(exc))
+        try:
+            while self._running:
+                try:
+                    await self._compute_and_store_all()
+                except Exception as exc:
+                    logger.error("performance_worker.snapshot_error", error=str(exc))
 
-            await asyncio.sleep(SNAPSHOT_INTERVAL)
+                await asyncio.sleep(SNAPSHOT_INTERVAL)
+        except asyncio.CancelledError:
+            pass
 
     async def stop(self) -> None:
         """Graceful shutdown."""
@@ -259,14 +374,14 @@ class PerformanceWorker:
         """Compute snapshots for every period and persist to Postgres + Redis."""
         import orjson
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for period in PERIODS:
             try:
                 snapshot = await self.service.compute_snapshot(period)
 
                 # Persist to performance_snapshots table
-                async with async_session_factory() as session:
+                async with _get_session_factory()() as session:
                     await session.execute(
                         text(
                             """
@@ -277,14 +392,15 @@ class PerformanceWorker:
                                  alpha_india, alpha_us, total_trades,
                                  attribution, created_at, updated_at)
                             VALUES
-                                (gen_random_uuid(), :period, :total_return, :annualized_return,
+                                (:id, :period, :total_return, :annualized_return,
                                  :sharpe_ratio, :sortino_ratio, :calmar_ratio,
                                  :max_drawdown, :win_rate, :profit_factor,
                                  :alpha_india, :alpha_us, :total_trades,
-                                 :attribution::jsonb, :now, :now)
+                                 :attribution, :now, :now)
                             """
                         ),
                         {
+                            "id": str(uuid.uuid4()),
                             "period": snapshot["period"],
                             "total_return": snapshot["total_return"],
                             "annualized_return": snapshot["annualized_return"],
@@ -305,11 +421,12 @@ class PerformanceWorker:
 
                 # Cache latest for each period in Redis
                 redis_key = f"horizon:performance:{period}"
-                await redis_client.hset(
+                kv = get_kv_store()
+                await kv.hset(
                     redis_key,
                     mapping={k: str(v) for k, v in snapshot.items()},
                 )
-                await redis_client.expire(redis_key, 3600)
+                await kv.expire(redis_key, 3600)
 
                 logger.debug(
                     "performance_snapshot_stored",

@@ -22,7 +22,7 @@ class GeminiProvider(BaseLLMProvider):
             self._client = genai.GenerativeModel(self.model)
         return self._client
 
-    async def complete(
+    async def _do_complete(
         self,
         system_prompt: str,
         messages: list[dict],

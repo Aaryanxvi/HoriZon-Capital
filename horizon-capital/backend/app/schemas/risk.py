@@ -28,7 +28,9 @@ class RiskLimitResponse(BaseModel):
 
     id: str
     name: str
-    limit_type: str = Field(..., description="'drawdown', 'var', 'exposure', 'concentration', 'position_size'")
+    limit_type: str = Field(
+        ..., description="'drawdown', 'var', 'exposure', 'concentration', 'position_size'"
+    )
     limit_value: float
     current_value: float
     utilisation: float = Field(..., ge=0.0, description="current_value / limit_value as a fraction")

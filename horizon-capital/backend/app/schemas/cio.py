@@ -17,10 +17,14 @@ class ModeChangeRequest(BaseModel):
 class OverrideRequest(BaseModel):
     """CIO override of an agent decision or risk limit."""
 
-    override_type: str = Field(..., description="'agent_decision', 'risk_limit', 'position_limit', 'signal'")
+    override_type: str = Field(
+        ..., description="'agent_decision', 'risk_limit', 'position_limit', 'signal'"
+    )
     target_id: str = Field(..., description="ID of the entity being overridden")
     action: str = Field(..., description="'approve', 'reject', 'modify'")
-    parameters: dict[str, str | float | bool] = Field(default_factory=dict, description="Override-specific parameters")
+    parameters: dict[str, str | float | bool] = Field(
+        default_factory=dict, description="Override-specific parameters"
+    )
     reason: str = Field(..., min_length=5)
     requested_by: str
     expires_at: datetime | None = None

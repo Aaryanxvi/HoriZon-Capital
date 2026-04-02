@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick
-
 
 TickCallback = Callable[[NormalizedTick], Awaitable[None]]
 OHLCVCallback = Callable[[NormalizedOHLCV], Awaitable[None]]

@@ -7,7 +7,7 @@ detects model drift.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -35,7 +35,7 @@ class QuantAgent(BaseAgent):
     async def on_message(self, message: AgentMessage) -> None:
         if message.message_type == MessageType.FEATURE_UPDATE:
             scope = message.payload.get("market_scope", "unknown")
-            self._feature_timestamps[scope] = datetime.now(timezone.utc)
+            self._feature_timestamps[scope] = datetime.now(UTC)
 
     async def run(self) -> None:
         """Monitor feature pipeline freshness and model health."""
@@ -48,7 +48,7 @@ class QuantAgent(BaseAgent):
 
     async def _check_feature_freshness(self) -> None:
         """Check that feature data is being updated regularly."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stale_scopes = []
 
         for scope, last_ts in self._feature_timestamps.items():

@@ -5,15 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        "horizon-dark": "#0a0e17",
-        "horizon-darker": "#060910",
-        "horizon-card": "#111827",
-        "horizon-border": "#1f2937",
+        "horizon-dark": "#0c1017",
+        "horizon-darker": "#080b11",
+        "horizon-card": "#111723",
+        "horizon-border": "#1c2433",
         "accent-green": "#10b981",
         "accent-red": "#ef4444",
-        "accent-blue": "#3b82f6",
+        "accent-blue": "#6b8afd",
         "accent-yellow": "#f59e0b",
-        "accent-purple": "#8b5cf6",
+        "accent-purple": "#a78bfa",
       },
     },
   },

@@ -1,6 +1,6 @@
 """CIO (Chief Investment Officer) control endpoints: mode, override, halt, status."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -28,7 +28,9 @@ class OverrideRequest(BaseModel):
 
 class HaltRequest(BaseModel):
     reason: str = Field(..., min_length=1)
-    duration_minutes: int | None = Field(None, ge=1, le=1440, description="Auto-resume after N minutes")
+    duration_minutes: int | None = Field(
+        None, ge=1, le=1440, description="Auto-resume after N minutes"
+    )
 
 
 class CIOStatusResponse(BaseModel):
@@ -80,7 +82,7 @@ async def get_cio_status(
         halt_active=(halt_active == "true"),
         halt_reason=halt_reason,
         halt_until=halt_until,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
 
 
@@ -154,7 +156,7 @@ async def halt_system(
     if body.duration_minutes:
         from datetime import timedelta
 
-        resume_at = datetime.now(timezone.utc) + timedelta(minutes=body.duration_minutes)
+        resume_at = datetime.now(UTC) + timedelta(minutes=body.duration_minutes)
         await redis_client.set("horizon:system:halt_until", resume_at.isoformat())
         # Set a TTL-based auto-clear
         await redis_client.setex(

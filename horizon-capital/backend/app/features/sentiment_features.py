@@ -6,7 +6,7 @@ sources) and produces aggregate metrics over a configurable look-back window.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core.logging import get_logger
 
@@ -44,7 +44,7 @@ class SentimentFeatures:
             - ``article_count``: number of articles in window
             - ``momentum``: sentiment acceleration (recent half vs older half)
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff = now - timedelta(days=window_days)
 
         # Filter to window
@@ -60,7 +60,7 @@ class SentimentFeatures:
                 except (ValueError, TypeError):
                     continue
             if pub.tzinfo is None:
-                pub = pub.replace(tzinfo=timezone.utc)
+                pub = pub.replace(tzinfo=UTC)
             if pub >= cutoff:
                 in_window.append({**n, "_pub_dt": pub})
 

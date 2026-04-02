@@ -19,13 +19,12 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Redirect to /login on 401
+// Handle response errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
-      window.location.href = "/login";
     }
     return Promise.reject(error);
   }
@@ -115,10 +114,58 @@ export interface Agent {
   name: string;
   type: string;
   status: "active" | "paused" | "error";
+  department: string;
+  pixelState: "IDLE" | "ANALYZING" | "DEBATING" | "EXECUTING" | "ERROR";
   last_signal_at?: string;
+  lastHeartbeat?: string;
   signals_today: number;
   accuracy_30d: number;
   description: string;
+}
+
+/** Raw shape returned by the backend GET /agents endpoint. */
+interface BackendAgent {
+  agent_id: string;
+  agent_type: string;
+  status: string;
+  last_heartbeat: string | null;
+  config: Record<string, unknown>;
+  metrics: Record<string, unknown>;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  department: string;
+  pixel_state: string;
+}
+
+const STATUS_MAP: Record<string, "active" | "paused" | "error"> = {
+  RUNNING: "active",
+  INIT: "active",
+  PAUSED: "paused",
+  CRASHED: "error",
+  ERROR: "error",
+  STOPPED: "paused",
+};
+
+function agentTypeName(agentType: string): string {
+  return agentType
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function mapBackendAgent(raw: BackendAgent): Agent {
+  return {
+    id: raw.agent_id,
+    name: agentTypeName(raw.agent_type),
+    type: raw.agent_type,
+    status: STATUS_MAP[raw.status] ?? "active",
+    department: raw.department,
+    pixelState: (raw.pixel_state as Agent["pixelState"]) ?? "IDLE",
+    lastHeartbeat: raw.last_heartbeat ?? undefined,
+    signals_today: (raw.metrics as { signals_today?: number }).signals_today ?? 0,
+    accuracy_30d: (raw.metrics as { accuracy_30d?: number }).accuracy_30d ?? 0,
+    description: raw.error_message ?? "",
+  };
 }
 
 export interface DebateSession {
@@ -238,8 +285,8 @@ export async function getRiskMetrics(): Promise<RiskMetrics> {
 
 // Agents
 export async function getAgents(): Promise<Agent[]> {
-  const res = await api.get<Agent[]>("/agents");
-  return res.data;
+  const res = await api.get<{ agents: BackendAgent[]; count: number }>("/agents");
+  return res.data.agents.map(mapBackendAgent);
 }
 
 export async function pauseAgent(agentId: string): Promise<Agent> {

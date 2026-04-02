@@ -57,6 +57,46 @@ class ProviderRegistry:
         available = self.list_available()
         logger.info("llm_providers_available", providers=available)
 
+    def get_providers_for_department(self, department: str) -> list[BaseLLMProvider]:
+        """Return the providers configured for a given department.
+
+        Respects per-department AI routing settings (ai_front_office, etc.).
+        Falls back to all available providers when set to "auto".
+        Returns empty list if set to "none".
+        """
+        from app.config import settings
+
+        dept_map = {
+            "front_office": settings.ai_front_office,
+            "middle_office": settings.ai_middle_office,
+            "back_office": settings.ai_back_office,
+            "executive": settings.ai_executive,
+        }
+        configured = dept_map.get(department, "auto").lower().strip()
+
+        if configured == "none":
+            return []
+        if configured == "auto":
+            return [p for p in self._providers.values()]
+
+        # Specific provider requested
+        provider = self._providers.get(configured)
+        if provider is not None:
+            return [provider]
+
+        # Requested provider not registered — fall back to any available
+        logger.warning(
+            "dept_provider_not_available",
+            department=department,
+            requested=configured,
+        )
+        return [p for p in self._providers.values()]
+
+    def get_provider_name_for_department(self, department: str) -> str:
+        """Return a single provider name for a department, or empty string."""
+        providers = self.get_providers_for_department(department)
+        return providers[0].provider_name if providers else ""
+
 
 # Module-level singleton
 provider_registry = ProviderRegistry()

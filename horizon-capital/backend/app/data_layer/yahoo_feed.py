@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC
 
 import yfinance as yf
 
@@ -93,6 +92,13 @@ class YahooFeed(BaseFeed):
     # ------------------------------------------------------------------
     # Public helpers
     # ------------------------------------------------------------------
+    async def fetch_latest(self, symbol: str) -> list[NormalizedOHLCV]:
+        """Fetch the latest daily bar for *symbol*. Alias used by the ingestion worker."""
+        bars = await self.poll_ohlcv(symbol, period="5d", interval="1d")
+        for bar in bars:
+            await self._emit_ohlcv(bar)
+        return bars
+
     async def poll_ohlcv(
         self,
         symbol: str,
@@ -134,7 +140,7 @@ class YahooFeed(BaseFeed):
             bar = NormalizedOHLCV(
                 symbol=self._canonical_symbol(symbol),
                 exchange=exchange,
-                timestamp=ts.to_pydatetime().replace(tzinfo=timezone.utc),
+                timestamp=ts.to_pydatetime().replace(tzinfo=UTC),
                 timeframe=interval,
                 open=float(row["Open"]),
                 high=float(row["High"]),

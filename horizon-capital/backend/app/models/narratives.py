@@ -18,7 +18,8 @@ class Narrative(Base, UUIDMixin, TimestampMixin):
     sentiment_score: Mapped[float] = mapped_column(Float, nullable=False)  # -1.0 to 1.0
     relevance_score: Mapped[float] = mapped_column(Float, default=1.0)
     engagement_score: Mapped[float] = mapped_column(Float, default=0.0)
-    lifecycle_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)  # BIRTH, ACCELERATION, PEAK, DECAY
+    # BIRTH, ACCELERATION, PEAK, DECAY
+    lifecycle_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (

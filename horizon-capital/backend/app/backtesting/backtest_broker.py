@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.logging import get_logger
 
@@ -36,7 +36,7 @@ class SimFill:
     fill_price: float = 0.0
     slippage: float = 0.0
     commission: float = 0.0
-    filled_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    filled_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class BacktestBroker:
@@ -128,7 +128,7 @@ class BacktestBroker:
         bar_high = current_bar["high"]
         bar_low = current_bar["low"]
         bar_volume = current_bar.get("volume", 0)
-        bar_ts = current_bar.get("timestamp", datetime.now(timezone.utc))
+        bar_ts = current_bar.get("timestamp", datetime.now(UTC))
 
         slippage_abs = self.slippage_model(bar_open, bar_volume, order.quantity)
 
@@ -164,7 +164,7 @@ class BacktestBroker:
             fill_price=round(fill_price, 4),
             slippage=round(slippage_abs, 4),
             commission=round(commission, 4),
-            filled_at=bar_ts if isinstance(bar_ts, datetime) else datetime.now(timezone.utc),
+            filled_at=bar_ts if isinstance(bar_ts, datetime) else datetime.now(UTC),
         )
 
         logger.debug(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -67,6 +67,14 @@ class CryptoFeed(BaseFeed):
         self._task = asyncio.create_task(self._poll_loop())
 
     # ------------------------------------------------------------------
+    # Public helpers
+    # ------------------------------------------------------------------
+    async def fetch_latest(self, symbol: str) -> None:
+        """Fetch the latest price for *symbol*. Used by the ingestion worker."""
+        async with httpx.AsyncClient(timeout=15) as client:
+            await self._fetch_prices(client)
+
+    # ------------------------------------------------------------------
     # Polling
     # ------------------------------------------------------------------
     async def _poll_loop(self) -> None:
@@ -113,9 +121,9 @@ class CryptoFeed(BaseFeed):
 
             ts = info.get("last_updated_at")
             timestamp = (
-                datetime.fromtimestamp(ts, tz=timezone.utc)
+                datetime.fromtimestamp(ts, tz=UTC)
                 if ts
-                else datetime.now(timezone.utc)
+                else datetime.now(UTC)
             )
 
             tick = NormalizedTick(

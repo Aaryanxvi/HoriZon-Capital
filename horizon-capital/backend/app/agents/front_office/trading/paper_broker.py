@@ -1,40 +1,154 @@
-"""Paper (simulated) broker -- fills orders at the last known price with small random slippage."""
+"""Paper (simulated) broker with Almgren-Chriss market impact model.
+
+Replaces simple random slippage with a market-impact model that separates
+permanent and temporary price impact based on order size, daily volume,
+and volatility.
+
+References
+----------
+- Almgren & Chriss (2000), "Optimal Execution of Portfolio Transactions",
+  J. Risk, 3(2), 5-39 (1,610 citations).
+"""
 
 import random
-from datetime import datetime, timezone
-
-from redis.asyncio import Redis
+from datetime import UTC, datetime
 
 from app.core.logging import get_logger
 
+
+def _get_kv():
+    from app.core.kv_store import get_kv_store
+    return get_kv_store()
+
+
 logger = get_logger("execution.paper_broker")
+
+# Almgren-Chriss default parameters (calibrated for liquid US equities)
+_DEFAULT_DAILY_VOLUME = 1_000_000  # shares; used when actual volume unknown
+_DEFAULT_VOLATILITY = 0.02  # 2% daily volatility
+_PERMANENT_IMPACT_GAMMA = 0.314  # permanent impact exponent
+_PERMANENT_IMPACT_ETA = 0.142  # permanent impact coefficient
+_TEMPORARY_IMPACT_EPSILON = 0.0625  # temporary impact half-spread
+_TEMPORARY_IMPACT_ETA = 0.142  # temporary impact coefficient
+_TEMPORARY_IMPACT_GAMMA = 0.600  # temporary impact exponent
+
+
+class AlmgrenChrissModel:
+    """Almgren-Chriss market impact model (closed-form).
+
+    Separates total market impact into:
+    - Permanent impact: irreversible price move from information content
+    - Temporary impact: transient cost from market microstructure
+
+    Total slippage = permanent_impact + temporary_impact
+    """
+
+    @staticmethod
+    def compute_impact(
+        quantity: float,
+        price: float,
+        daily_volume: float = _DEFAULT_DAILY_VOLUME,
+        volatility: float = _DEFAULT_VOLATILITY,
+        side: str = "BUY",
+    ) -> dict:
+        """Compute Almgren-Chriss market impact.
+
+        Parameters
+        ----------
+        quantity:
+            Number of shares being traded.
+        price:
+            Current mid-price.
+        daily_volume:
+            Average daily volume in shares.
+        volatility:
+            Daily volatility as a decimal (e.g. 0.02 = 2%).
+        side:
+            "BUY" or "SELL".
+
+        Returns
+        -------
+        dict
+            Keys: permanent_impact, temporary_impact, total_impact_pct,
+            fill_price, slippage_amount
+        """
+        if quantity <= 0 or price <= 0 or daily_volume <= 0:
+            return {
+                "permanent_impact": 0.0,
+                "temporary_impact": 0.0,
+                "total_impact_pct": 0.0,
+                "fill_price": price,
+                "slippage_amount": 0.0,
+            }
+
+        # Participation rate: fraction of daily volume
+        participation = quantity / daily_volume
+
+        # Permanent impact: g(v) = eta * sigma * (Q/V)^gamma
+        # This is the irreversible price move
+        permanent = (
+            _PERMANENT_IMPACT_ETA
+            * volatility
+            * price
+            * (participation ** _PERMANENT_IMPACT_GAMMA)
+        )
+
+        # Temporary impact: h(v) = epsilon * sign + eta * sigma * |n/V|^gamma
+        # epsilon is the half-spread, eta * sigma * |n/V|^gamma is the
+        # market-moving component
+        temporary = (
+            _TEMPORARY_IMPACT_EPSILON * price
+            + _TEMPORARY_IMPACT_ETA
+            * volatility
+            * price
+            * (participation ** _TEMPORARY_IMPACT_GAMMA)
+        )
+
+        total_impact = permanent + temporary
+        total_impact_pct = total_impact / price if price > 0 else 0.0
+
+        # Apply direction
+        direction = 1 if side == "BUY" else -1
+        fill_price = price + direction * total_impact
+
+        # Add small random noise (microstructure)
+        noise = random.gauss(0, volatility * price * 0.01)
+        fill_price += noise
+
+        slippage_amount = abs(fill_price - price) * quantity
+
+        return {
+            "permanent_impact": round(permanent, 6),
+            "temporary_impact": round(temporary, 6),
+            "total_impact_pct": round(total_impact_pct, 6),
+            "fill_price": round(fill_price, 6),
+            "slippage_amount": round(slippage_amount, 6),
+        }
 
 
 class PaperBroker:
-    """Simulated broker that fills every order immediately.
+    """Simulated broker using Almgren-Chriss market impact model.
 
     Uses the last price cached in Redis (``horizon:price:<symbol>``) as the
-    mid-price and adds a small random slippage between 0 % and 0.1 %.
-    Commission is always zero.
+    mid-price and applies the Almgren-Chriss model for realistic slippage.
     """
 
-    def __init__(self, redis: Redis) -> None:
-        self.redis = redis
+    def __init__(self) -> None:
+        self._impact_model = AlmgrenChrissModel()
 
     async def execute(self, order: dict) -> dict:
-        """Simulate order execution.
+        """Simulate order execution with Almgren-Chriss impact.
 
         Parameters
         ----------
         order:
             Dict with at least: ``symbol``, ``side``, ``quantity``.
-            Optional: ``limit_price``.
+            Optional: ``limit_price``, ``daily_volume``, ``volatility``.
 
         Returns
         -------
         dict
-            Fill record with keys: ``order_id``, ``filled_qty``,
-            ``fill_price``, ``commission``, ``slippage``, ``filled_at``.
+            Fill record with market impact breakdown.
         """
         symbol = order["symbol"]
         side = order.get("side", "BUY")
@@ -47,23 +161,39 @@ class PaperBroker:
             logger.warning("no_price_for_paper_fill", symbol=symbol)
             return self._rejection(order_id, "No price available for paper fill")
 
-        # Apply slippage: 0-0.1 % adverse
-        slippage_pct = random.uniform(0.0, 0.001)
-        if side == "BUY":
-            fill_price = last_price * (1.0 + slippage_pct)
-        else:
-            fill_price = last_price * (1.0 - slippage_pct)
+        # Get optional market data
+        daily_volume = order.get("daily_volume", _DEFAULT_DAILY_VOLUME)
+        volatility = order.get("volatility", _DEFAULT_VOLATILITY)
 
-        slippage_amount = abs(fill_price - last_price) * quantity
+        # Try to read cached volume from KV store
+        cached_vol = await _get_kv().get(f"horizon:volume:{symbol}")
+        if cached_vol is not None:
+            try:
+                daily_volume = float(cached_vol)
+            except (ValueError, TypeError):
+                pass
+
+        # Compute Almgren-Chriss market impact
+        impact = self._impact_model.compute_impact(
+            quantity=quantity,
+            price=last_price,
+            daily_volume=daily_volume,
+            volatility=volatility,
+            side=side,
+        )
 
         fill = {
             "order_id": order_id,
             "filled_qty": quantity,
-            "fill_price": round(fill_price, 6),
+            "fill_price": impact["fill_price"],
             "commission": 0.0,
-            "slippage": round(slippage_amount, 6),
-            "filled_at": datetime.now(timezone.utc).isoformat(),
+            "slippage": impact["slippage_amount"],
+            "slippage_pct": impact["total_impact_pct"],
+            "permanent_impact": impact["permanent_impact"],
+            "temporary_impact": impact["temporary_impact"],
+            "filled_at": datetime.now(UTC).isoformat(),
             "broker": "PAPER",
+            "impact_model": "almgren_chriss",
         }
 
         logger.info(
@@ -72,7 +202,9 @@ class PaperBroker:
             side=side,
             qty=quantity,
             price=fill["fill_price"],
-            slippage_pct=f"{slippage_pct * 100:.4f}%",
+            slippage_pct=f"{impact['total_impact_pct'] * 100:.4f}%",
+            permanent=impact["permanent_impact"],
+            temporary=impact["temporary_impact"],
         )
 
         return fill
@@ -82,8 +214,8 @@ class PaperBroker:
     # ------------------------------------------------------------------ #
 
     async def _get_last_price(self, symbol: str) -> float:
-        """Read the cached last price from Redis."""
-        val = await self.redis.get(f"horizon:price:{symbol}")
+        """Read the cached last price from KV store."""
+        val = await _get_kv().get(f"horizon:price:{symbol}")
         if val is not None:
             try:
                 return float(val)
@@ -99,7 +231,7 @@ class PaperBroker:
             "fill_price": 0.0,
             "commission": 0.0,
             "slippage": 0.0,
-            "filled_at": datetime.now(timezone.utc).isoformat(),
+            "filled_at": datetime.now(UTC).isoformat(),
             "broker": "PAPER",
             "rejected": True,
             "rejection_reason": reason,

@@ -21,7 +21,7 @@ class OpenAIProvider(BaseLLMProvider):
             self._client = openai.AsyncOpenAI(api_key=self.api_key)
         return self._client
 
-    async def complete(
+    async def _do_complete(
         self,
         system_prompt: str,
         messages: list[dict],

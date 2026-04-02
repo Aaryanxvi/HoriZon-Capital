@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.agents.base_agent import BaseAgent
 from app.agents.department_manager import DepartmentManager
-from app.agents.departments import DepartmentType
-from app.config import settings
 from app.core.logging import get_logger
-from app.core.messaging import AgentMessage, MessageType
+from app.core.messaging import AgentMessage
 
 logger = get_logger("worker.agent_orchestrator")
 
@@ -29,7 +27,7 @@ class _AgentSlot:
         self.agent = agent
         self.task: asyncio.Task | None = None
         self.retries: int = 0
-        self.last_heartbeat: datetime = datetime.now(timezone.utc)
+        self.last_heartbeat: datetime = datetime.now(UTC)
         self.status: str = "INIT"
         self.department: str = department
 
@@ -41,6 +39,7 @@ class AgentOrchestrator:
     - Instantiate department managers which create their agents.
     - Launch each agent as an independent ``asyncio.Task``.
     - Monitor heartbeats; restart crashed agents (up to ``MAX_RETRIES``).
+    - Supervise background workers; restart them on crash.
     - Expose ``start_all`` / ``stop_all`` for clean lifecycle management.
     """
 
@@ -52,7 +51,16 @@ class AgentOrchestrator:
         self._slots: dict[str, _AgentSlot] = {}
         self._departments: dict[str, DepartmentManager] = {}
         self._monitor_task: asyncio.Task | None = None
+        self._worker_supervisor_task: asyncio.Task | None = None
         self._running: bool = False
+        self._attribution_engine = None
+        self._adaptation_engine = None
+        self._alert_manager = None
+        self._health_monitor_svc = None
+        self._model_registry = None
+        self._strategy_selector = None
+        # Supervised workers: name -> (worker_instance, task, restart_count)
+        self._supervised_workers: dict[str, tuple[Any, asyncio.Task, int]] = {}
 
     # ------------------------------------------------------------------
     # Department factory
@@ -111,8 +119,62 @@ class AgentOrchestrator:
                 self._slots[agent.agent_id] = slot
                 await self._launch_agent(slot)
 
+        # Wire up Phase 2 services
+        try:
+            from app.services.attribution_engine import AttributionEngine
+            self._attribution_engine = AttributionEngine(bus=self.bus)
+            await self._attribution_engine.start()
+        except Exception as exc:
+            logger.warning("attribution_engine_not_available", error=str(exc))
+
+        try:
+            from app.services.adaptation_engine import AdaptationEngine
+            self._adaptation_engine = AdaptationEngine(bus=self.bus)
+            await self._adaptation_engine.start()
+        except Exception as exc:
+            logger.warning("adaptation_engine_not_available", error=str(exc))
+
+        # Wire up Phase 7: Alert Manager
+        try:
+            from app.services.alert_manager import AlertManager
+            self._alert_manager = AlertManager(bus=self.bus)
+            await self._alert_manager.start()
+        except Exception as exc:
+            logger.warning("alert_manager_not_available", error=str(exc))
+
+        # Wire up Phase 8: Model Registry & Thompson Sampling
+        try:
+            from app.services.model_registry import ModelRegistry, ThompsonSamplingSelector
+            self._model_registry = ModelRegistry()
+            # Register default strategies
+            strategy_names = [
+                "momentum", "mean_reversion", "volatility",
+                "crisis", "arbitrage", "options",
+            ]
+            self._strategy_selector = ThompsonSamplingSelector(strategy_names)
+            # Register initial model versions
+            for name in strategy_names:
+                self._model_registry.register(
+                    model_name=name,
+                    model_type="strategy",
+                    parameters={"version": "initial"},
+                )
+        except Exception as exc:
+            logger.warning("model_registry_not_available", error=str(exc))
+
+        # Wire up Phase 10: Health Monitor
+        try:
+            from app.services.health_monitor import HealthMonitor
+            self._health_monitor_svc = HealthMonitor(bus=self.bus)
+            await self._health_monitor_svc.start()
+        except Exception as exc:
+            logger.warning("health_monitor_not_available", error=str(exc))
+
         # Start the health-monitor loop
         self._monitor_task = asyncio.create_task(self._health_monitor())
+
+        # Start the worker supervisor
+        self._worker_supervisor_task = asyncio.create_task(self._supervise_workers())
 
         agent_ids = list(self._slots.keys())
         dept_names = list(self._departments.keys())
@@ -122,10 +184,23 @@ class AgentOrchestrator:
             agents=agent_ids,
         )
 
+    def register_worker(self, name: str, worker: Any, task: asyncio.Task) -> None:
+        """Register a background worker for supervision."""
+        self._supervised_workers[name] = (worker, task, 0)
+        logger.info("worker_registered_for_supervision", worker=name)
+
     async def stop_all(self) -> None:
         """Cancel all agent tasks and clean up."""
         logger.info("agent_orchestrator.stopping")
         self._running = False
+
+        # Stop worker supervisor
+        if self._worker_supervisor_task and not self._worker_supervisor_task.done():
+            self._worker_supervisor_task.cancel()
+            try:
+                await self._worker_supervisor_task
+            except asyncio.CancelledError:
+                pass
 
         # Stop health monitor
         if self._monitor_task and not self._monitor_task.done():
@@ -142,6 +217,18 @@ class AgentOrchestrator:
         # Stop department managers
         for mgr in self._departments.values():
             await mgr.stop_all()
+
+        # Stop all services
+        for svc_name in (
+            "_attribution_engine", "_adaptation_engine",
+            "_alert_manager", "_health_monitor_svc",
+        ):
+            svc = getattr(self, svc_name, None)
+            if svc:
+                try:
+                    await svc.stop()
+                except Exception:
+                    pass
 
         logger.info("agent_orchestrator.stopped")
 
@@ -221,7 +308,7 @@ class AgentOrchestrator:
         """Track heartbeats from agents."""
         agent_id = message.payload.get("agent_id", "")
         if agent_id in self._slots:
-            self._slots[agent_id].last_heartbeat = datetime.now(timezone.utc)
+            self._slots[agent_id].last_heartbeat = datetime.now(UTC)
 
     async def _health_monitor(self) -> None:
         """Periodically check agent health and restart unhealthy ones."""
@@ -229,7 +316,7 @@ class AgentOrchestrator:
             while self._running:
                 await asyncio.sleep(HEALTH_CHECK_INTERVAL)
 
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 for agent_id, slot in list(self._slots.items()):
                     # Check if task has crashed
                     if slot.task and slot.task.done() and slot.status != "STOPPED":
@@ -305,3 +392,73 @@ class AgentOrchestrator:
                 "last_heartbeat": slot.last_heartbeat.isoformat(),
             })
         return grouped
+
+    def get_worker_statuses(self) -> dict[str, dict[str, Any]]:
+        """Return status of all supervised workers."""
+        result: dict[str, dict[str, Any]] = {}
+        for name, (worker, task, restarts) in self._supervised_workers.items():
+            if task.done():
+                exc = task.exception() if not task.cancelled() else None
+                status = "CRASHED" if exc else "STOPPED"
+            elif task.cancelled():
+                status = "CANCELLED"
+            else:
+                status = "RUNNING"
+            result[name] = {
+                "status": status,
+                "restarts": restarts,
+                "task_done": task.done(),
+            }
+        return result
+
+    # ------------------------------------------------------------------
+    # Worker supervision
+    # ------------------------------------------------------------------
+
+    async def _supervise_workers(self) -> None:
+        """Periodically check background workers and restart crashed ones."""
+        max_worker_restarts = 5
+        try:
+            while self._running:
+                await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+
+                for name in list(self._supervised_workers.keys()):
+                    worker, task, restarts = self._supervised_workers[name]
+
+                    if not task.done():
+                        continue  # Still running
+
+                    exc = task.exception() if not task.cancelled() else None
+                    if exc is not None:
+                        logger.error(
+                            "supervised_worker_crashed",
+                            worker=name,
+                            error=str(exc),
+                            restarts=restarts,
+                        )
+
+                    if restarts >= max_worker_restarts:
+                        logger.error(
+                            "supervised_worker_max_restarts",
+                            worker=name,
+                            restarts=restarts,
+                        )
+                        continue
+
+                    # Restart with backoff
+                    delay = min(2 ** (restarts + 1), 60)
+                    logger.warning(
+                        "restarting_worker",
+                        worker=name,
+                        attempt=restarts + 1,
+                        delay=delay,
+                    )
+                    await asyncio.sleep(delay)
+
+                    new_task = asyncio.create_task(
+                        worker.run(), name=name,
+                    )
+                    self._supervised_workers[name] = (worker, new_task, restarts + 1)
+
+        except asyncio.CancelledError:
+            pass

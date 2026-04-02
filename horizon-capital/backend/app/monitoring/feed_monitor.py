@@ -8,7 +8,7 @@ successful ingest.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core.logging import get_logger
 from app.core.redis_client import redis_client
@@ -47,7 +47,7 @@ class FeedMonitor:
             One entry per stale (or missing) feed:
             ``{feed, last_update, seconds_since, stale}``.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         threshold = now - timedelta(seconds=STALENESS_THRESHOLD_SECONDS)
         stale_feeds: list[dict] = []
 
@@ -70,7 +70,7 @@ class FeedMonitor:
                 ts_str = raw_ts if isinstance(raw_ts, str) else raw_ts.decode("utf-8")
                 last_update = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 if last_update.tzinfo is None:
-                    last_update = last_update.replace(tzinfo=timezone.utc)
+                    last_update = last_update.replace(tzinfo=UTC)
             except (ValueError, AttributeError) as exc:
                 stale_feeds.append({
                     "feed": feed_name,

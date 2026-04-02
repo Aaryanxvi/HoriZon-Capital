@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any
 
 import yfinance as yf
 
+from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
 
 logger = get_logger(__name__)
 
@@ -45,7 +43,7 @@ class ForexFeed:
 
     async def get_rate(self) -> float | None:
         """Return cached USD/INR rate from Redis (or in-memory fallback)."""
-        cached = await redis_client.get(_REDIS_KEY)
+        cached = await get_kv_store().get(_REDIS_KEY)
         if cached:
             return float(cached)
         return self._last_rate
@@ -59,7 +57,7 @@ class ForexFeed:
                 rate = await self._fetch_rate()
                 if rate is not None:
                     self._last_rate = rate
-                    await redis_client.set(_REDIS_KEY, str(rate), ex=_REFRESH_INTERVAL * 2)
+                    await get_kv_store().set(_REDIS_KEY, str(rate))
                     logger.info("forex_feed.updated", usdinr=rate)
             except Exception:
                 logger.exception("forex_feed.poll_error")

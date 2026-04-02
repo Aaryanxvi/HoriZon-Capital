@@ -1,6 +1,6 @@
 """NewsAPI client for fetching financial news articles."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -65,8 +65,11 @@ class NewsAPIClient:
             Each dict contains ``title``, ``description``, ``url``,
             ``publishedAt``, and ``source``.
         """
+        if not self.api_key:
+            return []
+
         query = _symbol_to_query(symbol)
-        from_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime(
+        from_date = (datetime.now(UTC) - timedelta(days=days_back)).strftime(
             "%Y-%m-%d"
         )
 

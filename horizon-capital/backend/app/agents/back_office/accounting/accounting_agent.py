@@ -7,7 +7,7 @@ records P&L snapshots.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -48,7 +48,7 @@ class AccountingAgent(BaseAgent):
 
     async def _compute_snapshot(self) -> None:
         """Publish an accounting snapshot with current NAV and P&L."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         snapshot = {
             "nav": self._last_nav,

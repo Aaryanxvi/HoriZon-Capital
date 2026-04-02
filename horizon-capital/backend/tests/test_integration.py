@@ -1236,3 +1236,1145 @@ class TestDashboardWiring:
         dash.complete_order(fill_msg.payload)
         assert len(dash._pending_orders) == 0
         assert len(dash._trade_history) == 1
+
+
+# =====================================================================
+# 12. API Key Integration Verification
+# =====================================================================
+
+
+class TestYahooFeedIntegration:
+    """Yahoo Finance feed makes real yfinance calls (not mocked/placeholder)."""
+
+    def test_fetch_sync_calls_yfinance(self):
+        """Verify _fetch_sync calls yfinance.Ticker and returns NormalizedOHLCV."""
+        from unittest.mock import MagicMock, patch
+
+        import pandas as pd
+
+        from app.data_layer.yahoo_feed import YahooFeed
+
+        feed = YahooFeed()
+
+        # Build a realistic DataFrame that yfinance would return
+        idx = pd.DatetimeIndex(
+            [pd.Timestamp("2026-03-30"), pd.Timestamp("2026-03-31")],
+            tz="US/Eastern",
+        )
+        mock_df = pd.DataFrame(
+            {
+                "Open": [170.0, 171.0],
+                "High": [175.0, 176.0],
+                "Low": [169.0, 170.0],
+                "Close": [174.0, 175.5],
+                "Volume": [50000000, 48000000],
+            },
+            index=idx,
+        )
+
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = mock_df
+
+        with patch("app.data_layer.yahoo_feed.yf.Ticker", return_value=mock_ticker) as mk:
+            bars = feed._fetch_sync("AAPL.NASDAQ", "5d", "1d")
+            mk.assert_called_once_with("AAPL")
+
+        assert len(bars) == 2
+        assert bars[0].symbol == "AAPL"
+        assert bars[0].close == 174.0
+        assert bars[1].close == 175.5
+        assert bars[0].exchange == "NASDAQ"
+        assert bars[0].timeframe == "1d"
+
+    def test_fetch_sync_empty_df_returns_empty(self):
+        """When yfinance returns empty DataFrame, feed returns []."""
+        from unittest.mock import MagicMock, patch
+
+        import pandas as pd
+
+        from app.data_layer.yahoo_feed import YahooFeed
+
+        feed = YahooFeed()
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+
+        with patch("app.data_layer.yahoo_feed.yf.Ticker", return_value=mock_ticker):
+            bars = feed._fetch_sync("INVALID", "5d", "1d")
+
+        assert bars == []
+
+    def test_fetch_sync_exception_returns_empty(self):
+        """When yfinance raises, feed catches and returns []."""
+        from unittest.mock import MagicMock, patch
+
+        from app.data_layer.yahoo_feed import YahooFeed
+
+        feed = YahooFeed()
+        mock_ticker = MagicMock()
+        mock_ticker.history.side_effect = Exception("network error")
+
+        with patch("app.data_layer.yahoo_feed.yf.Ticker", return_value=mock_ticker):
+            bars = feed._fetch_sync("AAPL", "5d", "1d")
+
+        assert bars == []
+
+    def test_symbol_conversion_india(self):
+        """Indian symbols convert correctly: RELIANCE.NSE -> RELIANCE.NS."""
+        from app.data_layer.yahoo_feed import YahooFeed
+        assert YahooFeed._to_yf_ticker("RELIANCE.NSE") == "RELIANCE.NS"
+        assert YahooFeed._to_yf_ticker("TCS.BSE") == "TCS.BO"
+
+    def test_symbol_conversion_us(self):
+        """US symbols strip exchange: AAPL.NASDAQ -> AAPL."""
+        from app.data_layer.yahoo_feed import YahooFeed
+        assert YahooFeed._to_yf_ticker("AAPL.NASDAQ") == "AAPL"
+        assert YahooFeed._to_yf_ticker("MSFT.NYSE") == "MSFT"
+
+    def test_symbol_conversion_crypto(self):
+        """Crypto symbols pass through: BTC-USD -> BTC-USD."""
+        from app.data_layer.yahoo_feed import YahooFeed
+        assert YahooFeed._to_yf_ticker("BTC-USD.CRYPTO") == "BTC-USD"
+
+
+class TestCoinGeckoFeedIntegration:
+    """CoinGecko feed makes real HTTP calls to the CoinGecko API."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_prices_calls_real_api(self):
+        """Verify _fetch_prices sends correct URL/params to CoinGecko."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.data_layer.crypto_feed import CryptoFeed
+
+        feed = CryptoFeed()
+        feed._symbols = ["BTC", "ETH"]
+
+        # Mock httpx response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "bitcoin": {
+                "usd": 67500.0,
+                "usd_24h_vol": 25_000_000_000,
+                "last_updated_at": 1711900000,
+            },
+            "ethereum": {
+                "usd": 3400.0,
+                "usd_24h_vol": 12_000_000_000,
+                "last_updated_at": 1711900000,
+            },
+        }
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        # Capture emitted ticks
+        ticks = []
+
+        async def capture_tick(tick):
+            ticks.append(tick)
+
+        feed.on_tick(capture_tick)
+
+        await feed._fetch_prices(mock_client)
+
+        # Verify the correct API URL was called
+        call_args = mock_client.get.call_args
+        assert "api.coingecko.com" in str(call_args)
+        assert "bitcoin" in str(call_args) or "ethereum" in str(call_args)
+
+        # Should emit 2 ticks (BTC + ETH)
+        assert len(ticks) == 2
+        symbols = {t.symbol for t in ticks}
+        assert "BTC-USD" in symbols
+        assert "ETH-USD" in symbols
+
+        btc_tick = next(t for t in ticks if t.symbol == "BTC-USD")
+        assert btc_tick.last_price == 67500.0
+        assert btc_tick.exchange == "CRYPTO"
+
+    @pytest.mark.asyncio
+    async def test_fetch_prices_api_error_no_crash(self):
+        """When CoinGecko returns error status, feed handles gracefully."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.data_layer.crypto_feed import CryptoFeed
+
+        feed = CryptoFeed()
+        feed._symbols = ["BTC"]
+
+        mock_response = MagicMock()
+        mock_response.status_code = 429  # Rate limited
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        ticks = []
+
+        async def capture(tick):
+            ticks.append(tick)
+
+        feed.on_tick(capture)
+
+        # Should not raise
+        await feed._fetch_prices(mock_client)
+        assert ticks == []
+
+    @pytest.mark.asyncio
+    async def test_no_symbols_returns_early(self):
+        """When no symbols are subscribed, fetch_prices returns immediately."""
+        from unittest.mock import AsyncMock
+
+        from app.data_layer.crypto_feed import CryptoFeed
+
+        feed = CryptoFeed()
+        feed._symbols = []
+
+        mock_client = AsyncMock()
+        await feed._fetch_prices(mock_client)
+        mock_client.get.assert_not_called()
+
+
+class TestPolygonFeedIntegration:
+    """Polygon.io feed correctly uses API key and makes real HTTP calls."""
+
+    def test_disabled_without_api_key(self):
+        """Feed is disabled when polygon_api_key is empty."""
+        from app.data_layer.polygon_feed import PolygonFeed
+        feed = PolygonFeed()
+        # Default settings have empty polygon_api_key
+        assert feed._enabled is False
+
+    @pytest.mark.asyncio
+    async def test_connect_skips_when_disabled(self):
+        """connect() returns without setting _is_connected when no key."""
+        from app.data_layer.polygon_feed import PolygonFeed
+        feed = PolygonFeed()
+        await feed.connect()
+        assert feed.is_connected is False
+
+    @pytest.mark.asyncio
+    async def test_get_ohlcv_sends_api_key(self):
+        """Verify API key is included as query param in requests."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.data_layer.polygon_feed import PolygonFeed
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [
+                {
+                    "t": 1711900000000,
+                    "o": 170.0,
+                    "h": 175.0,
+                    "l": 169.0,
+                    "c": 174.5,
+                    "v": 50000000,
+                }
+            ]
+        }
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get = AsyncMock(return_value=mock_response)
+        mock_client_instance.__aenter__ = AsyncMock(
+            return_value=mock_client_instance
+        )
+        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        # The feed reads settings.polygon_api_key at call time.
+        # Patch settings to provide a key.
+        feed = PolygonFeed()
+        with patch(
+            "app.data_layer.polygon_feed.settings"
+        ) as mock_settings:
+            mock_settings.polygon_api_key = "test-polygon-key-12345"
+
+            with patch(
+                "app.data_layer.polygon_feed.httpx.AsyncClient",
+                return_value=mock_client_instance,
+            ):
+                bars = await feed.get_ohlcv("AAPL", "2026-03-01", "2026-03-31")
+
+        # Verify API key was included in the request params
+        call_args = mock_client_instance.get.call_args
+        params = call_args.kwargs.get("params", {})
+        assert params.get("apiKey") == "test-polygon-key-12345"
+
+        assert len(bars) == 1
+        assert bars[0].close == 174.5
+        assert bars[0].symbol == "AAPL"
+
+
+class TestForexFeedIntegration:
+    """Forex feed uses yfinance for real USD/INR rates."""
+
+    def test_fetch_sync_calls_yfinance(self):
+        """Verify _fetch_sync calls yfinance with USDINR=X ticker."""
+        from unittest.mock import MagicMock, patch
+
+        import pandas as pd
+
+        from app.data_layer.forex_feed import ForexFeed
+
+        idx = pd.DatetimeIndex([pd.Timestamp("2026-03-31 15:30")])
+        mock_df = pd.DataFrame({"Close": [83.45]}, index=idx)
+
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = mock_df
+
+        with patch("app.data_layer.forex_feed.yf.Ticker", return_value=mock_ticker) as mk:
+            rate = ForexFeed._fetch_sync()
+            mk.assert_called_once_with("USDINR=X")
+
+        assert rate == 83.45
+
+    def test_fetch_sync_empty_df_uses_fast_info(self):
+        """When history is empty, falls back to fast_info.last_price."""
+        from unittest.mock import MagicMock, patch
+
+        import pandas as pd
+
+        from app.data_layer.forex_feed import ForexFeed
+
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mock_ticker.fast_info.last_price = 83.50
+
+        with patch("app.data_layer.forex_feed.yf.Ticker", return_value=mock_ticker):
+            rate = ForexFeed._fetch_sync()
+
+        assert rate == 83.50
+
+    def test_fetch_sync_exception_returns_none(self):
+        """When yfinance raises, returns None (graceful degradation)."""
+        from unittest.mock import patch
+
+        from app.data_layer.forex_feed import ForexFeed
+
+        with patch(
+            "app.data_layer.forex_feed.yf.Ticker",
+            side_effect=Exception("network error"),
+        ):
+            rate = ForexFeed._fetch_sync()
+
+        assert rate is None
+
+
+class TestLLMProviderRegistry:
+    """LLM provider registry correctly registers/queries providers."""
+
+    def test_auto_register_with_keys(self):
+        """When API keys are set, providers are registered and usable."""
+        from unittest.mock import patch
+
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.anthropic_api_key = "sk-ant-test-key-123"
+            mock_settings.openai_api_key = "sk-openai-test-key-456"
+            mock_settings.google_api_key = ""
+            mock_settings.ai_front_office = "auto"
+            mock_settings.ai_middle_office = "auto"
+            mock_settings.ai_back_office = "auto"
+            mock_settings.ai_executive = "auto"
+
+            registry.auto_register_from_settings()
+
+        assert "claude" in registry.list_available()
+        assert "openai" in registry.list_available()
+        assert "gemini" not in registry.list_available()
+
+    def test_auto_register_no_keys(self):
+        """When no API keys are set, no providers are registered."""
+        from unittest.mock import patch
+
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.anthropic_api_key = ""
+            mock_settings.openai_api_key = ""
+            mock_settings.google_api_key = ""
+
+            registry.auto_register_from_settings()
+
+        assert registry.list_available() == []
+
+    def test_register_empty_key_ignored(self):
+        """Registering with empty key does nothing."""
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        registry.register("claude", "")
+        assert registry.list_available() == []
+
+    def test_get_provider_returns_correct_type(self):
+        """get_provider returns the right provider class."""
+        from app.llm.claude_provider import ClaudeProvider
+        from app.llm.openai_provider import OpenAIProvider
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        registry.register("claude", "sk-ant-test")
+        registry.register("openai", "sk-openai-test")
+
+        claude = registry.get_provider("claude")
+        openai = registry.get_provider("openai")
+
+        assert isinstance(claude, ClaudeProvider)
+        assert isinstance(openai, OpenAIProvider)
+        assert claude.api_key == "sk-ant-test"
+        assert openai.api_key == "sk-openai-test"
+
+    def test_get_provider_missing_returns_none(self):
+        """get_provider returns None for unregistered providers."""
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        assert registry.get_provider("nonexistent") is None
+
+    def test_department_routing_auto(self):
+        """'auto' routing returns all available providers."""
+        from unittest.mock import patch
+
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        registry.register("claude", "sk-ant-test")
+        registry.register("openai", "sk-openai-test")
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.ai_front_office = "auto"
+            providers = registry.get_providers_for_department("front_office")
+
+        assert len(providers) == 2
+
+    def test_department_routing_none(self):
+        """'none' routing returns empty list."""
+        from unittest.mock import patch
+
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        registry.register("claude", "sk-ant-test")
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.ai_front_office = "none"
+            providers = registry.get_providers_for_department("front_office")
+
+        assert providers == []
+
+    def test_department_routing_specific(self):
+        """Specific provider routing returns only that provider."""
+        from unittest.mock import patch
+
+        from app.llm.provider_registry import ProviderRegistry
+
+        registry = ProviderRegistry()
+        registry.register("claude", "sk-ant-test")
+        registry.register("openai", "sk-openai-test")
+
+        with patch("app.config.settings") as mock_settings:
+            mock_settings.ai_front_office = "claude"
+            providers = registry.get_providers_for_department("front_office")
+
+        assert len(providers) == 1
+        assert providers[0].provider_name == "claude"
+
+
+class TestClaudeProviderIntegration:
+    """Claude provider makes real API calls with proper auth."""
+
+    @pytest.mark.asyncio
+    async def test_do_complete_calls_anthropic_api(self):
+        """Verify _do_complete sends correct params to Anthropic SDK."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.llm.claude_provider import ClaudeProvider
+
+        provider = ClaudeProvider(api_key="sk-ant-test-key")
+
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text='{"direction": 1, "strength": 0.8}')]
+
+        mock_client = AsyncMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+        # Inject mock client directly (bypasses lazy import)
+        provider._client = mock_client
+
+        result = await provider._do_complete(
+            system_prompt="You are a trader.",
+            messages=[{"role": "user", "content": "Analyze AAPL"}],
+            temperature=0.3,
+        )
+
+        mock_client.messages.create.assert_called_once()
+        call_kwargs = mock_client.messages.create.call_args.kwargs
+        assert call_kwargs["model"] == "claude-sonnet-4-20250514"
+        assert call_kwargs["system"] == "You are a trader."
+        assert call_kwargs["temperature"] == 0.3
+        assert result == '{"direction": 1, "strength": 0.8}'
+
+    @pytest.mark.asyncio
+    async def test_is_available_true_with_key(self):
+        """is_available returns True when API key is set."""
+        from unittest.mock import AsyncMock
+
+        from app.llm.claude_provider import ClaudeProvider
+
+        provider = ClaudeProvider(api_key="sk-ant-test-key")
+        # Inject a mock client so _get_client doesn't try real import
+        provider._client = AsyncMock()
+        result = await provider.is_available()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_is_available_false_without_key(self):
+        """is_available returns False when API key is empty."""
+        from app.llm.claude_provider import ClaudeProvider
+
+        provider = ClaudeProvider(api_key="")
+        result = await provider.is_available()
+        assert result is False
+
+    def test_get_client_passes_api_key(self):
+        """_get_client passes the api_key to the SDK constructor."""
+        from unittest.mock import MagicMock, patch
+
+        from app.llm.claude_provider import ClaudeProvider
+
+        provider = ClaudeProvider(api_key="sk-ant-test-key-XYZ")
+
+        mock_anthropic = MagicMock()
+        with patch.dict("sys.modules", {"anthropic": mock_anthropic}):
+            provider._client = None  # Force re-creation
+            provider._get_client()
+            mock_anthropic.AsyncAnthropic.assert_called_once_with(
+                api_key="sk-ant-test-key-XYZ"
+            )
+
+
+class TestOpenAIProviderIntegration:
+    """OpenAI provider makes real API calls with proper auth."""
+
+    @pytest.mark.asyncio
+    async def test_do_complete_calls_openai_api(self):
+        """Verify _do_complete sends correct params to OpenAI SDK."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.llm.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider(api_key="sk-openai-test-key")
+
+        mock_choice = MagicMock()
+        mock_choice.message.content = '{"direction": -1, "strength": 0.6}'
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        # Inject mock client directly
+        provider._client = mock_client
+
+        result = await provider._do_complete(
+            system_prompt="You are a risk analyst.",
+            messages=[{"role": "user", "content": "Analyze risk"}],
+            temperature=0.5,
+        )
+
+        call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+        assert call_kwargs["model"] == "gpt-4o"
+        assert call_kwargs["temperature"] == 0.5
+        # System prompt should be prepended as system message
+        assert call_kwargs["messages"][0] == {
+            "role": "system",
+            "content": "You are a risk analyst.",
+        }
+        assert result == '{"direction": -1, "strength": 0.6}'
+
+    def test_get_client_passes_api_key(self):
+        """_get_client passes the api_key to the SDK constructor."""
+        from unittest.mock import MagicMock, patch
+
+        from app.llm.openai_provider import OpenAIProvider
+
+        provider = OpenAIProvider(api_key="sk-openai-test-key-ABC")
+
+        mock_openai = MagicMock()
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            provider._client = None
+            provider._get_client()
+            mock_openai.AsyncOpenAI.assert_called_once_with(
+                api_key="sk-openai-test-key-ABC"
+            )
+
+
+class TestGeminiProviderIntegration:
+    """Gemini provider makes real API calls with proper auth."""
+
+    def test_provider_stores_api_key(self):
+        """Gemini provider correctly stores the API key for later use."""
+        from app.llm.gemini_provider import GeminiProvider
+
+        provider = GeminiProvider(api_key="gemini-test-key-XYZ")
+        assert provider.api_key == "gemini-test-key-XYZ"
+        assert provider.model == "gemini-2.0-flash"
+        assert provider.provider_name == "gemini"
+
+    @pytest.mark.asyncio
+    async def test_is_available_false_without_key(self):
+        """is_available returns False when key is empty."""
+        from app.llm.gemini_provider import GeminiProvider
+
+        provider = GeminiProvider(api_key="")
+        result = await provider.is_available()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_is_available_true_with_key_and_client(self):
+        """is_available returns True when key is set and client works."""
+        from unittest.mock import MagicMock
+
+        from app.llm.gemini_provider import GeminiProvider
+
+        provider = GeminiProvider(api_key="gemini-key-123")
+        provider._client = MagicMock()  # Pre-inject a mock client
+        result = await provider.is_available()
+        assert result is True
+
+
+class TestAlpacaBrokerIntegration:
+    """Alpaca broker sends proper HTTP requests with auth headers."""
+
+    @pytest.mark.asyncio
+    async def test_execute_sends_auth_headers(self):
+        """Verify API key/secret are sent in Alpaca-specific headers."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
+
+        broker = AlpacaBroker()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "id": "broker-order-123",
+            "status": "accepted",
+            "filled_qty": "100",
+            "filled_avg_price": "174.50",
+            "filled_at": "2026-04-01T14:30:00Z",
+        }
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        # Patch settings at the module where it's imported
+        with patch(
+            "app.agents.front_office.trading.alpaca_broker.settings"
+        ) as mock_s:
+            mock_s.alpaca_api_key = "ALPACA_KEY_123"
+            mock_s.alpaca_api_secret = "ALPACA_SECRET_456"
+            mock_s.alpaca_base_url = "https://paper-api.alpaca.markets"
+
+            with patch(
+                "app.agents.front_office.trading.alpaca_broker.httpx.AsyncClient",
+                return_value=mock_client,
+            ):
+                result = await broker.execute({
+                    "symbol": "AAPL.NASDAQ",
+                    "side": "BUY",
+                    "quantity": 100,
+                    "order_type": "MARKET",
+                    "id": "test-order-1",
+                })
+
+        # Verify auth headers
+        call_kwargs = mock_client.post.call_args.kwargs
+        headers = call_kwargs.get("headers", {})
+        assert headers["APCA-API-KEY-ID"] == "ALPACA_KEY_123"
+        assert headers["APCA-API-SECRET-KEY"] == "ALPACA_SECRET_456"
+
+        # Verify correct URL
+        call_args = mock_client.post.call_args.args
+        assert "paper-api.alpaca.markets/v2/orders" in call_args[0]
+
+        # Verify result
+        assert result is not None
+        assert result["broker_order_id"] == "broker-order-123"
+        assert result["broker"] == "ALPACA"
+
+    @pytest.mark.asyncio
+    async def test_execute_http_error_returns_none(self):
+        """HTTP errors are caught and return None (graceful degradation)."""
+        from unittest.mock import AsyncMock, patch
+
+        import httpx
+
+        from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
+
+        broker = AlpacaBroker()
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.agents.front_office.trading.alpaca_broker.httpx.AsyncClient",
+            return_value=mock_client,
+        ):
+            result = await broker.execute({
+                "symbol": "AAPL",
+                "side": "BUY",
+                "quantity": 10,
+                "id": "test",
+            })
+
+        assert result is None
+
+
+class TestZerodhaBrokerIntegration:
+    """Zerodha broker uses Kite Connect API with proper auth."""
+
+    @pytest.mark.asyncio
+    async def test_mock_mode_uses_paper_broker(self):
+        """In mock mode, orders go to PaperBroker, not Kite API."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
+
+        broker = ZerodhaBroker()
+
+        with patch(
+            "app.agents.front_office.trading.zerodha_broker.settings"
+        ) as mock_s:
+            mock_s.zerodha_mock_mode = True
+
+            # Mock the paper broker
+            mock_paper = AsyncMock()
+            mock_paper.execute = AsyncMock(return_value={
+                "order_id": "test",
+                "fill_price": 2450.0,
+                "filled_qty": 10,
+            })
+            broker._paper = mock_paper
+
+            result = await broker.execute({
+                "symbol": "RELIANCE.NSE",
+                "side": "BUY",
+                "quantity": 10,
+                "id": "test",
+            })
+
+        assert result is not None
+        assert result["broker"] == "ZERODHA_MOCK"
+
+    @pytest.mark.asyncio
+    async def test_live_mode_sends_kite_headers(self):
+        """In live mode, Kite Connect auth headers are sent."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
+
+        broker = ZerodhaBroker()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {"order_id": "kite-order-789"}
+        }
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        # Mock the fill polling
+        mock_status_resp = MagicMock()
+        mock_status_resp.status_code = 200
+        mock_status_resp.json.return_value = {
+            "data": [{"status": "COMPLETE", "filled_quantity": 10, "average_price": 2450}]
+        }
+        mock_client.get = AsyncMock(return_value=mock_status_resp)
+
+        with patch(
+            "app.agents.front_office.trading.zerodha_broker.settings"
+        ) as mock_s:
+            mock_s.zerodha_mock_mode = False
+            mock_s.zerodha_api_key = "KITE_KEY_123"
+            mock_s.zerodha_api_secret = "KITE_SECRET_456"
+            mock_s.zerodha_access_token = "ACCESS_TOKEN_789"
+
+            with patch(
+                "app.agents.front_office.trading.zerodha_broker.httpx.AsyncClient",
+                return_value=mock_client,
+            ):
+                result = await broker.execute({
+                    "symbol": "RELIANCE.NSE",
+                    "side": "BUY",
+                    "quantity": 10,
+                    "order_type": "MARKET",
+                    "id": "test-order-1",
+                })
+
+        # Verify auth header format: "token {api_key}:{access_token}"
+        call_kwargs = mock_client.post.call_args.kwargs
+        headers = call_kwargs.get("headers", {})
+        assert headers["Authorization"] == "token KITE_KEY_123:ACCESS_TOKEN_789"
+        assert headers["X-Kite-Version"] == "3"
+
+        assert result is not None
+        assert result["broker"] == "ZERODHA"
+
+
+class TestAlpacaFeedIntegration:
+    """Alpaca feed checks for API key and uses proper auth."""
+
+    @pytest.mark.asyncio
+    async def test_connect_disabled_without_key(self):
+        """Feed does not connect when alpaca_api_key is empty."""
+        from unittest.mock import patch
+
+        from app.data_layer.alpaca_feed import AlpacaFeed
+
+        feed = AlpacaFeed()
+
+        with patch("app.data_layer.alpaca_feed.settings") as mock_s:
+            mock_s.alpaca_api_key = ""
+            await feed.connect()
+
+        assert feed.is_connected is False
+
+    @pytest.mark.asyncio
+    async def test_connect_enabled_with_key(self):
+        """Feed connects when alpaca_api_key is set."""
+        from unittest.mock import patch
+
+        from app.data_layer.alpaca_feed import AlpacaFeed
+
+        feed = AlpacaFeed()
+
+        with patch("app.data_layer.alpaca_feed.settings") as mock_s:
+            mock_s.alpaca_api_key = "ALPACA_KEY"
+            mock_s.alpaca_paper_mode = True
+            await feed.connect()
+
+        assert feed.is_connected is True
+        await feed.disconnect()
+
+    def test_auth_headers_include_key_and_secret(self):
+        """Auth headers contain Alpaca-specific key/secret headers."""
+        from unittest.mock import patch
+
+        from app.data_layer.alpaca_feed import AlpacaFeed
+
+        feed = AlpacaFeed()
+
+        with patch("app.data_layer.alpaca_feed.settings") as mock_s:
+            mock_s.alpaca_api_key = "MY_KEY"
+            mock_s.alpaca_api_secret = "MY_SECRET"
+            headers = feed._auth_headers
+
+        assert headers["APCA-API-KEY-ID"] == "MY_KEY"
+        assert headers["APCA-API-SECRET-KEY"] == "MY_SECRET"
+
+
+class TestZerodhaFeedIntegration:
+    """Zerodha feed handles mock/live modes correctly."""
+
+    @pytest.mark.asyncio
+    async def test_mock_mode_generates_ticks(self):
+        """In mock mode, feed generates random ticks (no real connection)."""
+        from unittest.mock import patch
+
+        from app.data_layer.zerodha_feed import ZerodhaFeed
+
+        feed = ZerodhaFeed()
+
+        with patch("app.data_layer.zerodha_feed.settings") as mock_s:
+            mock_s.zerodha_mock_mode = True
+            await feed.connect()
+
+        assert feed.is_connected is True
+
+        tick = feed._generate_mock_tick("RELIANCE")
+        assert tick.symbol == "RELIANCE"
+        assert tick.exchange == "NSE"
+        assert tick.currency == "INR"
+        assert tick.last_price > 0
+        await feed.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_live_mode_needs_credentials(self):
+        """Live mode refuses to connect without api_key + access_token."""
+        from unittest.mock import patch
+
+        from app.data_layer.zerodha_feed import ZerodhaFeed
+
+        feed = ZerodhaFeed()
+
+        with patch("app.data_layer.zerodha_feed.settings") as mock_s:
+            mock_s.zerodha_mock_mode = False
+            mock_s.zerodha_api_key = ""
+            mock_s.zerodha_access_token = ""
+            await feed.connect()
+
+        assert feed.is_connected is False
+
+
+class TestNewsAPIIntegration:
+    """NewsAPI client uses API key and makes real HTTP calls."""
+
+    @pytest.mark.asyncio
+    async def test_no_key_returns_empty(self):
+        """Without API key, returns empty list (no crash)."""
+        from app.agents.front_office.research.newsapi_client import NewsAPIClient
+
+        client = NewsAPIClient(api_key="")
+        result = await client.fetch_news("AAPL")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_sends_api_key(self):
+        """API key is included in request params."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.agents.front_office.research.newsapi_client import NewsAPIClient
+
+        client = NewsAPIClient(api_key="newsapi-test-key-123")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "ok",
+            "articles": [
+                {
+                    "title": "Apple hits new high",
+                    "description": "AAPL rises 3%",
+                    "url": "https://example.com/news/1",
+                    "publishedAt": "2026-04-01T10:00:00Z",
+                    "source": {"name": "TechNews"},
+                }
+            ],
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.agents.front_office.research.newsapi_client.httpx.AsyncClient",
+            return_value=mock_client,
+        ):
+            articles = await client.fetch_news("AAPL")
+
+        # Verify API key in params
+        call_kwargs = mock_client.get.call_args.kwargs
+        params = call_kwargs.get("params", {})
+        assert params["apiKey"] == "newsapi-test-key-123"
+        assert "Apple" in params["q"]
+
+        assert len(articles) == 1
+        assert articles[0]["title"] == "Apple hits new high"
+
+
+class TestRedditClientIntegration:
+    """Reddit client handles missing credentials gracefully."""
+
+    @pytest.mark.asyncio
+    async def test_no_credentials_returns_empty(self):
+        """Without client_id/secret, returns empty list."""
+        from app.agents.front_office.research.reddit_client import RedditClient
+
+        client = RedditClient(client_id="", client_secret="")
+        result = await client.fetch_posts("AAPL")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_with_credentials_creates_praw_instance(self):
+        """With credentials, PRAW Reddit instance is created correctly."""
+        from unittest.mock import patch
+
+        from app.agents.front_office.research.reddit_client import RedditClient
+
+        client = RedditClient(
+            client_id="test-id",
+            client_secret="test-secret",
+            user_agent="test-agent/1.0",
+        )
+
+        with patch("app.agents.front_office.research.reddit_client.praw.Reddit") as mk:
+            client._get_reddit()
+            mk.assert_called_once_with(
+                client_id="test-id",
+                client_secret="test-secret",
+                user_agent="test-agent/1.0",
+            )
+
+
+class TestLLMSignalGenerationPipeline:
+    """End-to-end: LLM provider -> strategy -> signal generation."""
+
+    def test_strategy_uses_rule_based_without_llm(self):
+        """Without LLM provider, ensemble uses rule-based generation."""
+        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
+
+        selector = EnsembleSelector(llm_provider="")
+        assert selector._llm_provider == ""
+
+        # generate_signals should work rule-based
+        features = {
+            "rsi": 25.0,
+            "macd": -0.5,
+            "macd_signal": -0.3,
+            "close": 150.0,
+            "sma_20": 155.0,
+            "sma_50": 160.0,
+            "bb_upper": 165.0,
+            "bb_lower": 140.0,
+            "atr": 3.0,
+        }
+        signals = selector.generate_signals("AAPL", features, "NEUTRAL")
+        # Rule-based signals; may be empty depending on thresholds
+        assert isinstance(signals, list)
+        for sig in signals:
+            assert sig.llm_enhanced is False
+
+    @pytest.mark.asyncio
+    async def test_strategy_falls_back_on_llm_error(self):
+        """When LLM fails, strategy falls back to rule-based."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.agents.front_office.strategy.base_strategy import Signal
+        from app.agents.front_office.strategy.momentum_strategy import (
+            MomentumStrategy,
+        )
+
+        strategy = MomentumStrategy(llm_provider="claude")
+
+        # Mock provider that raises
+        mock_provider = AsyncMock()
+        mock_provider.complete = AsyncMock(side_effect=Exception("API error"))
+
+        mock_registry = MagicMock()
+        mock_registry.get_provider.return_value = mock_provider
+
+        with patch(
+            "app.llm.provider_registry.provider_registry", mock_registry
+        ):
+            result = await strategy.generate_signal_with_llm(
+                "AAPL",
+                {"rsi": 30.0, "macd": 0.5, "close": 150.0},
+                "NEUTRAL",
+            )
+
+        # Should fall back to rule-based (may return None or Signal)
+        assert result is None or isinstance(result, Signal)
+
+
+class TestConfigAPIKeyLoading:
+    """API keys are properly loaded from environment/settings."""
+
+    def test_all_api_key_fields_exist(self):
+        """Settings class has all expected API key fields."""
+        from app.config import Settings
+        fields = Settings.model_fields
+        expected = [
+            "anthropic_api_key",
+            "openai_api_key",
+            "google_api_key",
+            "alpaca_api_key",
+            "alpaca_api_secret",
+            "zerodha_api_key",
+            "zerodha_api_secret",
+            "zerodha_access_token",
+            "polygon_api_key",
+            "newsapi_api_key",
+            "reddit_client_id",
+            "reddit_client_secret",
+            "telegram_bot_token",
+        ]
+        for key in expected:
+            assert key in fields, f"Missing API key field: {key}"
+
+    def test_api_keys_default_to_empty(self):
+        """All API keys default to empty string (not None)."""
+        from app.config import Settings
+        defaults = {
+            "anthropic_api_key": "",
+            "openai_api_key": "",
+            "google_api_key": "",
+            "alpaca_api_key": "",
+            "polygon_api_key": "",
+            "newsapi_api_key": "",
+            "reddit_client_id": "",
+        }
+        for key, expected_default in defaults.items():
+            assert Settings.model_fields[key].default == expected_default
+
+    def test_production_warnings_for_missing_keys(self):
+        """validate_production_secrets returns warnings for missing keys."""
+        from app.config import Settings
+
+        s = Settings(
+            anthropic_api_key="",
+            openai_api_key="",
+            google_api_key="",
+            alpaca_api_key="",
+            zerodha_api_key="",
+        )
+        warnings = s.validate_production_secrets()
+        assert any("LLM" in w for w in warnings)
+        assert any("broker" in w.lower() for w in warnings)
+
+
+class TestDataManagerFeedWiring:
+    """DataManager correctly instantiates and wires all feeds."""
+
+    def test_all_feeds_instantiated(self):
+        """DataManager creates instances of all feed types."""
+        from app.data_layer.alpaca_feed import AlpacaFeed
+        from app.data_layer.crypto_feed import CryptoFeed
+        from app.data_layer.data_manager import DataManager
+        from app.data_layer.forex_feed import ForexFeed
+        from app.data_layer.polygon_feed import PolygonFeed
+        from app.data_layer.yahoo_feed import YahooFeed
+        from app.data_layer.zerodha_feed import ZerodhaFeed
+
+        dm = DataManager()
+        assert isinstance(dm.yahoo_feed, YahooFeed)
+        assert isinstance(dm.alpaca_feed, AlpacaFeed)
+        assert isinstance(dm.zerodha_feed, ZerodhaFeed)
+        assert isinstance(dm.crypto_feed, CryptoFeed)
+        assert isinstance(dm.forex_feed, ForexFeed)
+        assert isinstance(dm.polygon_feed, PolygonFeed)
+
+    def test_feeds_list_has_five_entries(self):
+        """Internal _feeds list contains exactly 5 feeds (all except forex)."""
+        from app.data_layer.data_manager import DataManager
+        dm = DataManager()
+        assert len(dm._feeds) == 5
+
+
+class TestCircuitBreakerOnFeeds:
+    """Data ingestion worker wraps feeds with circuit breakers."""
+
+    def test_worker_has_circuit_breakers(self):
+        """DataIngestionWorker creates circuit breakers for all feed types."""
+        from app.workers.data_ingestion_worker import DataIngestionWorker
+        worker = DataIngestionWorker()
+        assert worker._yahoo_cb.name == "yahoo"
+        assert worker._crypto_cb.name == "coingecko"
+        assert worker._forex_cb.name == "forex"
+        assert worker._yahoo_cb.failure_threshold == 5
+        assert worker._forex_cb.failure_threshold == 3

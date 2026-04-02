@@ -363,7 +363,7 @@ async def _run_with_tui(orchestrator) -> None:
         import readline
 
         _repl_completions = [
-            "help", "status", "signals", "risk", "regime", "debate", "portfolio",
+            "help", "status", "signals", "risk", "regime", "debate", "portfolio", "dashboard",
             "departments", "performance", "workers", "cio", "agents config",
             "mode", "kill-switch", "symbols", "data", "config", "setup",
             "interrupt", "override regime", "risk-tolerance", "toggle sentiment",

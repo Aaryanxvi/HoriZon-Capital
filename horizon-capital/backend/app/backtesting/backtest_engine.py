@@ -12,9 +12,10 @@ feeds each bar to the strategy callable, and fills any resulting orders via
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -22,8 +23,12 @@ from sqlalchemy import text
 
 from app.backtesting.backtest_broker import BacktestBroker, SimFill, SimOrder
 from app.backtesting.backtest_metrics import BacktestMetrics
-from app.core.database import async_session_factory
 from app.core.logging import get_logger
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 logger = get_logger("backtesting.engine")
 
@@ -71,7 +76,7 @@ class BacktestEngine:
         timeframe: str,
     ) -> pd.DataFrame:
         """Load OHLCV bars from the database."""
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """

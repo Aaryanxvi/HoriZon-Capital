@@ -17,8 +17,10 @@ class DebateSession(Base, UUIDMixin, TimestampMixin):
     proposed_action: Mapped[str] = mapped_column(String(10), nullable=False)  # BUY, SELL
     proposed_quantity: Mapped[float] = mapped_column(Float, nullable=True)
     signal_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="IN_PROGRESS")  # IN_PROGRESS, CONCLUDED
-    final_decision: Mapped[str | None] = mapped_column(String(20), nullable=True)  # APPROVED, REJECTED
+    # IN_PROGRESS, CONCLUDED
+    status: Mapped[str] = mapped_column(String(20), default="IN_PROGRESS")
+    # APPROVED, REJECTED
+    final_decision: Mapped[str | None] = mapped_column(String(20), nullable=True)
     consensus_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0.0 - 1.0
     total_rounds: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -33,7 +35,8 @@ class DebateArgument(Base, UUIDMixin, TimestampMixin):
 
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     agent_id: Mapped[str] = mapped_column(String(100), nullable=False)
-    role: Mapped[str] = mapped_column(String(50), nullable=False)  # STRATEGY, RISK, SENTIMENT, PORTFOLIO
+    # STRATEGY, RISK, SENTIMENT, PORTFOLIO
+    role: Mapped[str] = mapped_column(String(50), nullable=False)
     argument: Mapped[str] = mapped_column(Text, nullable=False)
     vote: Mapped[str] = mapped_column(String(10), nullable=False)  # FOR, AGAINST, ABSTAIN
     confidence: Mapped[float] = mapped_column(Float, nullable=False)  # 0.0 - 1.0

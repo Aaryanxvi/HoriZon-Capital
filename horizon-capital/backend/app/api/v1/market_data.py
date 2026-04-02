@@ -1,6 +1,6 @@
 """Market data endpoints: real-time quotes (Redis), OHLCV history (Postgres), regime."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -43,7 +43,7 @@ async def get_quote(
         volume=float(data.get("volume", 0)),
         timestamp=datetime.fromisoformat(data["timestamp"])
         if "timestamp" in data
-        else datetime.now(timezone.utc),
+        else datetime.now(UTC),
         source=data.get("source"),
     )
 
@@ -114,6 +114,6 @@ async def get_current_regime(
         features=features,
         timestamp=datetime.fromisoformat(data["timestamp"])
         if "timestamp" in data
-        else datetime.now(timezone.utc),
+        else datetime.now(UTC),
         model_version=data.get("model_version"),
     )

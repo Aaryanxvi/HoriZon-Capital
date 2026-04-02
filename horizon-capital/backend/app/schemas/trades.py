@@ -30,7 +30,9 @@ class OrderResponse(BaseModel):
     filled_quantity: float = 0.0
     limit_price: float | None = None
     stop_price: float | None = None
-    status: str = Field(..., description="'pending', 'open', 'partial', 'filled', 'cancelled', 'rejected'")
+    status: str = Field(
+        ..., description="'pending', 'open', 'partial', 'filled', 'cancelled', 'rejected'"
+    )
     strategy: str | None = None
     signal_id: str | None = None
     created_at: datetime

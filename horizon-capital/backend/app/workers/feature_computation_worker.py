@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
 from sqlalchemy import text
 
 from app.config import settings
-from app.core.database import async_session_factory
+from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
+
+
+def _get_session_factory():
+    from app.core.runtime import get_session_factory
+    return get_session_factory()
 
 logger = get_logger("worker.feature_computation")
 
@@ -235,8 +239,9 @@ class FeatureStore:
         redis_data["symbol"] = symbol
         redis_data["timeframe"] = timeframe
 
-        await redis_client.hset(redis_key, mapping=redis_data)
-        await redis_client.expire(redis_key, 7200)  # 2-hour TTL
+        kv = get_kv_store()
+        await kv.hset(redis_key, mapping=redis_data)
+        await kv.expire(redis_key, 7200)  # 2-hour TTL
 
         # Postgres persistence
         try:
@@ -247,26 +252,28 @@ class FeatureStore:
                 default=str,
             ).decode()
 
-            async with async_session_factory() as session:
+            async with _get_session_factory()() as session:
                 await session.execute(
                     text(
                         """
                         INSERT INTO feature_snapshots
-                            (id, symbol, exchange, timeframe, features, computed_at, created_at, updated_at)
+                            (id, symbol, exchange, timeframe,
+                             features, computed_at, created_at, updated_at)
                         VALUES
-                            (gen_random_uuid(), :symbol, :exchange, :timeframe,
-                             :features::jsonb, :computed_at, :now, :now)
-                        ON CONFLICT (symbol, exchange, timeframe, computed_at) DO UPDATE
-                        SET features = EXCLUDED.features, updated_at = EXCLUDED.updated_at
+                            (:id, :symbol, :exchange, :timeframe,
+                             :features, :computed_at, :now, :now)
+                        ON CONFLICT (symbol, exchange, timeframe) DO UPDATE
+                        SET features = excluded.features, updated_at = excluded.updated_at
                         """
                     ),
                     {
+                        "id": str(uuid.uuid4()),
                         "symbol": symbol,
                         "exchange": exchange,
                         "timeframe": timeframe,
                         "features": features_json,
                         "computed_at": timestamp,
-                        "now": datetime.now(timezone.utc),
+                        "now": datetime.now(UTC),
                     },
                 )
                 await session.commit()
@@ -278,7 +285,7 @@ class FeatureStore:
     async def get_features(symbol: str, timeframe: str = "1d") -> dict[str, str] | None:
         """Read latest features from Redis cache."""
         redis_key = f"horizon:features:{symbol}:{timeframe}"
-        data = await redis_client.hgetall(redis_key)
+        data = await get_kv_store().hgetall(redis_key)
         return data if data else None
 
 
@@ -294,29 +301,22 @@ class FeatureComputationWorker:
 
     def __init__(self) -> None:
         self._running: bool = False
-        self._pubsub = redis_client.pubsub()
-        self._listener_task: asyncio.Task | None = None
         self._poll_task: asyncio.Task | None = None
         self.feature_store = FeatureStore()
 
     async def run(self) -> None:
-        """Start listening for new data events and periodically recompute."""
+        """Periodically recompute features for all symbols."""
         self._running = True
         logger.info("feature_computation_worker.starting")
 
-        # Subscribe to data update channels
-        await self._pubsub.subscribe("horizon.data.eod_updated")
-        await self._pubsub.subscribe("horizon.data.crypto_updated")
-        await self._pubsub.psubscribe("horizon.market.*")
+        # Initial computation on startup
+        await self._compute_all_symbols()
 
-        # Start listener and periodic poll tasks
-        self._listener_task = asyncio.create_task(self._listen_for_updates())
         self._poll_task = asyncio.create_task(self._periodic_recompute())
-
         logger.info("feature_computation_worker.started")
 
         try:
-            await asyncio.gather(self._listener_task, self._poll_task)
+            await self._poll_task
         except asyncio.CancelledError:
             pass
 
@@ -325,13 +325,6 @@ class FeatureComputationWorker:
         logger.info("feature_computation_worker.stopping")
         self._running = False
 
-        if self._listener_task and not self._listener_task.done():
-            self._listener_task.cancel()
-            try:
-                await self._listener_task
-            except asyncio.CancelledError:
-                pass
-
         if self._poll_task and not self._poll_task.done():
             self._poll_task.cancel()
             try:
@@ -339,36 +332,7 @@ class FeatureComputationWorker:
             except asyncio.CancelledError:
                 pass
 
-        await self._pubsub.close()
         logger.info("feature_computation_worker.stopped")
-
-    # ------------------------------------------------------------------
-    # Event listener
-    # ------------------------------------------------------------------
-
-    async def _listen_for_updates(self) -> None:
-        """Listen for Redis pub/sub messages indicating new data."""
-        try:
-            async for raw_message in self._pubsub.listen():
-                if not self._running:
-                    break
-
-                msg_type = raw_message.get("type", "")
-                if msg_type not in ("message", "pmessage"):
-                    continue
-
-                channel = raw_message.get("channel", "")
-                if isinstance(channel, bytes):
-                    channel = channel.decode()
-
-                if channel in ("horizon.data.eod_updated", "horizon.data.crypto_updated"):
-                    # Recompute all symbols
-                    await self._compute_all_symbols()
-
-        except asyncio.CancelledError:
-            pass
-        except Exception as exc:
-            logger.error("feature_listener_error", error=str(exc))
 
     async def _periodic_recompute(self) -> None:
         """Recompute features for all symbols every 2 minutes as a safety net."""
@@ -404,7 +368,7 @@ class FeatureComputationWorker:
         raw_symbol = symbol.split(".")[0] if "." in symbol else symbol
 
         # Load OHLCV from Postgres
-        async with async_session_factory() as session:
+        async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
@@ -471,7 +435,7 @@ class FeatureComputationWorker:
                 if pd.notna(val):
                     features[col] = float(val)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Store in FeatureStore
         await self.feature_store.store_features(
@@ -482,15 +446,10 @@ class FeatureComputationWorker:
             timestamp=now,
         )
 
-        # Publish feature update on the bus
-        await redis_client.publish(
-            f"horizon.features.{raw_symbol}.{timeframe}",
-            json.dumps({
-                "symbol": raw_symbol,
-                "timeframe": timeframe,
-                "feature_count": len(features),
-                "timestamp": now.isoformat(),
-            }),
+        # Cache notification (no-op in LOCAL mode; Redis pub/sub in PROD mode)
+        await get_kv_store().set(
+            f"horizon:features:{raw_symbol}:{timeframe}:updated",
+            now.isoformat(),
         )
 
         logger.debug(

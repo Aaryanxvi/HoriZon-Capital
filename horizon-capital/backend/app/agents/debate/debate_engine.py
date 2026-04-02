@@ -10,7 +10,7 @@ Pipeline integration: signal -> debate -> risk check -> sizing -> execution.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -22,7 +22,7 @@ from app.core.logging import get_logger
 def _get_session_factory():
     from app.core.runtime import get_session_factory
     return get_session_factory()
-from app.core.messaging import AgentBus, AgentMessage, MessageType
+from app.core.messaging import AgentBus, AgentMessage, MessageType  # noqa: E402
 
 logger = get_logger("debate.engine")
 
@@ -96,7 +96,7 @@ def _build_user_prompt(
 ) -> str:
     """Build the shared market context prompt that every debater receives."""
     lines = [
-        f"## Proposed Trade",
+        "## Proposed Trade",
         f"- Symbol: {symbol}",
         f"- Action: {action}",
         f"- Signal strength: {signal_data.get('strength', 'N/A')}",
@@ -104,10 +104,10 @@ def _build_user_prompt(
         f"- Target price: {signal_data.get('target_price', 'N/A')}",
         f"- Stop loss: {signal_data.get('stop_loss', 'N/A')}",
         "",
-        f"## Market Regime",
+        "## Market Regime",
         f"- Current regime: {regime or 'UNKNOWN'}",
         "",
-        f"## Sentiment",
+        "## Sentiment",
     ]
 
     if sentiment:
@@ -133,7 +133,8 @@ def _build_user_prompt(
             "",
             "## Instructions",
             "Analyze the above from your role's perspective. Respond with ONLY a JSON object:",
-            '{"argument": "<your reasoning>", "vote": "FOR|AGAINST|ABSTAIN", "confidence": <0.0-1.0>}',
+            '{"argument": "<your reasoning>", "vote": "FOR|AGAINST|ABSTAIN",'
+            ' "confidence": <0.0-1.0>}',
         ]
     )
 
@@ -191,7 +192,7 @@ class DebateEngine:
             Contains the final decision, consensus score, and all arguments.
         """
         session_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Persist debate session as IN_PROGRESS
         await self._create_session(session_id, symbol, action, signal_data)
@@ -216,51 +217,22 @@ class DebateEngine:
             symbol, action, signal_data, regime, sentiment, risk_metrics
         )
 
-        # Collect arguments from all debaters
+        # Collect arguments from all debaters IN PARALLEL
         arguments: list[DebateArgument] = []
 
-        for role, personality in DEBATER_ROLES.items():
+        async def _run_debater(role: str, personality: str) -> DebateArgument:
+            """Run a single debater and return its argument."""
             try:
                 result = await self.reasoner.reason(
                     system_prompt=personality,
                     user_prompt=user_prompt,
                 )
-
-                arg = DebateArgument(
+                return DebateArgument(
                     role=role,
                     argument=result["argument"],
                     vote=result["vote"],
                     confidence=result["confidence"],
                 )
-                arguments.append(arg)
-
-                # Publish each argument as it arrives
-                await self.bus.publish(
-                    AgentMessage(
-                        sender_id="debate-engine",
-                        channel=f"horizon.debate.{session_id}.argument",
-                        message_type=MessageType.DEBATE_ARGUMENT,
-                        payload={
-                            "session_id": session_id,
-                            "role": role,
-                            "vote": arg.vote,
-                            "confidence": arg.confidence,
-                            "argument": arg.argument[:500],
-                        },
-                    )
-                )
-
-                # Persist argument
-                await self._store_argument(session_id, role, arg)
-
-                logger.info(
-                    "debate_argument_received",
-                    session_id=session_id,
-                    role=role,
-                    vote=arg.vote,
-                    confidence=arg.confidence,
-                )
-
             except Exception as exc:
                 logger.error(
                     "debate_agent_error",
@@ -268,15 +240,45 @@ class DebateEngine:
                     role=role,
                     error=str(exc),
                 )
-                # Agent that fails to respond abstains with zero confidence
-                arguments.append(
-                    DebateArgument(
-                        role=role,
-                        argument=f"Error: {str(exc)[:200]}",
-                        vote="ABSTAIN",
-                        confidence=0.0,
-                    )
+                return DebateArgument(
+                    role=role,
+                    argument=f"Error: {str(exc)[:200]}",
+                    vote="ABSTAIN",
+                    confidence=0.0,
                 )
+
+        # Fire all 4 debater API calls in parallel (~75% latency reduction)
+        import asyncio as _asyncio
+        debate_tasks = [
+            _run_debater(role, personality)
+            for role, personality in DEBATER_ROLES.items()
+        ]
+        arguments = list(await _asyncio.gather(*debate_tasks))
+
+        # Publish and persist all arguments
+        for arg in arguments:
+            await self.bus.publish(
+                AgentMessage(
+                    sender_id="debate-engine",
+                    channel=f"horizon.debate.{session_id}.argument",
+                    message_type=MessageType.DEBATE_ARGUMENT,
+                    payload={
+                        "session_id": session_id,
+                        "role": arg.role,
+                        "vote": arg.vote,
+                        "confidence": arg.confidence,
+                        "argument": arg.argument[:500],
+                    },
+                )
+            )
+            await self._store_argument(session_id, arg.role, arg)
+            logger.info(
+                "debate_argument_received",
+                session_id=session_id,
+                role=arg.role,
+                vote=arg.vote,
+                confidence=arg.confidence,
+            )
 
         # Tally votes
         for_votes = [a for a in arguments if a.vote == "FOR"]
@@ -328,7 +330,7 @@ class DebateEngine:
                     "for_count": len(for_votes),
                     "against_count": len(against_votes),
                     "abstain_count": len(abstain_votes),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
         )
@@ -356,7 +358,7 @@ class DebateEngine:
         signal_data: dict[str, Any],
     ) -> None:
         """Insert a new debate session row."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         exchange = symbol.split(".")[-1] if "." in symbol else "UNKNOWN"
 
         async with _get_session_factory()() as session:
@@ -390,7 +392,7 @@ class DebateEngine:
         arg: DebateArgument,
     ) -> None:
         """Persist a single debate argument."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
@@ -423,7 +425,7 @@ class DebateEngine:
         consensus_score: float,
     ) -> None:
         """Mark a debate session as concluded with the final decision."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
                 text(
