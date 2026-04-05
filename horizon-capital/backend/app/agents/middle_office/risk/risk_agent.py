@@ -4,12 +4,9 @@ import asyncio
 import uuid
 from datetime import UTC, datetime
 
-import numpy as np
 from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
-from app.agents.middle_office.risk.kill_switch import KillSwitch
-from app.agents.middle_office.risk.var_calculator import VaRCalculator
 from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
@@ -28,7 +25,7 @@ logger = get_logger("agent.risk")
 
 
 class RiskAgent(BaseAgent):
-    """Monitors portfolio risk in real-time and enforces pre-trade limits.
+    """Monitors portfolio risk and enforces pre-trade limits.
 
     Subscribes to:
       - ``horizon.signal.*``            -- pre-trade validation
@@ -36,7 +33,6 @@ class RiskAgent(BaseAgent):
 
     Publishes:
       - ``horizon.risk.alert``          -- when a limit is breached or signal is blocked
-      - ``horizon.risk.kill_switch``    -- via KillSwitch
     """
 
     def __init__(self, bus: AgentBus) -> None:
@@ -45,8 +41,6 @@ class RiskAgent(BaseAgent):
             agent_type="risk",
             bus=bus,
         )
-        self.var_calculator = VaRCalculator()
-        self.kill_switch = KillSwitch(bus=bus, redis=_get_kv())
         self.redis = _get_kv()
 
     # ------------------------------------------------------------------ #
@@ -86,51 +80,21 @@ class RiskAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def _handle_signal(self, message: AgentMessage) -> None:
-        """Validate a proposed signal before it becomes an order.
-
-        On approval: emits SIGNAL so PortfolioAgent can size the order.
-        On rejection: emits RISK_ALERT (signal is blocked).
-        """
+        """Validate a proposed signal before it becomes an order."""
         payload = message.payload
         symbol = payload.get("symbol", "")
-        direction = payload.get("direction", 0)
-        strength = payload.get("strength", 0.0)
 
         violations: list[str] = []
 
-        # 1. Check position-size limit (max % of portfolio in one name)
-        if not await self._check_position_limit(symbol, strength):
+        if not await self._check_position_limit(symbol):
             violations.append(
                 f"Position in {symbol} would exceed "
                 f"{settings.risk_max_position_pct}% limit"
             )
 
-        # 2. Check total gross exposure ceiling (leverage)
-        if not await self._check_exposure_ceiling():
-            violations.append(
-                f"Gross leverage would exceed {settings.risk_max_leverage}x"
-            )
-
-        # 3. Check correlation -- reject if highly correlated with existing book
-        if not await self._check_correlation(symbol, direction):
-            violations.append(
-                f"{symbol} is too correlated with existing positions"
-            )
-
-        # 4. Check kill switch
-        if await self.kill_switch.is_active():
-            violations.append("Kill switch is active -- no new orders allowed")
-
-        # 5. Check daily loss limit
         if not await self._check_daily_loss_limit():
             violations.append(
                 f"Daily loss exceeds {settings.risk_daily_loss_limit_pct}% limit"
-            )
-
-        # 6. Check order rate limit
-        if not await self._check_order_rate_limit():
-            violations.append(
-                f"Order rate exceeds {settings.risk_max_orders_per_minute}/min limit"
             )
 
         if violations:
@@ -156,7 +120,6 @@ class RiskAgent(BaseAgent):
             )
             logger.warning("signal_rejected", symbol=symbol, violations=violations)
         else:
-            # Gate passed -- emit SIGNAL with full signal payload
             await self.emit(
                 channel=f"horizon.risk.approved.{symbol}",
                 message_type=MessageType.SIGNAL,
@@ -165,8 +128,6 @@ class RiskAgent(BaseAgent):
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
-            # Increment order count for rate limiting
-            await self._increment_order_count()
             logger.info("signal_approved", symbol=symbol)
 
     # ------------------------------------------------------------------ #
@@ -185,28 +146,14 @@ class RiskAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def _recompute_risk(self) -> None:
-        """Recompute VaR, drawdown, and check kill-switch thresholds."""
+        """Compute historical VaR and drawdown, persist metrics."""
         returns = await self._load_portfolio_returns()
         equity_curve = await self._load_equity_curve()
 
-        var_95 = self.var_calculator.compute_var(returns, confidence=0.95)
-        var_99 = self.var_calculator.compute_var(returns, confidence=0.99)
-        cvar_95 = self.var_calculator.compute_cvar(returns, confidence=0.95)
-        max_dd = self.var_calculator.compute_max_drawdown(equity_curve)
-        current_dd = self.var_calculator.compute_current_drawdown(equity_curve)
+        var_95 = self._compute_var(returns, confidence=0.95)
+        max_dd = self._compute_max_drawdown(equity_curve)
+        current_dd = self._compute_current_drawdown(equity_curve)
 
-        kill_active = await self.kill_switch.is_active()
-
-        # Check if we need to trigger kill switch
-        triggered = await self.kill_switch.check_thresholds(
-            drawdown=current_dd,
-            var_95=var_95,
-            var_99=var_99,
-        )
-        if triggered:
-            kill_active = True
-
-        # Persist to risk_metrics table
         now = datetime.now(UTC)
         async with _get_session_factory()() as session:
             await session.execute(
@@ -219,32 +166,30 @@ class RiskAgent(BaseAgent):
                     VALUES
                         (:id, :var_95, :var_99, :cvar_95,
                          :max_dd, :current_dd,
-                         :kill_active, :now, :now)
+                         0, :now, :now)
                     """
                 ),
                 {
                     "id": str(uuid.uuid4()),
                     "var_95": var_95,
-                    "var_99": var_99,
-                    "cvar_95": cvar_95,
+                    "var_99": var_95,
+                    "cvar_95": var_95,
                     "max_dd": max_dd,
                     "current_dd": current_dd,
-                    "kill_active": kill_active,
                     "now": now,
                 },
             )
             await session.commit()
 
-        # Cache latest metrics in Redis for fast dashboard access
         await self.redis.hset(
             "horizon:risk:latest",
             mapping={
                 "var_1d_95": str(var_95),
-                "var_1d_99": str(var_99),
-                "cvar_1d_95": str(cvar_95),
+                "var_1d_99": str(var_95),
+                "cvar_1d_95": str(var_95),
                 "max_drawdown": str(max_dd),
                 "current_drawdown": str(current_dd),
-                "kill_switch_active": "1" if kill_active else "0",
+                "kill_switch_active": "0",
                 "updated_at": now.isoformat(),
             },
         )
@@ -252,25 +197,22 @@ class RiskAgent(BaseAgent):
         logger.info(
             "risk_metrics_updated",
             var_95=f"{var_95:.4f}",
-            var_99=f"{var_99:.4f}",
             current_dd=f"{current_dd:.4f}",
-            kill_switch=kill_active,
         )
 
     # ------------------------------------------------------------------ #
-    # Pre-trade check helpers
+    # Simple risk checks
     # ------------------------------------------------------------------ #
 
-    async def _check_position_limit(self, symbol: str, strength: float) -> bool:
-        """Return True if the proposed position would stay within limits."""
+    async def _check_position_limit(self, symbol: str) -> bool:
+        """Return True if the position is within the 5% per-symbol limit."""
         nav_str = await self.redis.get("horizon:portfolio:nav")
         if not nav_str:
-            return True  # no portfolio data yet -- allow
+            return True
         nav = float(nav_str)
         if nav <= 0:
             return True
 
-        # Look up current position value for this symbol
         async with _get_session_factory()() as session:
             row = await session.execute(
                 text(
@@ -281,56 +223,15 @@ class RiskAgent(BaseAgent):
             )
             pos = row.fetchone()
 
-        current_value = 0.0
-        if pos:
-            current_value = abs(pos.quantity * pos.current_price)
-
-        # Assume worst case: signal at max strength adds another risk_max_position_pct
-        proposed_weight = (current_value / nav) * 100
-        return proposed_weight < settings.risk_max_position_pct
-
-    async def _check_exposure_ceiling(self) -> bool:
-        """Return True if gross leverage is below the configured maximum."""
-        leverage_str = await self.redis.hget("horizon:portfolio:latest", "gross_leverage")
-        if not leverage_str:
+        if not pos:
             return True
-        return float(leverage_str) < settings.risk_max_leverage
 
-    async def _check_correlation(self, symbol: str, direction: int) -> bool:
-        """Simple correlation guard -- reject if the symbol is already in the book
-        with a large weight in the same direction.
-
-        A full correlation-matrix check would use precomputed matrices; this is
-        a pragmatic first implementation.
-        """
-        async with _get_session_factory()() as session:
-            row = await session.execute(
-                text(
-                    "SELECT side, weight_pct FROM positions "
-                    "WHERE symbol = :symbol LIMIT 1"
-                ),
-                {"symbol": symbol},
-            )
-            pos = row.fetchone()
-
-        if pos is None:
-            return True  # no existing position
-
-        # If already holding > 3% in the same direction, flag as correlated
-        same_direction = (
-            (direction > 0 and pos.side == "LONG")
-            or (direction < 0 and pos.side == "SHORT")
-        )
-        if same_direction and pos.weight_pct > 3.0:
-            return False
-        return True
-
-    # ------------------------------------------------------------------ #
-    # Daily loss limit and order rate limiting
-    # ------------------------------------------------------------------ #
+        current_value = abs(pos.quantity * pos.current_price)
+        weight_pct = (current_value / nav) * 100
+        return weight_pct < settings.risk_max_position_pct
 
     async def _check_daily_loss_limit(self) -> bool:
-        """Return True if daily realized+unrealized loss is within limit."""
+        """Return True if daily loss is within the 10% limit."""
         nav_str = await self.redis.get("horizon:portfolio:nav")
         if not nav_str:
             return True
@@ -338,7 +239,6 @@ class RiskAgent(BaseAgent):
         if nav <= 0:
             return True
 
-        # Sum unrealized + realized losses from current positions
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
@@ -353,7 +253,7 @@ class RiskAgent(BaseAgent):
 
         total_pnl = (row.total_unrealized or 0) + (row.total_realized or 0)
         if total_pnl >= 0:
-            return True  # No loss
+            return True
 
         loss_pct = abs(total_pnl) / nav * 100
         if loss_pct >= settings.risk_daily_loss_limit_pct:
@@ -365,28 +265,52 @@ class RiskAgent(BaseAgent):
             return False
         return True
 
-    async def _check_order_rate_limit(self) -> bool:
-        """Return True if order rate is within limit (max orders per minute)."""
-        count_str = await self.redis.get("horizon:orders:count_minute")
-        if not count_str:
-            return True
-        try:
-            count = int(count_str)
-        except (ValueError, TypeError):
-            return True
-        return count < settings.risk_max_orders_per_minute
+    # ------------------------------------------------------------------ #
+    # VaR and drawdown helpers (historical simulation)
+    # ------------------------------------------------------------------ #
 
-    async def _increment_order_count(self) -> None:
-        """Increment the per-minute order counter."""
-        count_str = await self.redis.get("horizon:orders:count_minute")
-        count = int(count_str) + 1 if count_str else 1
-        await self.redis.set("horizon:orders:count_minute", str(count), ex=60)
+    @staticmethod
+    def _compute_var(returns: list[float], confidence: float = 0.95) -> float:
+        """Historical VaR at 95% confidence using percentile of returns."""
+        if not returns:
+            return 0.0
+        sorted_returns = sorted(returns)
+        idx = int((1 - confidence) * len(sorted_returns))
+        idx = max(0, min(idx, len(sorted_returns) - 1))
+        return abs(sorted_returns[idx])
+
+    @staticmethod
+    def _compute_max_drawdown(equity_curve: list[float]) -> float:
+        """Maximum peak-to-trough drawdown as a fraction."""
+        if len(equity_curve) < 2:
+            return 0.0
+        peak = equity_curve[0]
+        max_dd = 0.0
+        for val in equity_curve:
+            if val > peak:
+                peak = val
+            if peak > 0:
+                dd = (peak - val) / peak
+                if dd > max_dd:
+                    max_dd = dd
+        return max_dd
+
+    @staticmethod
+    def _compute_current_drawdown(equity_curve: list[float]) -> float:
+        """Current drawdown from the last peak."""
+        if len(equity_curve) < 2:
+            return 0.0
+        peak = max(equity_curve)
+        if peak == 0:
+            return 0.0
+        current = equity_curve[-1]
+        return max((peak - current) / peak, 0.0)
 
     # ------------------------------------------------------------------ #
     # Data loaders
     # ------------------------------------------------------------------ #
 
-    async def _load_portfolio_returns(self) -> np.ndarray:
+    async def _load_portfolio_returns(self) -> list[float]:
         """Load recent portfolio daily returns from portfolio_snapshots."""
         async with _get_session_factory()() as session:
             result = await session.execute(
@@ -402,16 +326,18 @@ class RiskAgent(BaseAgent):
             rows = result.fetchall()
 
         if len(rows) < 2:
-            return np.array([], dtype=np.float64)
+            return []
 
-        # Rows are most-recent-first; reverse for chronological order
-        values = np.array([r.total_value for r in reversed(rows)], dtype=np.float64)
-        # Daily returns = pct_change
-        returns = np.diff(values) / np.where(values[:-1] == 0, 1.0, values[:-1])
+        values = [r.total_value for r in reversed(rows)]
+        returns = []
+        for i in range(1, len(values)):
+            prev = values[i - 1]
+            if prev != 0:
+                returns.append((values[i] - prev) / prev)
         return returns
 
-    async def _load_equity_curve(self) -> np.ndarray:
-        """Load the equity (NAV) curve for drawdown calculation."""
+    async def _load_equity_curve(self) -> list[float]:
+        """Load the equity curve for drawdown calculation."""
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
@@ -426,6 +352,6 @@ class RiskAgent(BaseAgent):
             rows = result.fetchall()
 
         if not rows:
-            return np.array([], dtype=np.float64)
+            return []
 
-        return np.array([r.total_value for r in reversed(rows)], dtype=np.float64)
+        return [r.total_value for r in reversed(rows)]

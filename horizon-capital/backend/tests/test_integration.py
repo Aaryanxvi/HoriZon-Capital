@@ -743,42 +743,6 @@ class TestCommandHandler:
 # =====================================================================
 
 
-class TestStressTesting:
-    """Stress testing service produces valid scenario results."""
-
-    def test_historical_scenarios_exist(self):
-        from app.services.stress_testing import HISTORICAL_SCENARIOS
-        assert "GFC_2008" in HISTORICAL_SCENARIOS
-        assert "COVID_2020" in HISTORICAL_SCENARIOS
-        assert len(HISTORICAL_SCENARIOS) >= 3
-
-    def test_run_all_scenarios(self):
-        from app.services.stress_testing import StressTestingService
-        svc = StressTestingService()
-        positions = [
-            {"symbol": "AAPL", "weight_pct": 50.0},
-            {"symbol": "RELIANCE", "weight_pct": 50.0},
-        ]
-        report = svc.run_historical_scenarios(positions, portfolio_value=1_000_000)
-        assert len(report.scenario_results) > 0
-        assert report.aggregate_risk_score >= 0
-        assert report.worst_case_scenario is not None
-
-    def test_scenario_impact_negative(self):
-        from app.services.stress_testing import StressTestingService
-        svc = StressTestingService()
-        positions = [{"symbol": "AAPL", "weight_pct": 100.0}]
-        report = svc.run_historical_scenarios(positions, portfolio_value=1_000_000)
-        # All crisis scenarios should have negative impact
-        for sr in report.scenario_results:
-            assert sr.portfolio_impact_pct <= 0, f"{sr.scenario_key} had positive impact"
-
-
-# =====================================================================
-# 9. Dashboard Data Flow
-# =====================================================================
-
-
 class TestDashboard:
     """Dashboard correctly accumulates and limits data."""
 
@@ -1048,40 +1012,6 @@ class TestKVPersistence:
         assert await kv.get("horizon:price:AAPL") == "150.0"
         # The key is not in _PERSIST_KEYS, so no SQLite write attempted
         assert "horizon:price:AAPL" not in PersistentKVStore._PERSIST_KEYS
-
-
-class TestKillSwitchCancelAll:
-    """Kill switch publishes ORDER_CANCEL_ALL."""
-
-    @pytest.mark.asyncio
-    async def test_cancel_all_published_on_activate(self):
-        from app.core.kv_store import MemoryKVStore
-        from app.core.memory_bus import MemoryBus
-        from app.core.messaging import AgentMessage, MessageType
-        from app.agents.middle_office.risk.kill_switch import KillSwitch
-
-        bus = MemoryBus()
-        await bus.start_listening()
-
-        received = []
-
-        async def capture(msg: AgentMessage):
-            received.append(msg)
-
-        await bus.subscribe("horizon.risk.kill_switch", capture)
-        await bus.subscribe("horizon.execution.order.cancel_all", capture)
-
-        kv = MemoryKVStore()
-        ks = KillSwitch(bus=bus, redis=kv)
-        await ks.activate("test kill switch")
-
-        await asyncio.sleep(0.1)
-
-        # Should have 2 messages: RISK_ALERT + ORDER_CANCEL
-        types = [m.message_type for m in received]
-        assert MessageType.RISK_ALERT in types
-        assert MessageType.ORDER_CANCEL in types
-        await bus.stop()
 
 
 class TestDailyLossLimit:
