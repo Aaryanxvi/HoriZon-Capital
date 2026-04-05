@@ -9,11 +9,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    from horizon_core_rs import (
+    from horizon_core_rs import (  # type: ignore[import]
         compute_all_indicators as _rs_all,
-        compute_bollinger as _rs_bollinger,
-        compute_macd as _rs_macd,
-        compute_rsi as _rs_rsi,
+    )
+    from horizon_core_rs import (
         run_backtest_fast as _rs_backtest,
     )
 
