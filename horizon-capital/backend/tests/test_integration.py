@@ -2222,64 +2222,38 @@ class TestRedditClientIntegration:
             )
 
 
-class TestLLMSignalGenerationPipeline:
-    """End-to-end: LLM provider -> strategy -> signal generation."""
+class TestSimpleStrategiesPipeline:
+    """End-to-end: simple strategies produce valid signals."""
 
-    def test_strategy_uses_rule_based_without_llm(self):
-        """Without LLM provider, ensemble uses rule-based generation."""
-        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
-
-        selector = EnsembleSelector(llm_provider="")
-        assert selector._llm_provider == ""
-
-        # generate_signals should work rule-based
-        features = {
-            "rsi": 25.0,
-            "macd": -0.5,
-            "macd_signal": -0.3,
-            "close": 150.0,
-            "sma_20": 155.0,
-            "sma_50": 160.0,
-            "bb_upper": 165.0,
-            "bb_lower": 140.0,
-            "atr": 3.0,
-        }
-        signals = selector.generate_signals("AAPL", features, "NEUTRAL")
-        # Rule-based signals; may be empty depending on thresholds
-        assert isinstance(signals, list)
-        for sig in signals:
-            assert sig.llm_enhanced is False
-
-    @pytest.mark.asyncio
-    async def test_strategy_falls_back_on_llm_error(self):
-        """When LLM fails, strategy falls back to rule-based."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
+    def test_rsi_strategy_signal_structure(self):
+        """RSI strategy returns signals with correct fields."""
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import RSIStrategy
         from app.agents.front_office.strategy.base_strategy import Signal
-        from app.agents.front_office.strategy.momentum_strategy import (
-            MomentumStrategy,
+
+        prices = [100 - i * 2 for i in range(30)]
+        df = pd.DataFrame({
+            "open": prices, "high": [p * 1.01 for p in prices],
+            "low": [p * 0.99 for p in prices], "close": prices,
+            "volume": [1000] * len(prices),
+        })
+        signal = RSIStrategy().generate_signal("AAPL", df)
+        if signal is not None:
+            assert isinstance(signal, Signal)
+            assert signal.symbol == "AAPL"
+            assert signal.direction in (-1, 0, 1)
+            assert 0.0 <= signal.strength <= 1.0
+
+    def test_all_three_strategies_instantiate(self):
+        """All three strategies can be instantiated and have correct names."""
+        from app.agents.front_office.strategy.simple_strategies import (
+            RSIStrategy, MACDStrategy, BollingerBandStrategy,
         )
-
-        strategy = MomentumStrategy(llm_provider="claude")
-
-        # Mock provider that raises
-        mock_provider = AsyncMock()
-        mock_provider.complete = AsyncMock(side_effect=Exception("API error"))
-
-        mock_registry = MagicMock()
-        mock_registry.get_provider.return_value = mock_provider
-
-        with patch(
-            "app.llm.provider_registry.provider_registry", mock_registry
-        ):
-            result = await strategy.generate_signal_with_llm(
-                "AAPL",
-                {"rsi": 30.0, "macd": 0.5, "close": 150.0},
-                "NEUTRAL",
-            )
-
-        # Should fall back to rule-based (may return None or Signal)
-        assert result is None or isinstance(result, Signal)
+        strategies = [RSIStrategy(), MACDStrategy(), BollingerBandStrategy()]
+        names = [s.name for s in strategies]
+        assert "rsi" in names
+        assert "macd" in names
+        assert "bollinger" in names
 
 
 class TestConfigAPIKeyLoading:

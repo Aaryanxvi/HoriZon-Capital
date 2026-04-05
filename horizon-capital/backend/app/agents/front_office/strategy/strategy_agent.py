@@ -1,9 +1,8 @@
-"""Strategy agent -- runs the ensemble selector on a timer to produce signals.
+"""Strategy agent -- runs the three basic strategies on a timer to produce signals.
 
-Polls features from the FeatureStore every 60 seconds, fetches the current
-regime from the regime_states table, and runs ``EnsembleSelector.generate_signals()``
-for each symbol.  Emits signals on ``horizon.signal.{symbol}`` and persists
-them to the ``signals`` table.
+Polls OHLCV data from the KV cache every 60 seconds and runs RSIStrategy,
+MACDStrategy, and BollingerBandStrategy for each symbol. Emits signals on
+``horizon.signal.{symbol}`` and persists them to the ``signals`` table.
 """
 
 from __future__ import annotations
@@ -13,10 +12,15 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import pandas as pd
 from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
-from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
+from app.agents.front_office.strategy.simple_strategies import (
+    BollingerBandStrategy,
+    MACDStrategy,
+    RSIStrategy,
+)
 from app.config import settings
 from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
@@ -43,9 +47,7 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
-        from app.llm.provider_registry import provider_registry
-        _provider = provider_registry.get_provider_name_for_department("front_office")
-        self._ensemble = EnsembleSelector(llm_provider=_provider)
+        self._strategies = [RSIStrategy(), MACDStrategy(), BollingerBandStrategy()]
         self._symbols = self._load_symbols()
 
     @staticmethod
@@ -62,25 +64,17 @@ class StrategyAgent(BaseAgent):
 
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.features.*", self.on_message)
-        await self.bus.subscribe("horizon.regime.update", self.on_message)
 
     async def on_message(self, message: AgentMessage) -> None:
-        """Log incoming events; the main loop drives signal generation."""
-        if (
-            message.message_type == MessageType.FEATURE_UPDATE
-            and message.channel == "horizon.regime.update"
-        ):
-            payload = message.payload
-            scope = payload.get("market_scope", "")
-            regime = payload.get("regime", "")
-            logger.info("regime_received", scope=scope, regime=regime)
+        """Log incoming feature updates."""
+        if message.message_type == MessageType.FEATURE_UPDATE:
+            logger.debug("feature_update_received", channel=message.channel)
 
     # ------------------------------------------------------------------
     # Main loop
     # ------------------------------------------------------------------
 
     async def run(self) -> None:
-        # Wait for data ingestion + features to warm up
         await asyncio.sleep(15)
         logger.info("strategy_agent_starting", symbols=self._symbols)
 
@@ -97,49 +91,34 @@ class StrategyAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _generate_for_symbol(self, symbol: str) -> None:
-        """Load features + regime, run ensemble, emit & persist signals."""
-        # Load features from KV cache
-        features_raw = await self._get_features(symbol)
-        if not features_raw:
+        """Load OHLCV data, run each strategy, emit & persist signals."""
+        df = await self._get_ohlcv(symbol)
+        if df is None or df.empty:
             return
 
-        # Convert string values to floats
-        features: dict[str, float] = {}
-        for k, v in features_raw.items():
-            if k in ("timestamp", "symbol", "timeframe"):
-                continue
+        for strategy in self._strategies:
             try:
-                features[k] = float(v)
-            except (ValueError, TypeError):
+                sig = strategy.generate_signal(symbol, df)
+            except Exception as exc:
+                logger.warning(
+                    "strategy_run_error",
+                    strategy=strategy.name,
+                    symbol=symbol,
+                    error=str(exc),
+                )
                 continue
 
-        if not features:
-            return
+            if sig is None:
+                continue
 
-        # Get current regime
-        regime = await self._get_regime(symbol)
-
-        # Run ensemble: LLM-enhanced if provider available, else rule-based
-        if self._ensemble._llm_provider:
-            signals = await self._ensemble.generate_signals_async(
-                symbol, features, regime
-            )
-        else:
-            signals = self._ensemble.generate_signals(symbol, features, regime)
-
-        for sig in signals:
-            # Emit on bus
             payload = {
                 "symbol": sig.symbol,
                 "direction": sig.direction,
                 "strength": sig.strength,
                 "strategy_name": sig.strategy_name,
-                "regime": sig.regime,
                 "reasoning": sig.reasoning,
                 "target_price": sig.target_price,
                 "stop_loss": sig.stop_loss,
-                "llm_enhanced": sig.llm_enhanced,
-                "meta": sig.meta,
             }
             await self.emit(
                 channel=f"horizon.signal.{symbol}",
@@ -147,8 +126,7 @@ class StrategyAgent(BaseAgent):
                 payload=payload,
             )
 
-            # Persist to signals table
-            await self._persist_signal(sig, payload)
+            await self._persist_signal(sig)
 
             logger.info(
                 "signal_emitted",
@@ -163,51 +141,25 @@ class StrategyAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _get_features(symbol: str, timeframe: str = "1d") -> dict[str, str] | None:
-        """Read latest features from KV cache.
-
-        The feature computation worker stores features keyed by the raw symbol
-        (without exchange suffix), e.g. ``RELIANCE`` not ``RELIANCE.NSE``.
-        """
+    async def _get_ohlcv(symbol: str) -> pd.DataFrame | None:
+        """Build a DataFrame from cached features stored by the feature worker."""
         raw = symbol.split(".")[0] if "." in symbol else symbol
-        redis_key = f"horizon:features:{raw}:{timeframe}"
+        redis_key = f"horizon:features:{raw}:1d"
         data = await get_kv_store().hgetall(redis_key)
-        return data if data else None
+        if not data:
+            return None
+
+        row: dict[str, float] = {}
+        for k in ("open", "high", "low", "close", "volume"):
+            try:
+                row[k] = float(data[k])
+            except (KeyError, ValueError, TypeError):
+                return None
+
+        return pd.DataFrame([row])
 
     @staticmethod
-    async def _get_regime(symbol: str) -> str:
-        """Determine current regime from the regime_states table.
-
-        Maps the symbol to a market scope and reads the most recent regime.
-        """
-        # Map symbol to scope
-        scope = "US"
-        upper = symbol.upper()
-        if upper.endswith(".NSE") or upper.endswith(".BSE"):
-            scope = "INDIA"
-        elif "BTC" in upper or "ETH" in upper or "-USD" in upper:
-            scope = "CRYPTO"
-
-        try:
-            async with _get_session_factory()() as session:
-                result = await session.execute(
-                    text(
-                        """
-                        SELECT regime FROM regime_states
-                        WHERE market_scope = :scope
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                        """
-                    ),
-                    {"scope": scope},
-                )
-                row = result.scalar_one_or_none()
-                return row if row else "NEUTRAL"
-        except Exception:
-            return "NEUTRAL"
-
-    @staticmethod
-    async def _persist_signal(sig, payload: dict) -> None:
+    async def _persist_signal(sig) -> None:
         """Insert signal into the signals table."""
         try:
             async with _get_session_factory()() as session:
@@ -232,8 +184,8 @@ class StrategyAgent(BaseAgent):
                         "strength": sig.strength,
                         "confidence": sig.strength,
                         "strategy_name": sig.strategy_name,
-                        "regime": sig.regime,
-                        "metadata": json.dumps(payload.get("meta", {}), default=str),
+                        "regime": "",
+                        "metadata": json.dumps({}),
                         "now": datetime.now(UTC),
                     },
                 )

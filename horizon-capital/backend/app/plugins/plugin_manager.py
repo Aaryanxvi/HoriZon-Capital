@@ -66,6 +66,7 @@ class PluginManager:
 
         # my_strategy.py
         from app.agents.front_office.strategy.base_strategy import BaseStrategy, Signal
+        import pandas as pd
 
         def plugin_info():
             return {
@@ -80,11 +81,7 @@ class PluginManager:
             def name(self) -> str:
                 return "my_custom"
 
-            @property
-            def active_regimes(self) -> list[str]:
-                return ["BULL", "NEUTRAL"]
-
-            def generate_signal(self, symbol, features, regime):
+            def generate_signal(self, symbol: str, df: pd.DataFrame) -> Signal | None:
                 # Your logic here
                 ...
     """
@@ -143,7 +140,7 @@ class PluginManager:
 
         Gamma et al. 1994 Strategy Pattern validation:
         - Must contain at least one BaseStrategy subclass.
-        - Must implement required abstract methods (name, active_regimes, generate_signal).
+        - Must implement required abstract methods (name, generate_signal).
         """
         module_name = f"horizon_plugin_{py_file.stem}"
 
@@ -181,7 +178,6 @@ class PluginManager:
         try:
             instance = strategy_cls()
             strategy_name = instance.name
-            regimes = instance.active_regimes
         except Exception as exc:
             del sys.modules[module_name]
             raise ValueError(f"Plugin instantiation failed: {exc}") from exc
@@ -193,7 +189,7 @@ class PluginManager:
             version=meta.get("version", "0.0.0"),
             author=meta.get("author", "unknown"),
             description=meta.get("description", ""),
-            active_regimes=regimes,
+            active_regimes=[],
             is_loaded=True,
         )
 
@@ -204,7 +200,6 @@ class PluginManager:
             "plugin_loaded",
             name=info.name,
             cls=info.strategy_class,
-            regimes=regimes,
             version=info.version,
         )
 
@@ -305,31 +300,8 @@ class ExampleStrategy(BaseStrategy):
     def name(self) -> str:
         return "example"
 
-    @property
-    def active_regimes(self) -> list[str]:
-        return ["BULL", "NEUTRAL"]
-
-    def generate_signal(self, symbol, features, regime):
+    def generate_signal(self, symbol, df):
         """Simple RSI-based example."""
-        rsi = features.get("rsi", 50)
-        if rsi < 30:
-            return Signal(
-                symbol=symbol,
-                direction=1,
-                strength=0.6,
-                strategy_name=self.name,
-                regime=regime,
-                reasoning=f"RSI oversold ({rsi:.1f} < 30)",
-            )
-        elif rsi > 70:
-            return Signal(
-                symbol=symbol,
-                direction=-1,
-                strength=0.6,
-                strategy_name=self.name,
-                regime=regime,
-                reasoning=f"RSI overbought ({rsi:.1f} > 70)",
-            )
         return None
 ''', encoding="utf-8")
         logger.info("example_plugin_created", path=str(example))

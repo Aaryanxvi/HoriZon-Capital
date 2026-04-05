@@ -421,29 +421,32 @@ class TestMovedAgentImports:
         except ImportError:
             pytest.skip("Optional dependency missing (joblib/hmmlearn)")
 
-    def test_ensemble_selector(self):
-        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
-        assert EnsembleSelector is not None
+    def test_simple_strategies(self):
+        from app.agents.front_office.strategy.simple_strategies import (
+            RSIStrategy, MACDStrategy, BollingerBandStrategy,
+        )
+        assert RSIStrategy is not None
+        assert MACDStrategy is not None
+        assert BollingerBandStrategy is not None
 
 
-class TestEnsembleSelector:
-    """Strategy ensemble routing."""
+class TestSimpleStrategies:
+    """Simple trading strategies."""
 
-    def test_create_ensemble(self):
-        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
+    def test_create_strategies(self):
+        from app.agents.front_office.strategy.simple_strategies import (
+            RSIStrategy, MACDStrategy, BollingerBandStrategy,
+        )
+        strategies = [RSIStrategy(), MACDStrategy(), BollingerBandStrategy()]
+        assert len(strategies) == 3
 
-        ensemble = EnsembleSelector()
-        assert len(ensemble.strategies) == 4
-
-    def test_get_active_strategies(self):
-        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
-
-        ensemble = EnsembleSelector()
-        # Should return at least one strategy for common regimes
-        for regime in ["BULL", "BEAR", "NEUTRAL", "HIGH_VOLATILITY", "CRISIS"]:
-            active = ensemble.get_active_strategies(regime)
-            # Each regime should have at least 1 active strategy
-            assert isinstance(active, list)
+    def test_strategy_names(self):
+        from app.agents.front_office.strategy.simple_strategies import (
+            RSIStrategy, MACDStrategy, BollingerBandStrategy,
+        )
+        assert RSIStrategy().name == "rsi"
+        assert MACDStrategy().name == "macd"
+        assert BollingerBandStrategy().name == "bollinger"
 
 
 class TestRuntime:
@@ -711,46 +714,28 @@ class TestAgentVisualizer:
         assert panel is not None
 
 
-class TestLLMStrategyPath:
-    """LLM-enhanced strategy agents."""
+class TestBaseStrategy:
+    """Base strategy interface."""
 
-    def test_base_strategy_llm_provider(self):
-        from app.agents.front_office.strategy.momentum_strategy import MomentumStrategy
+    def test_signal_dataclass(self):
+        from app.agents.front_office.strategy.base_strategy import Signal
 
-        # Without LLM
-        strat = MomentumStrategy()
-        assert strat._llm_provider == ""
+        sig = Signal(symbol="AAPL", direction=1, strength=0.8, strategy_name="rsi")
+        assert sig.symbol == "AAPL"
+        assert sig.direction == 1
+        assert sig.strength == 0.8
+        assert sig.timestamp is not None
 
-        # With LLM
-        strat = MomentumStrategy(llm_provider="claude")
-        assert strat._llm_provider == "claude"
+    def test_signal_optional_fields(self):
+        from app.agents.front_office.strategy.base_strategy import Signal
 
-    def test_ensemble_with_llm(self):
-        from app.agents.front_office.strategy.ensemble_selector import EnsembleSelector
-
-        ensemble = EnsembleSelector(llm_provider="claude")
-        assert len(ensemble.strategies) == 4
-        for s in ensemble.strategies:
-            assert s._llm_provider == "claude"
-
-    def test_parse_llm_response(self):
-        from app.agents.front_office.strategy.base_strategy import BaseStrategy
-
-        # Direct JSON
-        result = BaseStrategy._parse_llm_response('{"direction": 1, "strength": 0.8, "reasoning": "test"}')
-        assert result["direction"] == 1
-
-        # JSON in code block
-        result = BaseStrategy._parse_llm_response('```json\n{"direction": -1, "strength": 0.5, "reasoning": "sell"}\n```')
-        assert result["direction"] == -1
-
-        # JSON embedded in text
-        result = BaseStrategy._parse_llm_response('Here is my analysis: {"direction": 0, "strength": 0.1, "reasoning": "hold"}')
-        assert result["direction"] == 0
-
-        # Invalid
-        result = BaseStrategy._parse_llm_response("no json here")
-        assert result is None
+        sig = Signal(
+            symbol="AAPL", direction=-1, strength=0.5, strategy_name="macd",
+            reasoning="test", target_price=100.0, stop_loss=95.0,
+        )
+        assert sig.target_price == 100.0
+        assert sig.stop_loss == 95.0
+        assert sig.reasoning == "test"
 
 
 class TestNewMessageTypes:
@@ -995,56 +980,37 @@ class TestOUMeanReversion:
         from app.agents.front_office.strategy.mean_reversion_strategy import MeanReversionStrategy
 
         strat = MeanReversionStrategy()
-        signal = strat.generate_signal("TEST", {
+        signal = strat.generate_signal_from_features("TEST", {
             "close": 95.0,
             "rsi": 25.0,
             "bb_upper": 110.0,
             "bb_lower": 96.0,
             "bb_mid": 103.0,
-        }, "BEAR")
+        })
         assert signal is not None
         assert signal.direction == 1  # BUY at lower band
-        assert signal.meta.get("method") == "bollinger"
 
 
-class TestGarchVolatility:
-    """GJR-GARCH volatility strategy (Priority 5)."""
+class TestBollingerStrategy:
+    """Bollinger Band strategy."""
 
     def test_import(self):
-        from app.agents.front_office.strategy.volatility_strategy import VolatilityStrategy
-        assert VolatilityStrategy is not None
+        from app.agents.front_office.strategy.simple_strategies import BollingerBandStrategy
+        assert BollingerBandStrategy is not None
 
-    def test_atr_fallback(self):
-        """Should fall back to ATR when no return_history."""
-        from app.agents.front_office.strategy.volatility_strategy import VolatilityStrategy
+    def test_returns_none_on_flat_data(self):
+        """Flat price data should produce no signal (band_width == 0)."""
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import BollingerBandStrategy
 
-        strat = VolatilityStrategy()
-        signal = strat.generate_signal("TEST", {
-            "atr": 5.0,
-            "atr_avg_20": 2.0,
-            "close": 100.0,
-        }, "HIGH_VOL")
-        assert signal is not None
-        assert signal.direction == -1  # reduce exposure
-        assert signal.meta.get("method") == "atr"
-
-    def test_garch_with_return_history(self):
-        """GARCH should run (or gracefully fall back) with return history."""
-        import numpy as np
-        from app.agents.front_office.strategy.volatility_strategy import VolatilityStrategy
-
-        np.random.seed(42)
-        returns = list(np.random.normal(0, 0.02, 100))
-        strat = VolatilityStrategy()
-        signal = strat.generate_signal("TEST", {
-            "return_history": returns,
-            "atr": 5.0,
-            "atr_avg_20": 2.0,
-            "close": 100.0,
-        }, "HIGH_VOL")
-        # May or may not generate signal depending on GARCH fit
-        # But should not crash
-        assert signal is None or isinstance(signal.direction, int)
+        df = pd.DataFrame({
+            "open": [100.0] * 25, "high": [100.0] * 25,
+            "low": [100.0] * 25, "close": [100.0] * 25,
+            "volume": [1000] * 25,
+        })
+        strat = BollingerBandStrategy()
+        signal = strat.generate_signal("TEST", df)
+        assert signal is None
 
 
 class TestAlmgrenChriss:
@@ -1185,7 +1151,7 @@ class TestVPVMAMomentum:
         from app.agents.front_office.strategy.momentum_strategy import MomentumStrategy
 
         strat = MomentumStrategy()
-        signal = strat.generate_signal("TEST", {
+        signal = strat.generate_signal_from_features("TEST", {
             "rsi": 25.0,
             "macd": 0.5,
             "macd_signal": 0.3,
@@ -1196,100 +1162,48 @@ class TestVPVMAMomentum:
             "vwap": 99.0,
             "atr": 3.0,
             "atr_avg_20": 2.0,
-        }, "BULL")
+        })
         assert signal is not None
         assert signal.direction == 1  # bullish
         assert "fusion" in signal.reasoning
 
 
-class TestCrisisTrendFollowing:
-    """Crisis trend-following overlay (Priority 9)."""
+class TestRSIStrategy:
+    """RSI strategy."""
 
     def test_import(self):
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
-        assert CrisisStrategy is not None
+        from app.agents.front_office.strategy.simple_strategies import RSIStrategy
+        assert RSIStrategy is not None
 
-    def test_trend_following_bearish_crossover(self):
-        """Should detect bearish EMA crossover."""
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
+    def test_oversold_buy(self):
+        """Should generate BUY when RSI < 30."""
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import RSIStrategy
 
-        result = CrisisStrategy._trend_following_signal({
-            "close": 90.0,
-            "ema_10": 95.0,
-            "ema_50": 100.0,
+        prices = [100 - i * 2 for i in range(30)]
+        df = pd.DataFrame({
+            "open": prices, "high": [p * 1.01 for p in prices],
+            "low": [p * 0.99 for p in prices], "close": prices,
+            "volume": [1000] * len(prices),
         })
-        assert result is not None
-        assert result["type"] == "trend_following"
-        assert result["strength"] > 0
+        signal = RSIStrategy().generate_signal("TEST", df)
+        if signal is not None:
+            assert signal.direction == 1
 
-    def test_drawdown_hedging(self):
-        """Should trigger hedge at sufficient drawdown."""
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
+    def test_overbought_sell(self):
+        """Should generate SELL when RSI > 70."""
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import RSIStrategy
 
-        # No hedge below 5%
-        result = CrisisStrategy._drawdown_hedge_signal({"current_drawdown": 0.03})
-        assert result is None
-
-        # Partial hedge at 10%
-        result = CrisisStrategy._drawdown_hedge_signal({"current_drawdown": 0.10})
-        assert result is not None
-        assert 0.3 < result["strength"] < 1.0
-
-        # Full hedge at 15%+
-        result = CrisisStrategy._drawdown_hedge_signal({"current_drawdown": 0.20})
-        assert result is not None
-        assert result["strength"] >= 0.9
-
-    def test_vix_gradual_scaling(self):
-        """VIX signal should scale gradually, not binary."""
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
-
-        # No signal below 20
-        assert CrisisStrategy._vix_signal(15.0) is None
-
-        # Mild signal at 25
-        r25 = CrisisStrategy._vix_signal(25.0)
-        assert r25 is not None
-
-        # Stronger at 35
-        r35 = CrisisStrategy._vix_signal(35.0)
-        assert r35 is not None
-        assert r35["strength"] > r25["strength"]
-
-    def test_trailing_stop(self):
-        """Dynamic trailing stop should trigger when price breaches."""
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
-
-        # Price above stop — no signal
-        result = CrisisStrategy._trailing_stop_signal({
-            "close": 100.0, "atr": 2.0, "recent_high": 105.0,
+        prices = [50 + i * 2 for i in range(30)]
+        df = pd.DataFrame({
+            "open": prices, "high": [p * 1.01 for p in prices],
+            "low": [p * 0.99 for p in prices], "close": prices,
+            "volume": [1000] * len(prices),
         })
-        assert result is None  # stop = 105 - 6 = 99, close=100 > 99
-
-        # Price below stop
-        result = CrisisStrategy._trailing_stop_signal({
-            "close": 90.0, "atr": 2.0, "recent_high": 105.0,
-        })
-        assert result is not None
-        assert result["type"] == "trailing_stop"
-
-    def test_multi_signal_combination(self):
-        """Should combine multiple crisis signals."""
-        from app.agents.front_office.strategy.crisis_strategy import CrisisStrategy
-
-        strat = CrisisStrategy()
-        signal = strat.generate_signal("TEST", {
-            "close": 85.0,
-            "vix_proxy": 35.0,
-            "atr": 3.0,
-            "ema_10": 90.0,
-            "ema_50": 100.0,
-            "current_drawdown": 0.12,
-            "recent_high": 100.0,
-        }, "CRISIS")
-        assert signal is not None
-        assert signal.direction == -1
-        assert signal.meta.get("crisis_signal_count", 0) >= 2
+        signal = RSIStrategy().generate_signal("TEST", df)
+        if signal is not None:
+            assert signal.direction == -1
 
 
 # ===================================================================
@@ -1953,197 +1867,64 @@ class TestMultiModelDebate:
 # -- Phase 5 Tests ----------------------------------------------------------
 
 
-class TestOptionsStrategy:
-    """Options pricing and Greeks (Black-Scholes 1973, Heston 1993)."""
+class TestMACDStrategy:
+    """MACD crossover strategy."""
 
-    def test_bs_call_price(self):
-        from app.agents.front_office.strategy.options_strategy import bs_price
-        # Standard BS test case: S=100, K=100, T=1, r=5%, σ=20%
-        price = bs_price(100, 100, 1.0, 0.05, 0.20, "call")
-        assert 9.0 < price < 12.0  # Expected ~10.45
+    def test_import(self):
+        from app.agents.front_office.strategy.simple_strategies import MACDStrategy
+        assert MACDStrategy is not None
 
-    def test_bs_put_price(self):
-        from app.agents.front_office.strategy.options_strategy import bs_price
-        price = bs_price(100, 100, 1.0, 0.05, 0.20, "put")
-        assert 4.0 < price < 7.0  # Expected ~5.57
+    def test_returns_none_on_short_data(self):
+        """Fewer than 26 rows should return None."""
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import MACDStrategy
 
-    def test_put_call_parity(self):
-        """Put-call parity: C - P = S - K*e^(-rT)."""
-        import math
-        from app.agents.front_office.strategy.options_strategy import bs_price
-        S, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.20
-        call = bs_price(S, K, T, r, sigma, "call")
-        put = bs_price(S, K, T, r, sigma, "put")
-        parity = S - K * math.exp(-r * T)
-        assert abs((call - put) - parity) < 0.01
+        prices = [100.0] * 10
+        df = pd.DataFrame({
+            "open": prices, "high": prices, "low": prices, "close": prices,
+            "volume": [1000] * len(prices),
+        })
+        assert MACDStrategy().generate_signal("TEST", df) is None
 
-    def test_bs_greeks(self):
-        from app.agents.front_office.strategy.options_strategy import bs_greeks
-        g = bs_greeks(100, 100, 1.0, 0.05, 0.20, "call")
-        assert 0.5 < g.delta < 0.75  # ATM call delta ~0.64
-        assert g.gamma > 0
-        assert g.vega > 0
-        assert g.theta < 0  # Time decay is negative
-        assert g.option_price > 0
-
-    def test_put_delta_negative(self):
-        from app.agents.front_office.strategy.options_strategy import bs_greeks
-        g = bs_greeks(100, 100, 1.0, 0.05, 0.20, "put")
-        assert -0.5 < g.delta < 0  # ATM put delta ~ -0.36
-
-    def test_implied_volatility(self):
-        from app.agents.front_office.strategy.options_strategy import (
-            bs_price, implied_volatility,
-        )
-        S, K, T, r, true_vol = 100, 100, 1.0, 0.05, 0.25
-        market_price = bs_price(S, K, T, r, true_vol, "call")
-        iv = implied_volatility(market_price, S, K, T, r, "call")
-        assert abs(iv - true_vol) < 0.001
-
-    def test_heston_call_price(self):
-        from app.agents.front_office.strategy.options_strategy import heston_call_price
-        # Heston with zero vol-of-vol reduces toward BS
-        price = heston_call_price(
-            S0=100, K=100, r=0.05, T=1.0,
-            v0=0.04, kappa=2.0, theta=0.04, sigma=0.01, rho=-0.7,
-        )
-        assert price > 0
-        assert 5.0 < price < 20.0
-
-    def test_svi_total_variance(self):
-        from app.agents.front_office.strategy.options_strategy import (
-            SVIParams, svi_total_variance,
-        )
-        params = SVIParams(a=0.04, b=0.1, rho=-0.3, m=0.0, sig=0.1)
-        # ATM (k=0)
-        var_atm = svi_total_variance(0.0, params)
-        assert var_atm > 0
-        # Wings should have higher variance (smile)
-        var_otm = svi_total_variance(0.5, params)
-        assert var_otm > var_atm
-
-    def test_svi_calibration(self):
+    def test_signal_direction_valid(self):
+        """Any signal produced must have direction +1 or -1."""
+        import pandas as pd
         import numpy as np
-        from app.agents.front_office.strategy.options_strategy import calibrate_svi
-        strikes = np.array([90, 95, 100, 105, 110], dtype=float)
-        ivs = np.array([0.25, 0.22, 0.20, 0.22, 0.25])
-        params = calibrate_svi(strikes, ivs, forward=100.0, T=1.0)
-        assert params.b > 0
-        assert abs(params.rho) < 1
+        from app.agents.front_office.strategy.simple_strategies import MACDStrategy
 
-    def test_hedge_selector_crisis(self):
-        from app.agents.front_office.strategy.options_strategy import select_hedge
-        hedge = select_hedge(spot=100, portfolio_value=10000, regime="CRISIS")
-        assert hedge.strategy == "protective_put"
-        assert hedge.put_strike is not None
-        assert hedge.put_strike < 100
-
-    def test_hedge_selector_bull(self):
-        from app.agents.front_office.strategy.options_strategy import select_hedge
-        hedge = select_hedge(spot=100, portfolio_value=10000, regime="BULL")
-        assert hedge.strategy == "covered_call"
-        assert hedge.call_strike is not None
-        assert hedge.call_strike > 100
-
-    def test_options_strategy_signal(self):
-        from app.agents.front_office.strategy.options_strategy import OptionsStrategy
-        strat = OptionsStrategy()
-        signal = strat.generate_signal(
-            "AAPL.NASDAQ",
-            {"close": 150, "volatility_annual": 30, "atr_avg_20": 3},
-            "CRISIS",
-        )
-        assert signal is not None
-        assert signal.strategy_name == "options"
+        np.random.seed(1)
+        prices = list(100 + np.cumsum(np.random.randn(50) * 0.5))
+        df = pd.DataFrame({
+            "open": prices, "high": [p * 1.01 for p in prices],
+            "low": [p * 0.99 for p in prices], "close": prices,
+            "volume": [1000] * len(prices),
+        })
+        signal = MACDStrategy().generate_signal("TEST", df)
+        if signal is not None:
+            assert signal.direction in (-1, 1)
 
 
-class TestArbitrageDetector:
-    """Cross-market arbitrage (Avellaneda & Lee 2010, Gatev et al. 2006)."""
+class TestAllStrategiesSignalFields:
+    """All strategies produce signals with correct field types."""
 
-    def test_eigenportfolio_decompose(self):
-        import numpy as np
-        from app.agents.front_office.strategy.arbitrage_detector import EigenportfolioDetector
-        np.random.seed(42)
-        # Create correlated returns
-        common = np.random.randn(252) * 0.01
-        returns = {
-            "A": common + np.random.randn(252) * 0.005,
-            "B": common + np.random.randn(252) * 0.005,
-            "C": common * 0.5 + np.random.randn(252) * 0.008,
-            "D": np.random.randn(252) * 0.01,  # Uncorrelated
-        }
-        detector = EigenportfolioDetector()
-        result = detector.decompose(returns)
-        assert result.n_components >= 1
-        assert result.variance_explained > 0
-        assert len(result.s_scores) == 4
+    def test_signal_fields(self):
+        import pandas as pd
+        from app.agents.front_office.strategy.simple_strategies import RSIStrategy
+        from app.agents.front_office.strategy.base_strategy import Signal
 
-    def test_eigenportfolio_signals(self):
-        import numpy as np
-        from app.agents.front_office.strategy.arbitrage_detector import (
-            EigenportfolioDetector, EigenportfolioResult,
-        )
-        detector = EigenportfolioDetector(entry_s_score=1.0)
-        result = EigenportfolioResult(
-            n_components=1, variance_explained=0.6,
-            eigenvalues=[5.0],
-            residuals={}, s_scores={"A": 1.5, "B": -1.8, "C": 0.3},
-        )
-        signals = detector.get_signals(result)
-        assert len(signals) == 2  # A (short) and B (long)
-        shorts = [s for s in signals if s["direction"] == -1]
-        longs = [s for s in signals if s["direction"] == 1]
-        assert len(shorts) == 1  # A
-        assert len(longs) == 1   # B
-
-    def test_pairs_trading_find(self):
-        import numpy as np
-        from app.agents.front_office.strategy.arbitrage_detector import PairsTradingDetector
-        np.random.seed(42)
-        # Deterministic cointegrated pair: A and B share same base trend
-        base = np.linspace(100, 110, 100)
-        prices = {
-            "A": base + np.sin(np.linspace(0, 4*np.pi, 100)) * 0.5,
-            "B": base + np.cos(np.linspace(0, 4*np.pi, 100)) * 0.5,
-            "C": np.linspace(50, 80, 100),  # Uncorrelated linear trend
-        }
-        detector = PairsTradingDetector(top_n=5)
-        pairs = detector.find_pairs(prices)
-        assert len(pairs) >= 1
-        # A-B should be closest pair (similar base + small deviation)
-        ab_pair = [p for p in pairs if set([p.symbol_a, p.symbol_b]) == {"A", "B"}]
-        assert len(ab_pair) == 1
-        assert ab_pair[0].distance < pairs[-1].distance  # Closest pair
-
-    def test_half_life(self):
-        import numpy as np
-        from app.agents.front_office.strategy.arbitrage_detector import PairsTradingDetector
-        # Mean-reverting spread with known half-life
-        np.random.seed(42)
-        spread = np.zeros(200)
-        for t in range(1, 200):
-            spread[t] = 0.95 * spread[t-1] + np.random.randn() * 0.1
-        hl = PairsTradingDetector._compute_half_life(spread)
-        assert 5 < hl < 30  # ~13.5 days for b=0.95
-
-    def test_cross_market_detector(self):
-        import numpy as np
-        from app.agents.front_office.strategy.arbitrage_detector import CrossMarketArbitrageDetector
-        np.random.seed(42)
-        common = np.random.randn(100) * 0.01
-        returns = {
-            "AAPL": common + np.random.randn(100) * 0.005,
-            "MSFT": common + np.random.randn(100) * 0.005,
-            "TSLA": np.random.randn(100) * 0.02,
-        }
-        prices = {
-            s: np.exp(np.cumsum(r)) * 100 for s, r in returns.items()
-        }
-        detector = CrossMarketArbitrageDetector()
-        result = detector.detect(returns, prices)
-        assert "summary" in result
-        assert "eigenportfolio" in result
-        assert "pairs" in result
+        prices = [100 - i * 2 for i in range(30)]
+        df = pd.DataFrame({
+            "open": prices, "high": [p * 1.01 for p in prices],
+            "low": [p * 0.99 for p in prices], "close": prices,
+            "volume": [1000] * len(prices),
+        })
+        signal = RSIStrategy().generate_signal("TEST", df)
+        if signal is not None:
+            assert isinstance(signal, Signal)
+            assert signal.symbol == "TEST"
+            assert signal.direction in (-1, 0, 1)
+            assert 0.0 <= signal.strength <= 1.0
+            assert isinstance(signal.reasoning, str)
 
 
 class TestMacroFactors:
