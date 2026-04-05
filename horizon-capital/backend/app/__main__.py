@@ -178,17 +178,6 @@ async def _start_workers(orchestrator=None) -> list:
         console.print(f"[yellow]performance_worker failed to start: {exc}[/yellow]")
 
     try:
-        from app.core.runtime import get_bus
-        from app.workers.macro_worker import MacroFactorWorker
-        mw = MacroFactorWorker(bus=get_bus())
-        task = asyncio.create_task(mw.run(), name="macro_worker")
-        workers.append((mw, task))
-        if orchestrator:
-            orchestrator.register_worker("macro_worker", mw, task)
-    except Exception as exc:
-        console.print(f"[yellow]macro_worker failed to start: {exc}[/yellow]")
-
-    try:
         from app.workers.position_worker import PositionMonitorWorker
         pmw = PositionMonitorWorker()
         task = asyncio.create_task(pmw.run(), name="position_monitor_worker")

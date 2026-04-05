@@ -53,12 +53,8 @@ class AgentOrchestrator:
         self._monitor_task: asyncio.Task | None = None
         self._worker_supervisor_task: asyncio.Task | None = None
         self._running: bool = False
-        self._attribution_engine = None
-        self._adaptation_engine = None
         self._alert_manager = None
         self._health_monitor_svc = None
-        self._model_registry = None
-        self._strategy_selector = None
         # Supervised workers: name -> (worker_instance, task, restart_count)
         self._supervised_workers: dict[str, tuple[Any, asyncio.Task, int]] = {}
 
@@ -119,22 +115,7 @@ class AgentOrchestrator:
                 self._slots[agent.agent_id] = slot
                 await self._launch_agent(slot)
 
-        # Wire up Phase 2 services
-        try:
-            from app.services.attribution_engine import AttributionEngine
-            self._attribution_engine = AttributionEngine(bus=self.bus)
-            await self._attribution_engine.start()
-        except Exception as exc:
-            logger.warning("attribution_engine_not_available", error=str(exc))
-
-        try:
-            from app.services.adaptation_engine import AdaptationEngine
-            self._adaptation_engine = AdaptationEngine(bus=self.bus)
-            await self._adaptation_engine.start()
-        except Exception as exc:
-            logger.warning("adaptation_engine_not_available", error=str(exc))
-
-        # Wire up Phase 7: Alert Manager
+        # Wire up Alert Manager
         try:
             from app.services.alert_manager import AlertManager
             self._alert_manager = AlertManager(bus=self.bus)
@@ -142,27 +123,7 @@ class AgentOrchestrator:
         except Exception as exc:
             logger.warning("alert_manager_not_available", error=str(exc))
 
-        # Wire up Phase 8: Model Registry & Thompson Sampling
-        try:
-            from app.services.model_registry import ModelRegistry, ThompsonSamplingSelector
-            self._model_registry = ModelRegistry()
-            # Register default strategies
-            strategy_names = [
-                "momentum", "mean_reversion", "volatility",
-                "crisis", "arbitrage", "options",
-            ]
-            self._strategy_selector = ThompsonSamplingSelector(strategy_names)
-            # Register initial model versions
-            for name in strategy_names:
-                self._model_registry.register(
-                    model_name=name,
-                    model_type="strategy",
-                    parameters={"version": "initial"},
-                )
-        except Exception as exc:
-            logger.warning("model_registry_not_available", error=str(exc))
-
-        # Wire up Phase 10: Health Monitor
+        # Wire up Health Monitor
         try:
             from app.services.health_monitor import HealthMonitor
             self._health_monitor_svc = HealthMonitor(bus=self.bus)
@@ -219,10 +180,7 @@ class AgentOrchestrator:
             await mgr.stop_all()
 
         # Stop all services
-        for svc_name in (
-            "_attribution_engine", "_adaptation_engine",
-            "_alert_manager", "_health_monitor_svc",
-        ):
+        for svc_name in ("_alert_manager", "_health_monitor_svc"):
             svc = getattr(self, svc_name, None)
             if svc:
                 try:
