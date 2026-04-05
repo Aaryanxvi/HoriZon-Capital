@@ -25,7 +25,6 @@ HELP_TEXT = """
   [green]status[/]              Show all agent statuses (grouped by department)
   [green]signals[/]             Show recent trading signals
   [green]risk[/]                Show current risk metrics
-  [green]regime[/]              Show market regime per scope
   [green]debate[/]              Show recent debate summaries
   [green]portfolio[/]           Show current portfolio
   [green]departments[/]         Show department-level overview
@@ -108,7 +107,6 @@ HELP_TEXT = """
 [bold cyan]CIO Power Commands (Phase 2)[/bold cyan]
 
   [green]interrupt[/] <agent_id>          Pause a specific agent
-  [green]override regime[/] <SCOPE> <REG> Manually set regime classification
   [green]risk-tolerance[/] <value>        Adjust max drawdown % at runtime
   [green]toggle sentiment[/]              Enable/disable sentiment agent
   [green]exposures[/]                     Show current exposures by market
@@ -143,8 +141,6 @@ class CommandHandler:
         # Handle compound commands
         if cmd == "agents" and args and args[0].lower() == "config":
             return await self._cmd_agents_config([])
-        if cmd == "override" and args and args[0].lower() == "regime":
-            return await self._cmd_override_regime(args[1:])
         if cmd == "toggle" and args and args[0].lower() == "sentiment":
             return await self._cmd_toggle_sentiment(args[1:])
         if cmd == "execution-mode":
@@ -175,7 +171,6 @@ class CommandHandler:
             "status": self._cmd_status,
             "signals": self._cmd_signals,
             "risk": self._cmd_risk,
-            "regime": self._cmd_regime,
             "debate": self._cmd_debate,
             "portfolio": self._cmd_portfolio,
             "departments": self._cmd_departments,
@@ -310,17 +305,6 @@ class CommandHandler:
                 f"  Kill Switch:   {'ACTIVE' if r.get('kill_switch_active') else 'OFF'}"
             )
         return "[yellow]No risk data available yet.[/yellow]"
-
-    async def _cmd_regime(self, args: list[str]) -> str:
-        if self._dashboard and self._dashboard._regimes:
-            lines = ["[bold]Market Regimes:[/bold]"]
-            for scope in ["INDIA", "US", "CRYPTO"]:
-                data = self._dashboard._regimes.get(scope, {})
-                regime = data.get("regime", "--")
-                conf = data.get("confidence", 0.0)
-                lines.append(f"  {scope:8s}  {regime:16s}  conf={conf:.1%}")
-            return "\n".join(lines)
-        return "[yellow]No regime data available yet.[/yellow]"
 
     async def _cmd_debate(self, args: list[str]) -> str:
         if self._dashboard and self._dashboard._debates:
@@ -711,47 +695,6 @@ class CommandHandler:
 
         await self._orchestrator._cancel_agent(slot)
         return f"[yellow]{agent_id} paused.[/yellow] Use 'status' to verify."
-
-    async def _cmd_override_regime(self, args: list[str]) -> str:
-        """Manually override regime classification for a scope."""
-        if len(args) < 2:
-            return (
-                "Usage: override regime <SCOPE> <REGIME>\n"
-                "  Scopes: INDIA, US, CRYPTO\n"
-                "  Regimes: BULL, BEAR, NEUTRAL, CRISIS, HIGH_VOL"
-            )
-
-        scope = args[0].upper()
-        regime = args[1].upper()
-
-        valid_scopes = {"INDIA", "US", "CRYPTO"}
-        valid_regimes = {
-            "BULL", "BEAR", "NEUTRAL", "CRISIS",
-            "HIGH_VOL", "HIGH_VOLATILITY",
-        }
-
-        if scope not in valid_scopes:
-            return f"[red]Invalid scope:[/red] {scope}. Use: {', '.join(valid_scopes)}"
-        if regime not in valid_regimes:
-            return f"[red]Invalid regime:[/red] {regime}. Use: {', '.join(valid_regimes)}"
-
-        if self._orchestrator:
-            from app.core.messaging import AgentMessage, MessageType
-            await self._orchestrator.bus.publish(
-                AgentMessage(
-                    sender_id="cio-terminal",
-                    channel="horizon.regime.update",
-                    message_type=MessageType.FEATURE_UPDATE,
-                    payload={
-                        "market_scope": scope,
-                        "regime": regime,
-                        "confidence": 1.0,
-                        "source": "manual_override",
-                    },
-                )
-            )
-
-        return f"[green]Regime for {scope} overridden to {regime}[/green]"
 
     async def _cmd_risk_tolerance(self, args: list[str]) -> str:
         """Adjust risk_max_drawdown_pct at runtime."""

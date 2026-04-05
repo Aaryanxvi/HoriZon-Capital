@@ -28,8 +28,6 @@ _STATUS_TO_PIXEL: dict[str, str] = {
 }
 
 _AGENT_TYPE_DEPARTMENT: dict[str, str] = {
-    "regime-agent": "front_office",
-    "regime_agent": "front_office",
     "strategy-agent": "front_office",
     "strategy_agent": "front_office",
     "sentiment-agent": "front_office",

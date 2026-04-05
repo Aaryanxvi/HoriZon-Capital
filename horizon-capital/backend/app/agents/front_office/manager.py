@@ -19,18 +19,7 @@ class FrontOfficeManager(DepartmentManager):
     def _create_agents(self) -> list[BaseAgent]:
         agents: list[BaseAgent] = []
 
-        # Research agents
-        try:
-            from app.agents.front_office.research.regime_agent import RegimeAgent
-            agents.append(RegimeAgent(bus=self.bus))
-        except ImportError:
-            logger.warning("regime_agent_not_available")
-
-        try:
-            from app.agents.front_office.research.sentiment_agent import SentimentAgent
-            agents.append(SentimentAgent(bus=self.bus))
-        except ImportError:
-            logger.warning("sentiment_agent_not_available")
+        # Research agents (sentiment scoring available via SentimentAgent utility class)
 
         # Trading
         try:

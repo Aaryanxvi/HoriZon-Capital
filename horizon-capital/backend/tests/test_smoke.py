@@ -414,13 +414,6 @@ class TestMovedAgentImports:
         from app.agents.middle_office.risk.var_calculator import VaRCalculator
         assert VaRCalculator is not None
 
-    def test_regime_agent(self):
-        try:
-            from app.agents.front_office.research.regime_agent import RegimeAgent
-            assert RegimeAgent is not None
-        except ImportError:
-            pytest.skip("Optional dependency missing (joblib/hmmlearn)")
-
     def test_simple_strategies(self):
         from app.agents.front_office.strategy.simple_strategies import (
             RSIStrategy, MACDStrategy, BollingerBandStrategy,
@@ -745,7 +738,6 @@ class TestNewMessageTypes:
         from app.core.messaging import MessageType
         assert hasattr(MessageType, "ALPHA_DECAY")
         assert hasattr(MessageType, "ALPHA_SNAPSHOT")
-        assert hasattr(MessageType, "REGIME_TRANSITION")
         assert hasattr(MessageType, "ADAPTATION_ACTION")
         assert hasattr(MessageType, "AGENT_STATE_CHANGE")
 
@@ -760,7 +752,6 @@ class TestPhase2Commands:
         handler = CommandHandler()
         result = await handler.handle("help")
         assert "interrupt" in result
-        assert "override regime" in result
         assert "risk-tolerance" in result
         assert "exposures" in result
         assert "attribution" in result
@@ -901,36 +892,6 @@ class TestHRPPortfolio:
         assert 0 < kelly < 1
         shares = PortfolioOptimizer.position_size(kelly, 100000, 150.0)
         assert shares > 0
-
-
-class TestJumpModel:
-    """Statistical Jump Model regime detector (Priority 3)."""
-
-    def test_import(self):
-        from app.agents.front_office.research.jump_model import JumpRegimeModel
-        assert JumpRegimeModel is not None
-
-    def test_availability_flag(self):
-        """Should report whether jumpmodels library is installed."""
-        from app.agents.front_office.research.jump_model import JumpRegimeModel
-        model = JumpRegimeModel()
-        assert isinstance(model.is_available, bool)
-
-    def test_regime_agent_has_jump_models(self):
-        """Regime agent should have Jump models; HMM models if hmmlearn installed."""
-        from app.core.memory_bus import MemoryBus
-        bus = MemoryBus()
-        from app.agents.front_office.research.regime_agent import RegimeAgent
-        agent = RegimeAgent(bus=bus)
-        assert hasattr(agent, "_jump_models")
-        assert hasattr(agent, "_hmm_models")
-        assert len(agent._jump_models) == 3  # INDIA, US, CRYPTO
-        # HMM models are only populated when hmmlearn is installed
-        from app.agents.front_office.research.hmm_model import HMMRegimeModel
-        if HMMRegimeModel.is_available():
-            assert len(agent._hmm_models) == 3
-        else:
-            assert len(agent._hmm_models) == 0
 
 
 class TestOUMeanReversion:
