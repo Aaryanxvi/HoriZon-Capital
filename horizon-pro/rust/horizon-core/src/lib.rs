@@ -9,6 +9,9 @@ mod orders;
 /// High-performance computation core for Horizon Pro.
 #[pymodule]
 fn horizon_core_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    // Feature engine functions will be registered here as they're implemented
+    m.add_function(wrap_pyfunction!(features::compute_rsi, m)?)?;
+    m.add_function(wrap_pyfunction!(features::compute_macd, m)?)?;
+    m.add_function(wrap_pyfunction!(features::compute_bollinger, m)?)?;
+    m.add_function(wrap_pyfunction!(features::compute_all_indicators, m)?)?;
     Ok(())
 }
