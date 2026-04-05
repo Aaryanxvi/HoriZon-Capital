@@ -76,7 +76,7 @@ class PortfolioAgent(BaseAgent):
 
     async def on_message(self, message: AgentMessage) -> None:
         """Handle risk-approved signals and debate conclusions."""
-        if message.message_type == MessageType.RISK_APPROVED:
+        if message.message_type == MessageType.SIGNAL:
             await self._handle_signal(message.payload)
         elif message.message_type == MessageType.DEBATE_CONCLUSION:
             await self._handle_debate_conclusion(message.payload)

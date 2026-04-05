@@ -51,7 +51,7 @@ class AgentVisualizer:
 
     async def on_state_message(self, message: AgentMessage) -> None:
         """Handle agent state change messages from the bus."""
-        if message.message_type == MessageType.AGENT_STATE_CHANGE:
+        if message.message_type == MessageType.AGENT_STATUS:
             agent_id = message.payload.get("agent_id", message.sender_id)
             state = message.payload.get("state", "IDLE")
             self.update_state(agent_id, state)

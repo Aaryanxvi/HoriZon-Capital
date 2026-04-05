@@ -1,7 +1,7 @@
 """Alpha Monitor Agent — tracks per-strategy performance and detects alpha decay.
 
 Subscribes to execution and signal channels, maintains rolling performance
-metrics per strategy, and emits ALPHA_DECAY alerts when a strategy's edge
+metrics per strategy, and emits risk alerts when a strategy's edge
 erodes beyond configurable thresholds.
 """
 
@@ -138,7 +138,7 @@ class AlphaMonitorAgent(BaseAgent):
                 )
                 await self.emit(
                     channel="horizon.alpha.decay",
-                    message_type=MessageType.ALPHA_DECAY,
+                    message_type=MessageType.RISK_ALERT,
                     payload={
                         "strategy": strategy,
                         "sharpe": round(sharpe, 4),
@@ -156,7 +156,7 @@ class AlphaMonitorAgent(BaseAgent):
                 continue
             await self.emit(
                 channel="horizon.alpha.snapshot",
-                message_type=MessageType.ALPHA_SNAPSHOT,
+                message_type=MessageType.AGENT_STATUS,
                 payload={
                     "strategy": strategy,
                     "sharpe": round(tracker.rolling_sharpe, 4),

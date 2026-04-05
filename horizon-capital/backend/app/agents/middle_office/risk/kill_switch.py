@@ -20,7 +20,7 @@ class KillSwitch:
     When activated the switch:
     1. Sets ``horizon:system:kill_switch`` to ``1`` in the KV store.
     2. Overrides ``horizon:system:mode`` to ``PAPER_TRADING``.
-    3. Publishes a ``KILL_SWITCH`` event so every agent is notified immediately.
+    3. Publishes a ``RISK_ALERT`` event so every agent is notified immediately.
     """
 
     def __init__(self, bus: AgentBus, redis: Any) -> None:
@@ -42,7 +42,7 @@ class KillSwitch:
             AgentMessage(
                 sender_id="risk.kill_switch",
                 channel="horizon.risk.kill_switch",
-                message_type=MessageType.KILL_SWITCH,
+                message_type=MessageType.RISK_ALERT,
                 payload={
                     "active": True,
                     "reason": reason,
@@ -56,7 +56,7 @@ class KillSwitch:
             AgentMessage(
                 sender_id="risk.kill_switch",
                 channel="horizon.execution.order.cancel_all",
-                message_type=MessageType.ORDER_CANCEL_ALL,
+                message_type=MessageType.ORDER_CANCEL,
                 payload={"reason": reason},
             )
         )
@@ -70,7 +70,7 @@ class KillSwitch:
             AgentMessage(
                 sender_id="risk.kill_switch",
                 channel="horizon.risk.kill_switch",
-                message_type=MessageType.KILL_SWITCH,
+                message_type=MessageType.RISK_ALERT,
                 payload={
                     "active": False,
                     "timestamp": datetime.now(UTC).isoformat(),

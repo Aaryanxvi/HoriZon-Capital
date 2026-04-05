@@ -382,7 +382,7 @@ class AlertManager:
             AgentMessage(
                 sender_id="alert-manager",
                 channel="horizon.alerts.console",
-                message_type=MessageType.SYSTEM,
+                message_type=MessageType.HEALTH_CHECK,
                 payload={
                     "alert_id": alert.alert_id,
                     "severity": alert.severity.value,

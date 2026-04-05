@@ -1,7 +1,7 @@
 """Adaptation Engine — responds to alpha decay and regime transitions.
 
-A service (not an agent) that listens for ALPHA_DECAY and REGIME_TRANSITION
-messages and triggers automatic strategy adaptation: weight adjustments,
+A service (not an agent) that listens for alpha decay and regime transition
+events and triggers automatic strategy adaptation: weight adjustments,
 correlation recalibration, and position sizing changes.
 
 All adaptation decisions are logged for audit trail.
@@ -77,7 +77,7 @@ class AdaptationEngine:
             AgentMessage(
                 sender_id="adaptation-engine",
                 channel="horizon.adaptation.action",
-                message_type=MessageType.ADAPTATION_ACTION,
+                message_type=MessageType.FEATURE_UPDATE,
                 payload=action,
             )
         )
@@ -151,7 +151,7 @@ class AdaptationEngine:
                 AgentMessage(
                     sender_id="adaptation-engine",
                     channel="horizon.adaptation.action",
-                    message_type=MessageType.ADAPTATION_ACTION,
+                    message_type=MessageType.FEATURE_UPDATE,
                     payload=action,
                 )
             )

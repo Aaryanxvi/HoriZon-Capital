@@ -269,7 +269,7 @@ async def _run_with_tui(orchestrator) -> None:
             if agent_id in statuses:
                 payload["department"] = statuses[agent_id].get("department", "")
             dashboard.update_agent_status(agent_id, payload)
-        elif msg.message_type == MessageType.AGENT_STATE_CHANGE:
+        elif msg.message_type == MessageType.AGENT_STATUS:
             agent_id = msg.payload.get("agent_id", msg.sender_id)
             dashboard.update_agent_status(agent_id, msg.payload)
         elif msg.message_type == MessageType.SIGNAL:
@@ -289,16 +289,16 @@ async def _run_with_tui(orchestrator) -> None:
             dashboard.update_risk(risk_data)
         elif msg.message_type == MessageType.PORTFOLIO_UPDATE:
             dashboard.update_portfolio(msg.payload)
-        elif msg.message_type == MessageType.PRICE_UPDATE:
+        elif msg.message_type == MessageType.TICK:
             dashboard.update_watchlist(msg.payload)
         elif msg.message_type == MessageType.ORDER_NEW:
             dashboard.add_pending_order(msg.payload)
         elif msg.message_type == MessageType.ORDER_FILL:
             dashboard.complete_order(msg.payload)
-        elif msg.message_type == MessageType.ORDER_REJECT:
+        elif msg.message_type == MessageType.ORDER_CANCEL:
             order_id = msg.payload.get("order_id", "")
             dashboard.remove_order(order_id)
-        elif msg.message_type == MessageType.SYSTEM:
+        elif msg.message_type == MessageType.HEALTH_CHECK:
             if msg.channel == "horizon.alerts.console":
                 dashboard.add_alert(msg.payload)
 

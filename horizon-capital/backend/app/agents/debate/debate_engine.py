@@ -261,7 +261,7 @@ class DebateEngine:
                 AgentMessage(
                     sender_id="debate-engine",
                     channel=f"horizon.debate.{session_id}.argument",
-                    message_type=MessageType.DEBATE_ARGUMENT,
+                    message_type=MessageType.DEBATE_VOTE,
                     payload={
                         "session_id": session_id,
                         "role": arg.role,

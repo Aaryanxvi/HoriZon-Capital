@@ -66,7 +66,10 @@ class StrategyAgent(BaseAgent):
 
     async def on_message(self, message: AgentMessage) -> None:
         """Log incoming events; the main loop drives signal generation."""
-        if message.message_type == MessageType.REGIME_UPDATE:
+        if (
+            message.message_type == MessageType.FEATURE_UPDATE
+            and message.channel == "horizon.regime.update"
+        ):
             payload = message.payload
             scope = payload.get("market_scope", "")
             regime = payload.get("regime", "")

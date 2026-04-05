@@ -492,7 +492,7 @@ class CommandHandler:
                     AgentMessage(
                         sender_id="cio-terminal",
                         channel="horizon.risk.kill_switch",
-                        message_type=MessageType.KILL_SWITCH,
+                        message_type=MessageType.RISK_ALERT,
                         payload={"active": False, "reason": "Manual deactivation by CIO"},
                     )
                 )
@@ -505,7 +505,7 @@ class CommandHandler:
                     AgentMessage(
                         sender_id="cio-terminal",
                         channel="horizon.risk.kill_switch",
-                        message_type=MessageType.KILL_SWITCH,
+                        message_type=MessageType.RISK_ALERT,
                         payload={"active": True, "reason": "Manual activation by CIO"},
                     )
                 )
@@ -741,7 +741,7 @@ class CommandHandler:
                 AgentMessage(
                     sender_id="cio-terminal",
                     channel="horizon.regime.update",
-                    message_type=MessageType.REGIME_UPDATE,
+                    message_type=MessageType.FEATURE_UPDATE,
                     payload={
                         "market_scope": scope,
                         "regime": regime,
@@ -1764,7 +1764,7 @@ class CommandHandler:
             AgentMessage(
                 sender_id="cio-terminal",
                 channel="horizon.execution.order.approve",
-                message_type=MessageType.ORDER_APPROVE,
+                message_type=MessageType.ORDER_NEW,
                 payload={
                     "order_id": order_id,
                     "approved_by": "CIO",
@@ -1789,7 +1789,7 @@ class CommandHandler:
             AgentMessage(
                 sender_id="cio-terminal",
                 channel="horizon.execution.order.reject",
-                message_type=MessageType.ORDER_REJECT,
+                message_type=MessageType.ORDER_CANCEL,
                 payload={
                     "order_id": order_id,
                     "reason": reason,

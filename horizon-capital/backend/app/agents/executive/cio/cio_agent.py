@@ -7,7 +7,6 @@ and can halt trading if systemic issues are detected.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
 from app.core.logging import get_logger
@@ -28,25 +27,14 @@ class CIOAgent(BaseAgent):
             bus=bus,
         )
         self._alerts: list[dict] = []
-        self._department_statuses: dict[str, dict] = {}
 
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.risk.*", self.on_message)
-        await self.bus.subscribe("horizon.compliance.*", self.on_message)
-        await self.bus.subscribe("horizon.department.*", self.on_message)
-        await self.bus.subscribe("horizon.it.*", self.on_message)
 
     async def on_message(self, message: AgentMessage) -> None:
         if message.message_type == MessageType.RISK_ALERT:
             self._alerts.append(message.payload)
             await self._evaluate_risk_alert(message.payload)
-        elif message.message_type == MessageType.COMPLIANCE_ALERT:
-            self._alerts.append(message.payload)
-        elif message.message_type == MessageType.DEPARTMENT_STATUS:
-            dept = message.payload.get("department", "unknown")
-            self._department_statuses[dept] = message.payload
-        elif message.message_type == MessageType.IT_ALERT:
-            self._alerts.append(message.payload)
 
     async def run(self) -> None:
         """Periodically assess overall system health and issue directives."""
@@ -58,9 +46,7 @@ class CIOAgent(BaseAgent):
             await asyncio.sleep(CIO_POLL_INTERVAL)
 
     async def _system_health_check(self) -> None:
-        """Evaluate system health and publish CIO directive if needed."""
-        now = datetime.now(UTC)
-
+        """Evaluate system health and log directives if needed."""
         # Count recent critical alerts (last 5 minutes)
         recent_critical = sum(
             1 for a in self._alerts[-20:]
@@ -68,15 +54,6 @@ class CIOAgent(BaseAgent):
         )
 
         if recent_critical >= 5:
-            await self.emit(
-                channel="horizon.cio.directive",
-                message_type=MessageType.CIO_DIRECTIVE,
-                payload={
-                    "directive": "HALT_TRADING",
-                    "reason": f"{recent_critical} critical alerts in recent window",
-                    "timestamp": now.isoformat(),
-                },
-            )
             logger.warning("cio_halt_directive_issued", alert_count=recent_critical)
 
         # Clear old alerts
@@ -86,12 +63,4 @@ class CIOAgent(BaseAgent):
         """React immediately to severe risk alerts."""
         action = payload.get("action", "")
         if action == "KILL_SWITCH_TRIGGERED":
-            await self.emit(
-                channel="horizon.cio.directive",
-                message_type=MessageType.CIO_DIRECTIVE,
-                payload={
-                    "directive": "EMERGENCY_HALT",
-                    "reason": "Kill switch triggered by risk agent",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                },
-            )
+            logger.warning("cio_emergency_halt_triggered", reason="Kill switch activated")

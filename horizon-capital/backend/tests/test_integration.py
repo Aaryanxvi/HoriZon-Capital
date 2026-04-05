@@ -210,7 +210,7 @@ class TestAgentCommunication:
         await bus.publish(AgentMessage(
             sender_id="sender",
             channel="horizon.test",
-            message_type=MessageType.SYSTEM,
+            message_type=MessageType.HEARTBEAT,
             payload={"data": "hello"},
         ))
         await asyncio.sleep(0.2)
@@ -271,7 +271,7 @@ class TestAgentCommunication:
         await bus.subscribe("horizon.test", handler)
         await bus.publish(AgentMessage(
             sender_id="s", channel="horizon.test",
-            message_type=MessageType.SYSTEM, payload={},
+            message_type=MessageType.HEARTBEAT, payload={},
         ))
         await asyncio.sleep(0.2)
         assert len(received) == 1
@@ -279,7 +279,7 @@ class TestAgentCommunication:
         await bus.unsubscribe("horizon.test")
         await bus.publish(AgentMessage(
             sender_id="s", channel="horizon.test",
-            message_type=MessageType.SYSTEM, payload={},
+            message_type=MessageType.HEARTBEAT, payload={},
         ))
         await asyncio.sleep(0.2)
         assert len(received) == 1  # No new messages
@@ -982,13 +982,13 @@ class TestRiskGate:
         await bus.publish(AgentMessage(
             sender_id="risk-agent",
             channel="horizon.risk.approved.AAPL",
-            message_type=MessageType.RISK_APPROVED,
+            message_type=MessageType.SIGNAL,
             payload={"symbol": "AAPL", "direction": 1, "strength": 0.7},
         ))
         await asyncio.sleep(0.1)
 
         assert len(received) == 1
-        assert received[0].message_type == MessageType.RISK_APPROVED
+        assert received[0].message_type == MessageType.SIGNAL
         assert received[0].payload["symbol"] == "AAPL"
         await bus.stop()
 
@@ -1012,7 +1012,7 @@ class TestRiskGate:
         await bus.publish(AgentMessage(
             sender_id="risk-agent",
             channel="horizon.risk.rejected.AAPL",
-            message_type=MessageType.RISK_REJECTED,
+            message_type=MessageType.RISK_ALERT,
             payload={"symbol": "AAPL", "violations": ["too risky"]},
         ))
         await asyncio.sleep(0.1)
@@ -1077,10 +1077,10 @@ class TestKillSwitchCancelAll:
 
         await asyncio.sleep(0.1)
 
-        # Should have 2 messages: KILL_SWITCH + ORDER_CANCEL_ALL
+        # Should have 2 messages: RISK_ALERT + ORDER_CANCEL
         types = [m.message_type for m in received]
-        assert MessageType.KILL_SWITCH in types
-        assert MessageType.ORDER_CANCEL_ALL in types
+        assert MessageType.RISK_ALERT in types
+        assert MessageType.ORDER_CANCEL in types
         await bus.stop()
 
 
@@ -1173,7 +1173,7 @@ class TestDashboardWiring:
         msg = AgentMessage(
             sender_id="data-ingestion-worker",
             channel="horizon.market.price",
-            message_type=MessageType.PRICE_UPDATE,
+            message_type=MessageType.TICK,
             payload={
                 "symbol": "RELIANCE.NSE",
                 "price": 2847.50,

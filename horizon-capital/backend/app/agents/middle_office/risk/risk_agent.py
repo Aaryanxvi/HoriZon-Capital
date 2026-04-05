@@ -35,7 +35,7 @@ class RiskAgent(BaseAgent):
       - ``horizon.execution.order.*``   -- post-trade monitoring
 
     Publishes:
-      - ``horizon.risk.alert``          -- when a limit is breached
+      - ``horizon.risk.alert``          -- when a limit is breached or signal is blocked
       - ``horizon.risk.kill_switch``    -- via KillSwitch
     """
 
@@ -88,8 +88,8 @@ class RiskAgent(BaseAgent):
     async def _handle_signal(self, message: AgentMessage) -> None:
         """Validate a proposed signal before it becomes an order.
 
-        On approval: emits RISK_APPROVED so PortfolioAgent can size the order.
-        On rejection: emits RISK_REJECTED (signal is blocked).
+        On approval: emits SIGNAL so PortfolioAgent can size the order.
+        On rejection: emits RISK_ALERT (signal is blocked).
         """
         payload = message.payload
         symbol = payload.get("symbol", "")
@@ -147,7 +147,7 @@ class RiskAgent(BaseAgent):
             )
             await self.emit(
                 channel=f"horizon.risk.rejected.{symbol}",
-                message_type=MessageType.RISK_REJECTED,
+                message_type=MessageType.RISK_ALERT,
                 payload={
                     **payload,
                     "violations": violations,
@@ -156,10 +156,10 @@ class RiskAgent(BaseAgent):
             )
             logger.warning("signal_rejected", symbol=symbol, violations=violations)
         else:
-            # Gate passed -- emit RISK_APPROVED with full signal payload
+            # Gate passed -- emit SIGNAL with full signal payload
             await self.emit(
                 channel=f"horizon.risk.approved.{symbol}",
-                message_type=MessageType.RISK_APPROVED,
+                message_type=MessageType.SIGNAL,
                 payload={
                     **payload,
                     "timestamp": datetime.now(UTC).isoformat(),

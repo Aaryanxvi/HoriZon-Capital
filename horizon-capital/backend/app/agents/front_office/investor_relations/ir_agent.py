@@ -64,7 +64,7 @@ class IRAgent(BaseAgent):
 
         await self.emit(
             channel="horizon.ir.report",
-            message_type=MessageType.IR_REPORT,
+            message_type=MessageType.PORTFOLIO_UPDATE,
             payload=report,
         )
         logger.info("ir_report_generated", nav=nav)

@@ -70,7 +70,7 @@ class ComplianceAgent(BaseAgent):
             self._violations.append(violation)
             await self.emit(
                 channel="horizon.compliance.alert",
-                message_type=MessageType.COMPLIANCE_ALERT,
+                message_type=MessageType.RISK_ALERT,
                 payload=violation,
             )
             logger.warning("compliance_violation", **violation)
@@ -91,7 +91,7 @@ class ComplianceAgent(BaseAgent):
             self._violations.append(violation)
             await self.emit(
                 channel="horizon.compliance.alert",
-                message_type=MessageType.COMPLIANCE_ALERT,
+                message_type=MessageType.RISK_ALERT,
                 payload=violation,
             )
 
@@ -145,7 +145,7 @@ class ComplianceAgent(BaseAgent):
                     self._violations.append(violation)
                     await self.emit(
                         channel="horizon.compliance.alert",
-                        message_type=MessageType.COMPLIANCE_ALERT,
+                        message_type=MessageType.RISK_ALERT,
                         payload=violation,
                     )
         except Exception as exc:

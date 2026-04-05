@@ -136,25 +136,6 @@ class BaseAgent(abc.ABC):
             )
             await session.commit()
 
-    async def emit_state(
-        self,
-        state: str,
-        current_task: str | None = None,
-    ) -> None:
-        """Publish an AGENT_STATE_CHANGE message with optional task description."""
-        msg = AgentMessage(
-            sender_id=self.agent_id,
-            channel="horizon.agent.state",
-            message_type=MessageType.AGENT_STATE_CHANGE,
-            payload={
-                "agent_id": self.agent_id,
-                "state": state,
-                "department": self.department,
-                "current_task": current_task,
-            },
-        )
-        await self.bus.publish(msg)
-
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

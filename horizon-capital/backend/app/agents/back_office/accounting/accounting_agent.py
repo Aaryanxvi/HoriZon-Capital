@@ -58,7 +58,7 @@ class AccountingAgent(BaseAgent):
 
         await self.emit(
             channel="horizon.accounting.snapshot",
-            message_type=MessageType.ACCOUNTING_SNAPSHOT,
+            message_type=MessageType.PORTFOLIO_UPDATE,
             payload=snapshot,
         )
         logger.info("accounting_snapshot", nav=self._last_nav)

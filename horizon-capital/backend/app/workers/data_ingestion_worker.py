@@ -181,7 +181,7 @@ class DataIngestionWorker:
     # ------------------------------------------------------------------
 
     async def _publish_price_update(self, symbol: str, price: float) -> None:
-        """Publish a PRICE_UPDATE message for the dashboard watchlist."""
+        """Publish a TICK message for the dashboard watchlist."""
         from app.core.messaging import AgentMessage, MessageType
         from app.core.runtime import get_bus
 
@@ -195,7 +195,7 @@ class DataIngestionWorker:
             AgentMessage(
                 sender_id="data-ingestion-worker",
                 channel="horizon.market.price",
-                message_type=MessageType.PRICE_UPDATE,
+                message_type=MessageType.TICK,
                 payload={
                     "symbol": symbol,
                     "price": price,

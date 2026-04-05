@@ -87,16 +87,10 @@ class ExecutionAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def on_message(self, message: AgentMessage) -> None:
-        """Handle new order requests and approval messages."""
+        """Handle new order requests and cancellation messages."""
         if message.message_type == MessageType.ORDER_NEW:
             await self._handle_new_order(message)
-        elif message.message_type == MessageType.ORDER_UPDATE:
-            await self._handle_order_update(message)
-        elif message.message_type == MessageType.ORDER_APPROVE:
-            await self._handle_order_approve(message)
-        elif message.message_type == MessageType.ORDER_REJECT:
-            await self._handle_order_reject(message)
-        elif message.message_type == MessageType.ORDER_CANCEL_ALL:
+        elif message.message_type == MessageType.ORDER_CANCEL:
             await self._handle_cancel_all(message)
 
     # ------------------------------------------------------------------ #
@@ -136,10 +130,10 @@ class ExecutionAgent(BaseAgent):
             await self._execute_order(order, broker_type="PAPER")
 
         elif mode == "HUMAN_APPROVAL":
-            # Leave as PENDING; emit update so dashboard shows it
+            # Leave as PENDING; emit so dashboard shows it
             await self.emit(
                 channel="horizon.execution.order.update",
-                message_type=MessageType.ORDER_UPDATE,
+                message_type=MessageType.ORDER_NEW,
                 payload={
                     "order_id": order_id,
                     "status": "PENDING",
@@ -157,57 +151,6 @@ class ExecutionAgent(BaseAgent):
             exchange = payload.get("exchange", "")
             broker_type = self._select_broker_type(exchange)
             await self._execute_order(order, broker_type=broker_type)
-
-    # ------------------------------------------------------------------ #
-    # Order update (approval flow)
-    # ------------------------------------------------------------------ #
-
-    async def _handle_order_update(self, message: AgentMessage) -> None:
-        """Handle approval or cancellation from the CIO dashboard."""
-        payload = message.payload
-        order_id = payload.get("order_id")
-        action = payload.get("action", "").upper()
-
-        if not order_id:
-            return
-
-        if action == "APPROVE":
-            # Transition to OPEN and execute
-            updated = await self.order_manager.update_status(order_id, "OPEN")
-            if updated:
-                order = await self._load_order(order_id)
-                if order:
-                    exchange = order.get("exchange", "")
-                    broker_type = self._select_broker_type(exchange)
-                    await self._execute_order(order, broker_type=broker_type)
-
-        elif action == "REJECT":
-            reason = payload.get("reason", "Rejected by CIO")
-            await self.order_manager.update_status(
-                order_id, "REJECTED", rejection_reason=reason
-            )
-            await self.emit(
-                channel="horizon.execution.order.update",
-                message_type=MessageType.ORDER_UPDATE,
-                payload={
-                    "order_id": order_id,
-                    "status": "REJECTED",
-                    "reason": reason,
-                    "timestamp": datetime.now(UTC).isoformat(),
-                },
-            )
-
-        elif action == "CANCEL":
-            await self.order_manager.update_status(order_id, "CANCELLED")
-            await self.emit(
-                channel="horizon.execution.order.update",
-                message_type=MessageType.ORDER_UPDATE,
-                payload={
-                    "order_id": order_id,
-                    "status": "CANCELLED",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                },
-            )
 
     # ------------------------------------------------------------------ #
     # Order execution
@@ -320,7 +263,7 @@ class ExecutionAgent(BaseAgent):
             )
             await self.emit(
                 channel="horizon.execution.order.update",
-                message_type=MessageType.ORDER_UPDATE,
+                message_type=MessageType.ORDER_CANCEL,
                 payload={
                     "order_id": order_id,
                     "status": "REJECTED",
@@ -390,45 +333,6 @@ class ExecutionAgent(BaseAgent):
             price=fill["fill_price"],
             broker=broker_type,
         )
-
-    # ------------------------------------------------------------------ #
-    # REPL approve / reject handlers (HUMAN_APPROVAL mode)
-    # ------------------------------------------------------------------ #
-
-    async def _handle_order_approve(self, message: AgentMessage) -> None:
-        """Approve a pending order by ID and route it to the broker."""
-        order_id = message.payload.get("order_id")
-        if not order_id:
-            return
-        order = await self._load_order(order_id)
-        if not order:
-            logger.warning("approve_order_not_found", order_id=order_id)
-            return
-        exchange = order.get("exchange", "")
-        broker_type = self._select_broker_type(exchange)
-        await self._execute_order(order, broker_type=broker_type)
-        logger.info("order_approved_and_routed", order_id=order_id)
-
-    async def _handle_order_reject(self, message: AgentMessage) -> None:
-        """Reject a pending order by ID."""
-        order_id = message.payload.get("order_id")
-        reason = message.payload.get("reason", "Rejected by CIO via REPL")
-        if not order_id:
-            return
-        await self.order_manager.update_status(
-            order_id, "REJECTED", rejection_reason=reason
-        )
-        await self.emit(
-            channel="horizon.execution.order.update",
-            message_type=MessageType.ORDER_UPDATE,
-            payload={
-                "order_id": order_id,
-                "status": "REJECTED",
-                "reason": reason,
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
-        )
-        logger.info("order_rejected_via_repl", order_id=order_id)
 
     # ------------------------------------------------------------------ #
     # Cancel all orders (kill switch)

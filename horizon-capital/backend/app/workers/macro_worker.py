@@ -5,7 +5,7 @@ Fetches real-time term structure from yfinance (^TNX, ^IRX) as a proxy for:
   - Short rate (Fed funds proxy)
 Uses sensible defaults for other Chen-Roll-Ross factors that require FRED data.
 
-Publishes MACRO_REGIME_UPDATE every 30 minutes so strategy agents can subscribe.
+Publishes FEATURE_UPDATE every 30 minutes so strategy agents can subscribe.
 """
 
 from __future__ import annotations
@@ -120,7 +120,7 @@ class MacroFactorWorker:
                 AgentMessage(
                     sender_id="macro-worker",
                     channel="horizon.macro.regime",
-                    message_type=MessageType.MACRO_REGIME_UPDATE,
+                    message_type=MessageType.FEATURE_UPDATE,
                     payload={
                         "macro_regime": result["macro_regime"],
                         "composite_score": result["composite_score"],

@@ -173,7 +173,7 @@ class RegimeAgent(BaseAgent):
             )
             await self.emit(
                 channel=REGIME_CHANNEL,
-                message_type=MessageType.REGIME_UPDATE,
+                message_type=MessageType.FEATURE_UPDATE,
                 payload={
                     "market_scope": scope,
                     "regime": regime,
@@ -249,7 +249,7 @@ class RegimeAgent(BaseAgent):
             logger.info("regime_transition", scope=scope, **t)
             await self.emit(
                 channel=REGIME_TRANSITION_CHANNEL,
-                message_type=MessageType.REGIME_TRANSITION,
+                message_type=MessageType.FEATURE_UPDATE,
                 payload={
                     "market_scope": scope,
                     **t,

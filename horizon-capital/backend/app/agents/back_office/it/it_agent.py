@@ -67,7 +67,7 @@ class ITAgent(BaseAgent):
             if mem.percent > 90:
                 await self.emit(
                     channel="horizon.it.alert",
-                    message_type=MessageType.IT_ALERT,
+                    message_type=MessageType.HEALTH_CHECK,
                     payload={
                         "type": "HIGH_MEMORY",
                         "memory_percent": mem.percent,
@@ -80,6 +80,6 @@ class ITAgent(BaseAgent):
 
         await self.emit(
             channel="horizon.it.status",
-            message_type=MessageType.IT_STATUS,
+            message_type=MessageType.HEALTH_CHECK,
             payload=status,
         )

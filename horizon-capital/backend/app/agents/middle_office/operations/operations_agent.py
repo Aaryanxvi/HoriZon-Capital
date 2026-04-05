@@ -39,7 +39,7 @@ class OperationsAgent(BaseAgent):
 
         if message.message_type == MessageType.ORDER_NEW:
             self._pending_orders[order_id] = datetime.now(UTC)
-        elif message.message_type in (MessageType.ORDER_FILL, MessageType.ORDER_UPDATE):
+        elif message.message_type in (MessageType.ORDER_FILL, MessageType.ORDER_CANCEL):
             status = payload.get("status", "")
             if status in ("FILLED", "CANCELLED", "REJECTED"):
                 self._pending_orders.pop(order_id, None)
@@ -66,7 +66,7 @@ class OperationsAgent(BaseAgent):
         if stuck:
             await self.emit(
                 channel="horizon.operations.alert",
-                message_type=MessageType.OPERATIONS_ALERT,
+                message_type=MessageType.RISK_ALERT,
                 payload={
                     "type": "STUCK_ORDERS",
                     "order_ids": stuck,
