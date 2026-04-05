@@ -13,5 +13,6 @@ fn horizon_core_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(features::compute_macd, m)?)?;
     m.add_function(wrap_pyfunction!(features::compute_bollinger, m)?)?;
     m.add_function(wrap_pyfunction!(features::compute_all_indicators, m)?)?;
+    m.add_function(wrap_pyfunction!(backtest::run_backtest_fast, m)?)?;
     Ok(())
 }
