@@ -132,14 +132,13 @@ class PortfolioAgent(BaseAgent):
         await self._size_and_emit(signal_payload, debate_id=debate_id)
 
     async def _size_and_emit(self, payload: dict, debate_id: str | None) -> None:
-        """Compute Kelly sizing and emit ORDER_NEW."""
+        """Compute position size and emit ORDER_NEW."""
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
-        strength = payload.get("strength", 0.0)
         exchange = payload.get("exchange", "")
 
         try:
-            sizing = await self._compute_position_size(symbol, direction, strength, exchange)
+            sizing = await self._compute_position_size(symbol, direction, exchange)
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
             return
@@ -160,7 +159,6 @@ class PortfolioAgent(BaseAgent):
                 "signal_id": payload.get("signal_id"),
                 "debate_id": debate_id,
                 "stop_loss": payload.get("stop_loss"),
-                "kelly_fraction": sizing["kelly_f"],
                 "allocation_usd": sizing["allocation_usd"],
                 "timestamp": datetime.now(UTC).isoformat(),
             },
@@ -179,118 +177,35 @@ class PortfolioAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def _compute_position_size(
-        self, symbol: str, direction: int, strength: float, exchange: str
+        self, symbol: str, direction: int, exchange: str
     ) -> dict:
-        """Determine how many shares/units to trade."""
-        # Load current portfolio NAV
+        """Determine how many shares/units to trade using equal-weight sizing."""
         positions = await self._load_positions()
         cash_usd, cash_inr = await self._load_cash()
         nav = await self.currency.compute_unified_nav(cash_usd, cash_inr, positions)
 
         if nav <= 0:
-            return {"quantity": 0.0, "kelly_f": 0.0, "allocation_usd": 0.0}
+            return {"quantity": 0.0, "allocation_usd": 0.0}
 
-        # Use strength as a proxy for win-rate (clamped)
-        win_rate = max(0.51, min(strength, 0.85))
-        # Compute win/loss ratio from recent trades
-        try:
-            async with _get_session_factory()() as session:
-                result = await session.execute(
-                    text(
-                        "SELECT realized_pnl FROM fills "
-                        "WHERE realized_pnl IS NOT NULL "
-                        "ORDER BY created_at DESC LIMIT 100"
-                    )
-                )
-                pnls = [float(r[0]) for r in result.fetchall()]
-            if pnls:
-                wins = [p for p in pnls if p > 0]
-                losses = [abs(p) for p in pnls if p < 0]
-                avg_win = (
-                    sum(wins) / len(wins) if wins else 1.0
-                )
-                avg_loss = (
-                    sum(losses) / len(losses) if losses
-                    else 1.0
-                )
-                win_loss_ratio = max(
-                    0.5, min(avg_win / avg_loss, 5.0)
-                )
-            else:
-                win_loss_ratio = 1.5  # default when no history
-        except Exception:
-            win_loss_ratio = 1.5  # fallback
-
-        kelly_f = self.optimizer.kelly_fraction(win_rate, win_loss_ratio)
-
-        # Get current price from Redis
-        price = await self._get_price(symbol)
-        if price <= 0:
-            return {"quantity": 0.0, "kelly_f": kelly_f, "allocation_usd": 0.0}
-
-        # Compute raw quantity
-        qty = self.optimizer.position_size(
-            kelly_f=kelly_f,
+        num_positions = max(len(positions) + 1, 1)
+        allocation_usd = self.optimizer.position_size(
             portfolio_value=nav,
-            price=price,
+            num_positions=num_positions,
             max_pct=settings.risk_max_position_pct / 100.0,
         )
 
-        # Apply correlation penalty if we have existing positions
-        held_symbols = [p.get("symbol", "") for p in positions if p.get("quantity", 0) != 0]
-        if held_symbols:
-            # Simplified: use a flat penalty based on number of correlated holdings
-            # Full implementation would load a precomputed correlation matrix
-            import json as _json
+        price = await self._get_price(symbol)
+        if price <= 0:
+            return {"quantity": 0.0, "allocation_usd": 0.0}
 
-            import numpy as np
+        qty = allocation_usd / price
 
-            n = len(held_symbols) + 1
-            all_symbols = held_symbols + [symbol]
-
-            # Estimate correlation from recent returns data
-            try:
-                kv = _get_kv()
-                returns_data = []
-                for sym in all_symbols:
-                    hist_str = await kv.get(
-                        f"horizon:returns:{sym}"
-                    )
-                    if hist_str:
-                        returns_data.append(
-                            _json.loads(hist_str)
-                        )
-                if (
-                    len(returns_data) == n
-                    and all(len(r) >= 10 for r in returns_data)
-                ):
-                    arr = np.array(returns_data)
-                    corr = np.corrcoef(arr)
-                    # Ensure valid correlation matrix
-                    if np.isnan(corr).any():
-                        corr = np.eye(n)
-                else:
-                    corr = np.eye(n)  # insufficient data
-            except Exception:
-                corr = np.eye(n)  # fallback to no-correlation
-            penalty = self.optimizer.correlation_penalty(
-                symbol=symbol,
-                positions=held_symbols,
-                correlation_matrix=corr,
-                symbols_index=all_symbols,
-            )
-            qty *= penalty
-
-        # For equities, round down to whole shares
         if exchange not in ("CRYPTO",):
             qty = float(int(qty))
 
-        allocation_usd = qty * price
-
         return {
             "quantity": qty,
-            "kelly_f": kelly_f,
-            "allocation_usd": allocation_usd,
+            "allocation_usd": qty * price,
         }
 
     # ------------------------------------------------------------------ #
