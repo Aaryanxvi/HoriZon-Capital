@@ -1,381 +1,113 @@
-"""Sentiment agent -- orchestrates news/Reddit fetching, FinBERT scoring,
-narrative tracking, and cross-asset spillover detection.
+"""Basic sentiment analysis using free news headlines."""
 
-Runs every 15 minutes, processes all tracked symbols, and publishes
-aggregated sentiment on ``horizon.features.{symbol}.sentiment``.
-"""
+from __future__ import annotations
 
 import asyncio
-import uuid
-from datetime import UTC, datetime, timedelta
+import logging
+from datetime import UTC, datetime
 
-from dateutil import parser as dtparser
-from sqlalchemy import text
+import httpx
 
-from app.agents.base_agent import BaseAgent
-from app.agents.front_office.research.finbert_scorer import FinBERTScorer
-from app.agents.front_office.research.narrative_tracker import NarrativeTracker
-from app.agents.front_office.research.newsapi_client import NewsAPIClient
-from app.agents.front_office.research.reddit_client import RedditClient
-from app.config import settings
-from app.core.logging import get_logger
+from app.core.messaging import AgentMessage, MessageType
 
+logger = logging.getLogger(__name__)
 
-def _get_session_factory():
-    from app.core.runtime import get_session_factory
-    return get_session_factory()
-from app.core.messaging import AgentBus, AgentMessage, MessageType  # noqa: E402
+POSITIVE_WORDS = frozenset({
+    "surge", "soar", "rally", "gain", "profit", "growth", "beat", "upgrade",
+    "bullish", "record", "high", "strong", "boom", "breakout", "outperform",
+    "up", "rise", "positive", "optimistic", "buy", "upside", "recover",
+})
 
-logger = get_logger("agent.sentiment")
-
-# Time windows (in hours) for aggregation
-AGGREGATION_WINDOWS: dict[str, int] = {
-    "1h": 1,
-    "4h": 4,
-    "24h": 24,
-    "14d": 14 * 24,
-}
-
-# Interval between runs in seconds (15 minutes)
-RUN_INTERVAL_SECONDS = 15 * 60
-
-# Related-symbol groups for spillover detection
-RELATED_GROUPS: list[list[str]] = [
-    ["AAPL.NASDAQ", "MSFT.NASDAQ", "GOOGL.NASDAQ", "AMZN.NASDAQ", "TSLA.NASDAQ"],
-    ["RELIANCE.NSE", "TCS.NSE", "INFY.NSE", "HDFCBANK.NSE", "ICICIBANK.NSE"],
-    ["BTC-USD", "ETH-USD"],
-]
+NEGATIVE_WORDS = frozenset({
+    "crash", "plunge", "drop", "loss", "decline", "downgrade", "bearish",
+    "low", "weak", "bust", "sell", "miss", "warning", "risk", "fear",
+    "down", "fall", "negative", "pessimistic", "recession", "default",
+})
 
 
-def _related_symbols(symbol: str) -> list[str]:
-    """Return the symbols in the same group as *symbol*, excluding itself."""
-    for group in RELATED_GROUPS:
-        if symbol in group:
-            return [s for s in group if s != symbol]
-    return []
+def score_headline(headline: str) -> tuple[str, float]:
+    """Score a headline as positive/negative/neutral with magnitude 0-1."""
+    words = set(headline.lower().split())
+    pos_count = len(words & POSITIVE_WORDS)
+    neg_count = len(words & NEGATIVE_WORDS)
+    total = pos_count + neg_count
+    if total == 0:
+        return "neutral", 0.0
+    if pos_count > neg_count:
+        return "positive", min(pos_count / total, 1.0)
+    elif neg_count > pos_count:
+        return "negative", min(neg_count / total, 1.0)
+    return "neutral", 0.0
 
 
-class SentimentAgent(BaseAgent):
-    """Periodically fetches news and Reddit, scores with FinBERT, aggregates,
-    tracks narratives, and publishes results to the agent bus."""
+class SentimentAgent:
+    """Fetches news headlines and scores sentiment per symbol."""
 
-    def __init__(self, bus: AgentBus) -> None:
-        super().__init__(
-            agent_id="sentiment-agent-01",
-            agent_type="SENTIMENT",
-            bus=bus,
-        )
-        self.news_client = NewsAPIClient()
-        self.reddit_client = RedditClient()
-        self.scorer = FinBERTScorer()
-        self.tracker = NarrativeTracker()
+    def __init__(self, bus, symbols: list[str] | None = None, api_key: str = ""):
+        self.bus = bus
+        self.symbols = symbols or []
+        self.api_key = api_key
+        self._running = False
 
-    # ------------------------------------------------------------------
-    # BaseAgent interface
-    # ------------------------------------------------------------------
-
-    async def on_message(self, message: AgentMessage) -> None:
-        """Handle inbound messages (currently a no-op; sentiment is polling-based)."""
-        pass
-
-    async def run(self) -> None:
-        """Main loop: fetch, score, aggregate, publish -- every 15 minutes."""
-        symbols = settings.all_symbols
-        logger.info("sentiment_agent_starting", symbols=symbols)
-
+    async def start(self):
+        self._running = True
+        logger.info("SentimentAgent started for %d symbols", len(self.symbols))
         while self._running:
-            try:
-                await self._process_all_symbols(symbols)
-            except Exception as exc:
-                logger.error("sentiment_run_error", error=str(exc))
+            for symbol in self.symbols:
+                try:
+                    sentiment, score = await self._analyze_symbol(symbol)
+                    await self.bus.publish(AgentMessage(
+                        type=MessageType.SENTIMENT_UPDATE,
+                        source="sentiment_agent",
+                        data={
+                            "symbol": symbol,
+                            "sentiment": sentiment,
+                            "score": score,
+                            "timestamp": datetime.now(UTC).isoformat(),
+                        },
+                    ))
+                except Exception:
+                    logger.exception("Sentiment failed for %s", symbol)
+            await asyncio.sleep(300)
 
-            # Sleep for 15 minutes, checking the running flag every second
-            for _ in range(RUN_INTERVAL_SECONDS):
-                if not self._running:
-                    return
-                await asyncio.sleep(1)
+    async def stop(self):
+        self._running = False
 
-    # ------------------------------------------------------------------
-    # Core pipeline
-    # ------------------------------------------------------------------
+    async def _analyze_symbol(self, symbol: str) -> tuple[str, float]:
+        headlines = await self._fetch_headlines(symbol)
+        if not headlines:
+            return "neutral", 0.0
+        pos_total = 0.0
+        neg_total = 0.0
+        for headline in headlines:
+            sentiment, magnitude = score_headline(headline)
+            if sentiment == "positive":
+                pos_total += magnitude
+            elif sentiment == "negative":
+                neg_total += magnitude
+        count = len(headlines)
+        if pos_total > neg_total:
+            return "positive", min(pos_total / count, 1.0)
+        elif neg_total > pos_total:
+            return "negative", min(neg_total / count, 1.0)
+        return "neutral", 0.0
 
-    async def _process_all_symbols(self, symbols: list[str]) -> None:
-        """Run the full sentiment pipeline for every tracked symbol."""
-        for symbol in symbols:
-            if not self._running:
-                return
-            try:
-                await self._process_symbol(symbol)
-            except Exception as exc:
-                logger.error(
-                    "sentiment_symbol_error", symbol=symbol, error=str(exc)
-                )
-
-    async def _process_symbol(self, symbol: str) -> None:
-        """Fetch -> Score -> Store -> Aggregate -> Spillover -> Publish."""
-        # 1. Fetch news and Reddit in parallel
-        news_task = asyncio.create_task(self.news_client.fetch_news(symbol, days_back=14))
-        reddit_task = asyncio.create_task(self.reddit_client.fetch_posts(symbol))
-        news_articles, reddit_posts = await asyncio.gather(news_task, reddit_task)
-
-        # 2. Prepare texts and score with FinBERT
-        items: list[dict] = []
-
-        for article in news_articles:
-            combined_text = f"{article['title']} {article.get('description', '')}"
-            items.append(
-                {
-                    "text": combined_text,
-                    "source": "NEWSAPI",
-                    "headline": article["title"],
-                    "url": article.get("url"),
-                    "engagement": 0,
-                    "publishedAt": article.get("publishedAt"),
-                }
-            )
-
-        for post in reddit_posts:
-            combined_text = f"{post['title']} {post.get('body', '')}"
-            items.append(
-                {
-                    "text": combined_text,
-                    "source": "REDDIT",
-                    "headline": post["title"],
-                    "url": None,
-                    "engagement": post.get("score", 0) + post.get("num_comments", 0),
-                    "publishedAt": datetime.fromtimestamp(
-                        post.get("created_utc", 0), tz=UTC
-                    ).isoformat()
-                    if post.get("created_utc")
-                    else None,
-                }
-            )
-
-        if not items:
-            logger.info("sentiment_no_items", symbol=symbol)
-            return
-
-        texts = [it["text"] for it in items]
-        scores = self.scorer.score_batch(texts)
-
-        # 3. Store each narrative in the database
-        now = datetime.now(UTC)
-        narrative_ids: list[str] = []
-
-        async with _get_session_factory()() as session:
-            for item, sc in zip(items, scores):
-                nid = str(uuid.uuid4())
-                narrative_ids.append(nid)
-
-                engagement_weighted = FinBERTScorer.engagement_weighted_score(
-                    sc["score"], item["engagement"]
-                )
-
-                published_at = None
-                if item.get("publishedAt"):
-                    try:
-                        published_at = dtparser.parse(item["publishedAt"])
-                    except (ValueError, TypeError):
-                        published_at = now
-
-                await session.execute(
-                    text(
-                        """
-                        INSERT INTO narratives
-                            (id, symbol, source, headline, url, sentiment_score,
-                             relevance_score, engagement_score, published_at,
-                             created_at, updated_at)
-                        VALUES
-                            (:id, :symbol, :source, :headline, :url, :sentiment,
-                             1.0, :engagement, :published_at, :now, :now)
-                        """
-                    ),
-                    {
-                        "id": nid,
+    async def _fetch_headlines(self, symbol: str) -> list[str]:
+        if not self.api_key:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    "https://finnhub.io/api/v1/company-news",
+                    params={
                         "symbol": symbol,
-                        "source": item["source"],
-                        "headline": item["headline"],
-                        "url": item.get("url"),
-                        "sentiment": sc["score"],
-                        "engagement": engagement_weighted,
-                        "published_at": published_at,
-                        "now": now,
+                        "from": datetime.now(UTC).strftime("%Y-%m-%d"),
+                        "to": datetime.now(UTC).strftime("%Y-%m-%d"),
+                        "token": self.api_key,
                     },
                 )
-            await session.commit()
-
-        # 4. Update narrative lifecycle stages
-        article_counts = await self.tracker.get_article_counts_by_day(symbol, days=14)
-        sentiment_trend = await self.tracker.get_sentiment_trend_by_day(symbol, days=14)
-        stage = NarrativeTracker.classify_stage(article_counts, sentiment_trend)
-
-        for nid in narrative_ids:
-            await self.tracker.update_lifecycle_stage(nid, stage)
-
-        # 5. Compute and store aggregates per window
-        aggregates = await self._compute_aggregates(symbol)
-
-        # 6. Cross-asset spillover detection
-        related = _related_symbols(symbol)
-        if related:
-            all_narratives = await self._fetch_recent_narratives(symbol, related)
-            spillovers = NarrativeTracker.detect_spillover(
-                symbol, related, all_narratives
-            )
-            if spillovers:
-                logger.info(
-                    "spillover_detected",
-                    symbol=symbol,
-                    spillover_count=len(spillovers),
-                )
-
-        # 7. Publish to bus
-        await self.emit(
-            channel=f"horizon.features.{symbol}.sentiment",
-            message_type=MessageType.FEATURE_UPDATE,
-            payload={
-                "symbol": symbol,
-                "lifecycle_stage": stage,
-                "aggregates": aggregates,
-                "article_count": len(items),
-                "timestamp": now.isoformat(),
-            },
-        )
-
-        logger.info(
-            "sentiment_published",
-            symbol=symbol,
-            stage=stage,
-            article_count=len(items),
-        )
-
-    # ------------------------------------------------------------------
-    # Aggregation
-    # ------------------------------------------------------------------
-
-    async def _compute_aggregates(self, symbol: str) -> dict[str, dict]:
-        """Compute and persist sentiment aggregates for each time window."""
-        now = datetime.now(UTC)
-        result: dict[str, dict] = {}
-
-        async with _get_session_factory()() as session:
-            for window_label, hours in AGGREGATION_WINDOWS.items():
-                cutoff = now - timedelta(hours=hours)
-
-                rows = await session.execute(
-                    text(
-                        """
-                        SELECT sentiment_score
-                        FROM narratives
-                        WHERE symbol = :symbol
-                          AND published_at >= :cutoff
-                        """
-                    ),
-                    {"symbol": symbol, "cutoff": cutoff},
-                )
-                sentiment_values = [float(r[0]) for r in rows.fetchall()]
-
-                if not sentiment_values:
-                    result[window_label] = {
-                        "avg_sentiment": 0.0,
-                        "article_count": 0,
-                        "bull_pct": 0.0,
-                        "bear_pct": 0.0,
-                        "neutral_pct": 0.0,
-                    }
-                    continue
-
-                total = len(sentiment_values)
-                bull = sum(1 for s in sentiment_values if s > 0.05)
-                bear = sum(1 for s in sentiment_values if s < -0.05)
-                neutral = total - bull - bear
-                avg_sent = sum(sentiment_values) / total
-
-                agg = {
-                    "avg_sentiment": round(avg_sent, 4),
-                    "article_count": total,
-                    "bull_pct": round(bull / total * 100, 1),
-                    "bear_pct": round(bear / total * 100, 1),
-                    "neutral_pct": round(neutral / total * 100, 1),
-                }
-                result[window_label] = agg
-
-                # Upsert aggregate into DB
-                agg_id = str(uuid.uuid4())
-                await session.execute(
-                    text(
-                        """
-                        INSERT INTO sentiment_aggregates
-                            (id, symbol, window, avg_sentiment, article_count,
-                             bull_pct, bear_pct, neutral_pct, created_at, updated_at)
-                        VALUES
-                            (:id, :symbol, :window, :avg_sent, :count,
-                             :bull, :bear, :neutral, :now, :now)
-                        ON CONFLICT(symbol, window) DO UPDATE SET
-                            avg_sentiment = :avg_sent,
-                            article_count = :count,
-                            bull_pct = :bull,
-                            bear_pct = :bear,
-                            neutral_pct = :neutral,
-                            updated_at = :now
-                        """
-                    ),
-                    {
-                        "id": agg_id,
-                        "symbol": symbol,
-                        "window": window_label,
-                        "avg_sent": agg["avg_sentiment"],
-                        "count": agg["article_count"],
-                        "bull": agg["bull_pct"],
-                        "bear": agg["bear_pct"],
-                        "neutral": agg["neutral_pct"],
-                        "now": now,
-                    },
-                )
-
-            await session.commit()
-
-        return result
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    async def _fetch_recent_narratives(
-        self,
-        symbol: str,
-        related: list[str],
-    ) -> list[dict]:
-        """Fetch narratives for *symbol* and its related symbols from the DB."""
-        all_symbols = [symbol] + related
-        placeholders = ", ".join(f":s{i}" for i in range(len(all_symbols)))
-        params = {f"s{i}": s for i, s in enumerate(all_symbols)}
-        cutoff = datetime.now(UTC) - timedelta(days=14)
-        params["cutoff"] = cutoff
-
-        async with _get_session_factory()() as session:
-            result = await session.execute(
-                text(
-                    f"""
-                    SELECT id, symbol, headline, sentiment_score, published_at
-                    FROM narratives
-                    WHERE symbol IN ({placeholders})
-                      AND published_at >= :cutoff
-                    ORDER BY published_at DESC
-                    """
-                ),
-                params,
-            )
-            rows = result.mappings().all()
-            return [
-                {
-                    "id": str(r["id"]),
-                    "symbol": r["symbol"],
-                    "headline": r["headline"],
-                    "sentiment_score": float(r["sentiment_score"]),
-                    "publishedAt": r["published_at"].isoformat()
-                    if r["published_at"]
-                    else None,
-                }
-                for r in rows
-            ]
+                if resp.status_code == 200:
+                    return [a.get("headline", "") for a in resp.json()[:20]]
+        except Exception:
+            logger.debug("Failed to fetch headlines for %s", symbol)
+        return []
