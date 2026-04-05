@@ -3,6 +3,11 @@
 Provides a REPL-like command interface that runs alongside the dashboard,
 allowing the CIO to issue commands like:
   status, signals, risk, regime, debate, mode, departments, cio, quit
+
+Help is organized into six categories (progressive disclosure):
+  Trading, Analysis, Intelligence, System, Broker, Advanced
+
+Fuzzy suggestions are shown for unrecognized commands (difflib, cutoff=0.6).
 """
 
 from __future__ import annotations
