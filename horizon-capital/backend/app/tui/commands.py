@@ -33,7 +33,6 @@ HELP_TEXT = """
   [green]cio[/]                 Enter CIO chat mode (natural language)
   [green]agents config[/]       Show agent-per-role configuration
   [green]mode[/] <MODE>         Switch system mode
-  [green]kill-switch[/]         Toggle kill switch
   [green]symbols[/]             Show trading universe
   [green]config[/]              Show current configuration
   [green]dashboard[/]           Show full-screen live dashboard (Ctrl+C to return)
@@ -46,18 +45,13 @@ HELP_TEXT = """
 [bold cyan]Backtesting & Analytics[/bold cyan]
 
   [green]backtest[/] <SYMBOL> [--days N] [--strategy NAME]
-                          Run a walk-forward backtest on historical data
+                          Run a backtest on historical data
                           Strategies: momentum, mean_reversion, volatility, crisis
                           Default: all strategies, 252 days
   [green]backtest results[/]    Show last backtest result summary
   [green]backtest list[/]       List all saved backtest runs (persisted to DB)
   [green]backtest compare[/] <id1> <id2>
                           Compare two saved backtest runs side-by-side
-
-[bold cyan]Stress Testing & Scenarios[/bold cyan]
-
-  [green]stress-test[/]                   Run all historical crisis scenarios
-  [green]stress-test[/] <SCENARIO>        Run a specific scenario (GFC_2008, COVID_2020, etc.)
 
 [bold cyan]Alerts & Notifications[/bold cyan]
 
@@ -69,11 +63,9 @@ HELP_TEXT = """
   [green]report[/] [daily|weekly|monthly] Generate portfolio report
   [green]report[/] export [csv|json]      Export last report to file
 
-[bold cyan]System Health & Models[/bold cyan]
+[bold cyan]System Health[/bold cyan]
 
   [green]health[/]                        Show system health dashboard
-  [green]models[/]                        Show registered ML models
-  [green]model stats[/]                   Show Thompson Sampling strategy stats
 
 [bold cyan]Order Management (HUMAN_APPROVAL mode)[/bold cyan]
 
@@ -110,7 +102,6 @@ HELP_TEXT = """
   [green]risk-tolerance[/] <value>        Adjust max drawdown % at runtime
   [green]toggle sentiment[/]              Enable/disable sentiment agent
   [green]exposures[/]                     Show current exposures by market
-  [green]attribution[/] [symbol]          Show per-trade attribution breakdown
   [green]execution-mode[/] <MODE>         Change execution mode
 """
 
@@ -161,8 +152,6 @@ class CommandHandler:
             return await self._cmd_backtest_compare(args[1:])
         if cmd == "alert" and args and args[0].lower() == "rules":
             return await self._cmd_alert_rules([])
-        if cmd == "model" and args and args[0].lower() == "stats":
-            return await self._cmd_model_stats([])
         if cmd == "debate" and args and args[0].lower() == "history":
             return await self._cmd_debate_history([])
 
@@ -176,7 +165,6 @@ class CommandHandler:
             "departments": self._cmd_departments,
             "cio": self._cmd_cio,
             "mode": self._cmd_mode,
-            "kill-switch": self._cmd_kill_switch,
             "symbols": self._cmd_symbols,
             "data": self._cmd_data,
             "config": self._cmd_config,
@@ -184,15 +172,12 @@ class CommandHandler:
             "interrupt": self._cmd_interrupt,
             "risk-tolerance": self._cmd_risk_tolerance,
             "exposures": self._cmd_exposures,
-            "attribution": self._cmd_attribution,
             "performance": self._cmd_performance,
             "workers": self._cmd_workers,
             "backtest": self._cmd_backtest,
-            "stress-test": self._cmd_stress_test,
             "alerts": self._cmd_alerts,
             "report": self._cmd_report,
             "health": self._cmd_health,
-            "models": self._cmd_models,
             "office": self._cmd_office,
             "dashboard": self._cmd_dashboard,
             "orders": self._cmd_orders,
@@ -299,10 +284,8 @@ class CommandHandler:
             return (
                 f"[bold]Risk Metrics:[/bold]\n"
                 f"  VaR (95%):     {r.get('var_95', 0.0):.4f}\n"
-                f"  VaR (99%):     {r.get('var_99', 0.0):.4f}\n"
                 f"  Max Drawdown:  {r.get('max_drawdown', 0.0):.2f}%\n"
-                f"  Curr Drawdown: {r.get('current_drawdown', 0.0):.2f}%\n"
-                f"  Kill Switch:   {'ACTIVE' if r.get('kill_switch_active') else 'OFF'}"
+                f"  Curr Drawdown: {r.get('current_drawdown', 0.0):.2f}%"
             )
         return "[yellow]No risk data available yet.[/yellow]"
 
@@ -459,58 +442,6 @@ class CommandHandler:
 
         settings.system_mode = SystemMode(new_mode)
         return f"[green]System mode changed to: {new_mode}[/green]"
-
-    async def _cmd_kill_switch(self, args: list[str]) -> str:
-        from app.core.kv_store import get_kv_store
-        from app.core.messaging import AgentMessage, MessageType
-
-        kv = get_kv_store()
-        current = await kv.get("horizon:system:kill_switch")
-        is_active = current == "1"
-
-        if is_active:
-            # Deactivate
-            await kv.set("horizon:system:kill_switch", "0")
-            if self._orchestrator:
-                await self._orchestrator.bus.publish(
-                    AgentMessage(
-                        sender_id="cio-terminal",
-                        channel="horizon.risk.kill_switch",
-                        message_type=MessageType.RISK_ALERT,
-                        payload={"active": False, "reason": "Manual deactivation by CIO"},
-                    )
-                )
-            return "[green]Kill switch DEACTIVATED.[/green] Trading resumed."
-        else:
-            # Activate
-            await kv.set("horizon:system:kill_switch", "1")
-            if self._orchestrator:
-                await self._orchestrator.bus.publish(
-                    AgentMessage(
-                        sender_id="cio-terminal",
-                        channel="horizon.risk.kill_switch",
-                        message_type=MessageType.RISK_ALERT,
-                        payload={"active": True, "reason": "Manual activation by CIO"},
-                    )
-                )
-                # Also emit risk alert
-                await self._orchestrator.bus.publish(
-                    AgentMessage(
-                        sender_id="cio-terminal",
-                        channel="horizon.risk.alert",
-                        message_type=MessageType.RISK_ALERT,
-                        payload={
-                            "alert_type": "KILL_SWITCH_ACTIVATED",
-                            "reason": "Manual activation by CIO",
-                            "kill_switch_active": True,
-                        },
-                    )
-                )
-            return (
-                "[bold red]Kill switch ACTIVATED.[/bold red] "
-                "All real trading halted. "
-                "Mode forced to PAPER_TRADING."
-            )
 
     async def _cmd_symbols(self, args: list[str]) -> str:
         symbols = settings.all_symbols
@@ -780,74 +711,6 @@ class CommandHandler:
             lines.append("  [dim]No active exposures[/dim]")
         return "\n".join(lines)
 
-    async def _cmd_attribution(self, args: list[str]) -> str:
-        """Show per-trade attribution breakdown."""
-        symbol = args[0] if args else None
-
-        # Try to get attribution engine from orchestrator
-        try:
-            # Look for engine on orchestrator (it may not be wired yet)
-            engine = getattr(
-                self._orchestrator,
-                "_attribution_engine",
-                None,
-            )
-            if engine is None:
-                return (
-                    "[yellow]Attribution engine not "
-                    "initialized. Trade attributions will "
-                    "be available after Phase 2 "
-                    "wiring.[/yellow]"
-                )
-
-            attributions = engine.get_attributions(
-                symbol=symbol, limit=10,
-            )
-            if not attributions:
-                suffix = (
-                    " for " + symbol if symbol else ""
-                )
-                return (
-                    "[yellow]No attributions found"
-                    f"{suffix}.[/yellow]"
-                )
-
-            lines = ["[bold]Trade Attribution Breakdown:[/bold]"]
-            for a in attributions:
-                lines.append(
-                    f"\n  [cyan]{a['symbol']}[/] "
-                    f"({a['side']}) — "
-                    f"{a['strategy_name']}"
-                )
-                lines.append(
-                    f"    Strategy Alpha:  "
-                    f"{a['strategy_alpha']:.2f}"
-                )
-                lines.append(
-                    f"    Sentiment Alpha: "
-                    f"{a['sentiment_alpha']:.2f}"
-                )
-                regime_inf = a['regime_influence']
-                lines.append(
-                    f"    Regime:          "
-                    f"{a['regime']} "
-                    f"(influence={regime_inf:.2f})"
-                )
-                lines.append(
-                    f"    Risk Scaling:    "
-                    f"{a['risk_scaling']:.2f}"
-                )
-                lines.append(
-                    f"    Debate:          "
-                    f"FOR={a['debate_for']} "
-                    f"AGAINST={a['debate_against']} "
-                    f"consensus="
-                    f"{a['debate_consensus_score']:.2f}"
-                )
-            return "\n".join(lines)
-        except ImportError:
-            return "[yellow]Attribution engine not available.[/yellow]"
-
     async def _cmd_execution_mode(self, args: list[str]) -> str:
         """Change execution mode at runtime."""
         if not args:
@@ -879,11 +742,8 @@ class CommandHandler:
             f"  Total Return:      {snapshot['total_return']:+.4%}\n"
             f"  Annualized Return: {snapshot['annualized_return']:+.4%}\n"
             f"  Sharpe Ratio:      {snapshot['sharpe']:.4f}\n"
-            f"  Sortino Ratio:     {snapshot['sortino']:.4f}\n"
-            f"  Calmar Ratio:      {snapshot['calmar']:.4f}\n"
             f"  Max Drawdown:      {snapshot['max_drawdown']:.4%}\n"
             f"  Win Rate:          {snapshot['win_rate']:.1%}\n"
-            f"  Profit Factor:     {snapshot['profit_factor']:.2f}\n"
             f"  Total Trades:      {snapshot['total_trades']}"
         )
 
@@ -894,7 +754,6 @@ class CommandHandler:
             ("data_ingestion_worker", "Data Ingestion"),
             ("feature_computation_worker", "Feature Computation"),
             ("performance_worker", "Performance Analytics"),
-            ("macro_worker", "Macro Factor"),
             ("position_monitor_worker", "Position Monitor"),
         ]
 
@@ -1076,10 +935,7 @@ class CommandHandler:
                 f"  Sharpe Ratio:      {m.get('sharpe_ratio', 0):.4f}\n"
                 f"  Max Drawdown:      {m.get('max_drawdown', 0):.4%}\n"
                 f"  Win Rate:          {m.get('win_rate', 0):.1%}\n"
-                f"  Profit Factor:     {m.get('profit_factor', 0):.2f}\n"
                 f"  Total Trades:      {len(result.trades)}\n"
-                f"  Omega Ratio:       {m.get('omega_ratio', 0):.4f}\n"
-                f"  Recovery Factor:   {m.get('recovery_factor', 0):.4f}\n"
                 f"  [dim]Run ID: {run_id}[/dim]"
             )
         except Exception as exc:
@@ -1251,10 +1107,6 @@ class CommandHandler:
                 _row("Max Drawdown", r1_row.max_drawdown, r2_row.max_drawdown,
                      pct=True, higher_better=False),
                 _row("Win Rate", m1.get("win_rate"), m2.get("win_rate"), pct=True),
-                _row("Profit Factor", m1.get("profit_factor"), m2.get("profit_factor")),
-                _row("Sortino Ratio", m1.get("sortino_ratio"), m2.get("sortino_ratio")),
-                _row("Omega Ratio", m1.get("omega_ratio"), m2.get("omega_ratio")),
-                _row("Calmar Ratio", m1.get("calmar_ratio"), m2.get("calmar_ratio")),
                 f"  {'Total Trades':22s}  {(r1_row.total_trades or 0):>12d}"
                 f"  {(r2_row.total_trades or 0):>12d}",
             ]
@@ -1280,130 +1132,13 @@ class CommandHandler:
             f"  Final:           ${r['final']:,.2f}\n"
             f"  Total Return:    {m.get('total_return', 0):+.4%}\n"
             f"  Sharpe:          {m.get('sharpe_ratio', 0):.4f}\n"
-            f"  Sortino:         {m.get('sortino_ratio', 0):.4f}\n"
             f"  Max Drawdown:    {m.get('max_drawdown', 0):.4%}\n"
             f"  Win Rate:        {m.get('win_rate', 0):.1%}\n"
-            f"  Trades:          {r['trades']}\n"
-            f"  Omega:           {m.get('omega_ratio', 0):.4f}\n"
-            f"  Tail Ratio:      {m.get('tail_ratio', 0):.4f}\n"
-            f"  Info Ratio:      {m.get('information_ratio', 0):.4f}\n"
-            f"  Avg Win:         {m.get('avg_win', 0):.4f}\n"
-            f"  Avg Loss:        {m.get('avg_loss', 0):.4f}\n"
-            f"  Max Consec Loss: {m.get('max_consecutive_losses', 0)}"
+            f"  Trades:          {r['trades']}"
         )
 
     # ------------------------------------------------------------------
-    # Phase 6: Stress Testing
-    # ------------------------------------------------------------------
-
-    async def _cmd_stress_test(self, args: list[str]) -> str:
-        """Run stress test scenarios against current portfolio."""
-        try:
-            from app.services.stress_testing import HISTORICAL_SCENARIOS, StressTestingService
-
-            service = StressTestingService()
-
-            # Get current positions
-            positions = []
-            if self._dashboard and self._dashboard._signals:
-                # Use signal data as proxy for positions
-                seen = set()
-                for sig in self._dashboard._signals[:20]:
-                    sym = sig.get("symbol", "")
-                    if sym and sym not in seen:
-                        seen.add(sym)
-                        positions.append({
-                            "symbol": sym,
-                            "weight_pct": 100.0 / max(len(self._dashboard._signals), 1),
-                        })
-
-            if not positions:
-                # Default positions from config
-                from app.config import settings
-                all_syms = settings.all_symbols
-                for sym in all_syms:
-                    positions.append({
-                        "symbol": sym,
-                        "weight_pct": 100.0 / max(len(all_syms), 1),
-                    })
-
-            from app.config import settings as _cfg
-            portfolio_value = _cfg.initial_capital_usd
-
-            if args:
-                # Run specific scenario
-                scenario_key = args[0].upper()
-                if scenario_key not in HISTORICAL_SCENARIOS:
-                    available = ", ".join(sorted(HISTORICAL_SCENARIOS.keys()))
-                    return f"[red]Unknown scenario:[/red] {scenario_key}\nAvailable: {available}"
-
-                report = service.run_historical_scenarios(positions, portfolio_value)
-                # Find the requested one
-                for sr in report.scenario_results:
-                    if sr.scenario_key == scenario_key:
-                        impact_abs = sr.portfolio_impact_abs
-                        return (
-                            f"[bold]Stress Test: {sr.scenario_name}[/bold]\n"
-                            f"  Portfolio Impact:  "
-                            f"{sr.portfolio_impact_pct:+.2%} "
-                            f"(${impact_abs:+,.0f})\n"
-                            f"  Stressed VaR:      "
-                            f"{sr.var_under_stress:.4%}\n"
-                            f"  Worst Asset:       "
-                            f"{sr.worst_asset} "
-                            f"({sr.worst_asset_impact:+.2%})\n"
-                            f"  Best Asset:        "
-                            f"{sr.best_asset} "
-                            f"({sr.best_asset_impact:+.2%})\n"
-                            f"  Stressed Corr:     "
-                            f"{sr.stressed_correlation:.4f}\n"
-                            f"  Est. Recovery:     "
-                            f"{sr.recovery_estimate_days} days\n"
-                            f"  Ref: "
-                            f"{sr.details.get('reference', '')}"
-                        )
-                return f"[yellow]Scenario {scenario_key} not found in results.[/yellow]"
-            else:
-                # Run all scenarios
-                report = service.run_historical_scenarios(positions, portfolio_value)
-                worst_impact = report.worst_case_impact_pct
-                lines = [
-                    "[bold]Historical Stress Test Results[/bold]",
-                    f"  Portfolio Value: ${portfolio_value:,.0f}",
-                    f"  Risk Score:      "
-                    f"{report.aggregate_risk_score:.0f}/100",
-                    (
-                        f"  Worst Case:      "
-                        f"{report.worst_case_scenario} "
-                        f"({worst_impact:+.2%})"
-                    ),
-                    "",
-                ]
-                for sr in sorted(
-                    report.scenario_results,
-                    key=lambda x: x.portfolio_impact_pct,
-                ):
-                    pct = sr.portfolio_impact_pct
-                    if pct < -0.20:
-                        color = "red"
-                    elif pct < -0.10:
-                        color = "yellow"
-                    else:
-                        color = "green"
-                    lines.append(
-                        f"  [{color}]"
-                        f"{sr.scenario_key:25s} "
-                        f"{pct:+8.2%}  "
-                        f"${sr.portfolio_impact_abs:+12,.0f}"
-                        f"[/]"
-                    )
-                return "\n".join(lines)
-
-        except Exception as exc:
-            return f"[red]Stress test failed:[/red] {exc}"
-
-    # ------------------------------------------------------------------
-    # Phase 7: Alerts
+    # Alerts
     # ------------------------------------------------------------------
 
     async def _cmd_alerts(self, args: list[str]) -> str:
@@ -1489,7 +1224,7 @@ class CommandHandler:
             return f"[red]Report generation failed:[/red] {exc}"
 
     # ------------------------------------------------------------------
-    # Phase 10: Health & Models
+    # Health
     # ------------------------------------------------------------------
 
     async def _cmd_health(self, args: list[str]) -> str:
@@ -1503,7 +1238,6 @@ class CommandHandler:
                 None,
             )
             if monitor is None:
-                # Create a temporary one
                 monitor = HealthMonitor(
                     bus=(
                         self._orchestrator.bus
@@ -1515,84 +1249,6 @@ class CommandHandler:
             return monitor.to_rich_text(snapshot)
         except Exception as exc:
             return f"[yellow]Health check failed: {exc}[/yellow]"
-
-    async def _cmd_models(self, args: list[str]) -> str:
-        """Show registered ML models."""
-        try:
-            registry = getattr(
-                self._orchestrator,
-                "_model_registry",
-                None,
-            )
-            if registry is None:
-                return (
-                    "[yellow]Model registry not initialized. "
-                    "Models will be registered after "
-                    "first strategy cycle.[/yellow]"
-                )
-
-            models = registry.get_all_models()
-            if not models:
-                return "[dim]No models registered yet.[/dim]"
-
-            lines = ["[bold]Registered Models:[/bold]"]
-            for m in models:
-                st = m["status"]
-                if st == "active":
-                    status_color = "green"
-                elif st == "deprecated":
-                    status_color = "yellow"
-                else:
-                    status_color = "red"
-                sharpe = m["metrics"].get(
-                    "sharpe_ratio", "N/A",
-                )
-                lines.append(
-                    f"  {m['model_id']:25s} "
-                    f"[{status_color}]{st:12s}[/] "
-                    f"type={m['model_type']:10s} "
-                    f"sharpe={sharpe}"
-                )
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[yellow]Models unavailable: {exc}[/yellow]"
-
-    async def _cmd_model_stats(self, args: list[str]) -> str:
-        """Show Thompson Sampling strategy rotation stats."""
-        try:
-            selector = getattr(self._orchestrator, "_strategy_selector", None)
-            if selector is None:
-                return "[yellow]Strategy selector not initialized yet.[/yellow]"
-
-            stats = selector.get_stats()
-            if not stats:
-                return "[dim]No strategy observations yet.[/dim]"
-
-            lines = ["[bold]Thompson Sampling Strategy Stats:[/bold]"]
-            lines.append(
-                f"  {'Strategy':20s} {'N':>6s} "
-                f"{'Post. Mean':>12s} {'Select %':>10s}"
-            )
-            for s in sorted(stats, key=lambda x: -x["posterior_mean"]):
-                lines.append(
-                    f"  {s['strategy']:20s} "
-                    f"{s['n_observations']:6d} "
-                    f"{s['posterior_mean']:12.6f} "
-                    f"{s['selection_rate']:10.1%}"
-                )
-
-            rec = selector.get_recommendation()
-            if rec["strategy"]:
-                pm = rec['posterior_mean']
-                lines.append(
-                    f"\n  [green]Recommended: "
-                    f"{rec['strategy']}[/green] "
-                    f"(mean={pm:.6f})"
-                )
-
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[yellow]Model stats unavailable: {exc}[/yellow]"
 
     async def _cmd_dashboard(self, args: list[str]) -> str:
         """Show the full-screen live dashboard. Press Ctrl+C to return to REPL."""
@@ -2462,15 +2118,7 @@ class CommandHandler:
             equity_msg or ("Add funds to your broker account" if not equity_ok else ""),
         ))
 
-        # 4. Kill switch OFF?
         kv = get_kv_store()
-        kill_switch = await kv.get("horizon:system:kill_switch")
-        ks_off = kill_switch != "1"
-        checks.append((
-            "Kill switch OFF",
-            ks_off,
-            "Run 'kill-switch' to deactivate" if not ks_off else "",
-        ))
 
         # 5. Risk parameters set?
         risk_ok = (
@@ -2547,7 +2195,7 @@ class CommandHandler:
             f"  Mode: {new_mode}\n"
             f"  Broker: {'Alpaca' if has_alpaca else ''}"
             f"{'Zerodha' if has_zerodha else ''}\n\n"
-            f"  [dim]Use 'kill-switch' for emergency stop.[/dim]"
+            f"  [dim]Set mode to PAPER_TRADING for emergency stop.[/dim]"
         )
 
     async def _cmd_disconnect(self, args: list[str]) -> str:
