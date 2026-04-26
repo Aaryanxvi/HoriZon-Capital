@@ -17,6 +17,7 @@ from app.agents.base_agent import BaseAgent
 from app.agents.front_office.trading.order_manager import OrderManager
 from app.agents.front_office.trading.paper_broker import PaperBroker
 from app.config import settings
+from app.core.cash import adjust_cash, mirror_to_kv
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 
@@ -127,7 +128,28 @@ class ExecutionAgent(BaseAgent):
                         symbol=order["symbol"])
             return
 
-        await self._execute_order(order)
+        try:
+            await self._execute_order(order)
+        except Exception as exc:
+            await self.order_manager.update_status(
+                order["id"], "REJECTED",
+                rejection_reason=f"Atomic fill rollback: {type(exc).__name__}",
+            )
+            await self.emit(
+                channel="horizon.execution.order.update",
+                message_type=MessageType.ORDER_CANCEL,
+                payload={
+                    "order_id": order["id"],
+                    "status": "REJECTED",
+                    "reason": f"Atomic fill rollback: {type(exc).__name__}",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            logger.error(
+                "execute_order_failed",
+                order_id=order["id"],
+                error=str(exc),
+            )
 
     async def approve_order(self, order_id: str) -> bool:
         """Approve a pending order (called from REPL 'approve' command)."""
@@ -141,7 +163,18 @@ class ExecutionAgent(BaseAgent):
                     break
         if order is None:
             return False
-        await self._execute_order(order)
+        try:
+            await self._execute_order(order)
+        except Exception as exc:
+            await self.order_manager.update_status(
+                order["id"], "REJECTED",
+                rejection_reason=f"Atomic fill rollback: {type(exc).__name__}",
+            )
+            logger.error(
+                "approve_order_failed",
+                order_id=order["id"], error=str(exc),
+            )
+            return False
         return True
 
     async def reject_order(self, order_id: str) -> bool:
@@ -232,8 +265,6 @@ class ExecutionAgent(BaseAgent):
             return
 
         # Atomic transaction: fill + status + position + cash
-        from app.core.cash import adjust_cash, mirror_to_kv
-
         side = order["side"]
         qty = float(fill["filled_qty"])
         price = float(fill["fill_price"])

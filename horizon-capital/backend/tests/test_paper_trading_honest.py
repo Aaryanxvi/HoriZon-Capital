@@ -283,3 +283,133 @@ async def test_two_concurrent_buys_cash_correct():
     assert cash >= expected_max * 0.97, (
         f"cash {cash} deducted too much (expected >= {expected_max * 0.97})"
     )
+
+
+@pytest.mark.asyncio
+async def test_atomic_fill_rolls_back_all_four_mutations_on_failure():
+    """If update_position raises mid-transaction, fill/status/cash all rollback."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.execution_agent import ExecutionAgent
+    from app.core.cash import get_cash, set_cash
+    from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db, local_session_factory
+    from app.core.memory_bus import MemoryBus
+
+    await init_local_db()
+    async with local_session_factory() as s:
+        await s.execute(text("DELETE FROM positions"))
+        await s.execute(text("DELETE FROM orders"))
+        await s.execute(text("DELETE FROM fills"))
+        await set_cash(s, "USD", 500_000.0)
+        await s.commit()
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "200.0")
+
+    bus = MemoryBus()
+    agent = ExecutionAgent(bus)
+
+    order = await agent.order_manager.create_order({
+        "symbol": "AAPL", "exchange": "", "order_type": "MARKET",
+        "side": "BUY", "quantity": 10, "broker": "PAPER",
+        "mode": "PAPER_TRADING",
+    })
+
+    # Force update_position to raise mid-transaction.
+    original_update_position = agent.order_manager.update_position
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("simulated update_position failure")
+
+    agent.order_manager.update_position = boom
+
+    try:
+        with pytest.raises(RuntimeError, match="simulated"):
+            await agent._execute_order(order)
+    finally:
+        agent.order_manager.update_position = original_update_position
+
+    # Verify all four mutations rolled back.
+    async with local_session_factory() as s:
+        result = await s.execute(
+            text("SELECT 1 FROM fills WHERE order_id = :id"),
+            {"id": order["id"]},
+        )
+        assert result.fetchone() is None, "fill row should not persist"
+
+        result = await s.execute(
+            text("SELECT status FROM orders WHERE id = :id"),
+            {"id": order["id"]},
+        )
+        row = result.fetchone()
+        # Status should still be OPEN (set BEFORE the atomic transaction starts);
+        # only fill/position/cash are inside the atomic block.
+        assert row is not None and row.status == "OPEN", (
+            f"order status changed unexpectedly to {row.status if row else None}"
+        )
+
+        result = await s.execute(
+            text("SELECT 1 FROM positions WHERE symbol = 'AAPL'"),
+        )
+        assert result.fetchone() is None, "position should not persist"
+
+        cash = await get_cash(s, "USD")
+    assert cash == pytest.approx(500_000.0), f"cash deducted on failure: {cash}"
+
+
+@pytest.mark.asyncio
+async def test_handle_new_order_rejects_on_atomic_failure():
+    """If _execute_order raises, _handle_new_order must REJECT the order."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.execution_agent import ExecutionAgent
+    from app.core.cash import set_cash
+    from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db, local_session_factory
+    from app.core.memory_bus import MemoryBus
+    from app.core.messaging import AgentMessage, MessageType
+
+    await init_local_db()
+    async with local_session_factory() as s:
+        await s.execute(text("DELETE FROM positions"))
+        await s.execute(text("DELETE FROM orders"))
+        await s.execute(text("DELETE FROM fills"))
+        await set_cash(s, "USD", 500_000.0)
+        await s.commit()
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "200.0")
+
+    bus = MemoryBus()
+    agent = ExecutionAgent(bus)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("simulated update_position failure")
+
+    agent.order_manager.update_position = boom
+
+    msg = AgentMessage(
+        sender_id="test",
+        channel="horizon.execution.order.new",
+        message_type=MessageType.ORDER_NEW,
+        payload={
+            "symbol": "AAPL", "exchange": "", "order_type": "MARKET",
+            "side": "BUY", "quantity": 10,
+        },
+    )
+
+    # Should NOT raise — _handle_new_order swallows + emits REJECTED.
+    await agent._handle_new_order(msg)
+
+    async with local_session_factory() as s:
+        result = await s.execute(
+            text(
+                "SELECT status, rejection_reason FROM orders"
+                " WHERE symbol = 'AAPL' ORDER BY created_at DESC LIMIT 1"
+            ),
+        )
+        row = result.fetchone()
+    assert row is not None
+    assert row.status == "REJECTED", f"expected REJECTED, got {row.status}"
+    assert "Atomic fill rollback" in (row.rejection_reason or "")
