@@ -236,6 +236,9 @@ class ExecutionAgent(BaseAgent):
                             symbol=order["symbol"])
                 return
 
+        # Set OPEN before the atomic block so the order is visible if the system
+        # crashes mid-fill. If the atomic block rolls back, the order stays OPEN
+        # and the stale-order poller will CANCEL it after its timeout.
         await self.order_manager.update_status(order_id, "OPEN")
 
         fill = None

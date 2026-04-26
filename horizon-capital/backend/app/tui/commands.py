@@ -1282,7 +1282,10 @@ class CommandHandler:
                 from app.core.runtime import get_session_factory
                 async with get_session_factory()() as session:
                     result = await session.execute(
-                        text("SELECT quantity FROM positions WHERE symbol = :sym AND quantity > 0 LIMIT 1"),
+                        text(
+                            "SELECT quantity FROM positions"
+                            " WHERE symbol = :sym AND quantity > 0 LIMIT 1"
+                        ),
                         {"sym": symbol},
                     )
                     row = result.fetchone()
