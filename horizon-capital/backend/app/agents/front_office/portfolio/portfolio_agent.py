@@ -187,13 +187,12 @@ class PortfolioAgent(BaseAgent):
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         exchange = payload.get("exchange", "")
-        strength = float(payload.get("strength", 1.0) or 1.0)
 
         try:
             target_weight = float(payload.get("target_weight", 0.0) or 0.0)
             sizing = await self._compute_position_size(
                 symbol, direction, exchange,
-                target_weight=target_weight, strength=strength,
+                target_weight=target_weight,
             )
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
@@ -232,13 +231,12 @@ class PortfolioAgent(BaseAgent):
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         exchange = payload.get("exchange", "")
-        strength = float(payload.get("strength", 1.0) or 1.0)
 
         try:
             target_weight = float(payload.get("target_weight", 0.0) or 0.0)
             sizing = await self._compute_position_size(
                 symbol, direction, exchange,
-                target_weight=target_weight, strength=strength,
+                target_weight=target_weight,
             )
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
@@ -298,7 +296,6 @@ class PortfolioAgent(BaseAgent):
         direction: int,
         exchange: str,
         target_weight: float = 0.0,
-        strength: float = 1.0,  # kept in signature for back-compat; ignored
     ) -> dict:
         """Size to reach the sleeve's target portfolio weight.
 

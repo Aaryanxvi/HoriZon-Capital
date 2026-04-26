@@ -95,7 +95,7 @@ async def test_sizer_targets_weight_not_fixed_slot(monkeypatch, runtime):
 
     sizing = await agent._compute_position_size(
         symbol="AAPL", direction=1, exchange="NASDAQ",
-        target_weight=0.15, strength=0.05,
+        target_weight=0.15,
     )
 
     # 15% of 100k = $15k. At $100/share = 150 shares.
