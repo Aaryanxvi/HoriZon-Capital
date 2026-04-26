@@ -24,9 +24,19 @@ def test_worker_sharpe_uses_config_risk_free(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_worker_sortino_uses_config_risk_free(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Worker Sortino must subtract settings.risk_free_rate, not the hard-coded 0.0."""
+    """Worker Sortino must subtract settings.risk_free_rate, not the hard-coded 0.0.
+
+    With rf=5% and equity growing at exactly the daily rf, *correct* Sortino is small
+    but non-zero (~0.06) due to floating-point noise. A Sortino of exactly 0.0 would
+    indicate the rf subtraction was omitted entirely (returns become uniform
+    positives -> downside_diff zero -> guard returns 0.0).
+    """
     monkeypatch.setattr(settings, "risk_free_rate", 0.05)
     daily_rf = (1.05) ** (1 / 252) - 1
     eq = np.array([100.0 * (1 + daily_rf) ** i for i in range(60)], dtype=np.float64)
     sortino = WorkerPerfSvc._sortino_ratio(eq)
     assert abs(sortino) < 0.2, f"expected ~0 Sortino at rf=5%, got {sortino}"
+    assert sortino != 0.0, (
+        "Sortino returned exactly 0.0 -- rf subtraction likely missing "
+        "(uniform positive returns -> empty downside)"
+    )
