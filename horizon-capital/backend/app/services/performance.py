@@ -118,8 +118,10 @@ class PerformanceService:
             n_trading_days = 1
         annual_ret = (1 + total_ret) ** (252 / n_trading_days) - 1
 
-        # Sharpe
-        daily_rf = (1.05) ** (1 / 252) - 1
+        # Sharpe -- canonical rf from settings (Task 3 of performance P0 plan)
+        from app.config import settings
+        rf = settings.risk_free_rate
+        daily_rf = (1.0 + rf) ** (1 / 252) - 1
         excess = returns - daily_rf
         std_excess = float(np.std(excess, ddof=1)) if len(excess) >= 2 else 0.0
         sharpe = float(np.mean(excess) / std_excess * np.sqrt(252)) if std_excess > 0 else 0.0

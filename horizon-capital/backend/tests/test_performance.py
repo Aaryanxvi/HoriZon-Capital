@@ -40,3 +40,27 @@ def test_worker_sortino_uses_config_risk_free(monkeypatch: pytest.MonkeyPatch) -
         "Sortino returned exactly 0.0 -- rf subtraction likely missing "
         "(uniform positive returns -> empty downside)"
     )
+
+
+def test_service_does_not_hardcode_5pct_rf() -> None:
+    """services.performance must not hard-code 1.05 -- it must read settings."""
+    import inspect
+    from app.services.performance import PerformanceService as SvcPerfSvc
+
+    src = inspect.getsource(SvcPerfSvc.compute_snapshot)
+    assert "1.05" not in src, "found hard-coded 5% rf -- must read settings.risk_free_rate"
+    assert "settings.risk_free_rate" in src
+
+
+def test_report_generator_does_not_hardcode_5pct_rf() -> None:
+    """report_generator must not hard-code 1.05 either."""
+    import inspect
+    from app.services import report_generator as rg
+
+    src = inspect.getsource(rg.ReportGenerator._fill_performance)
+    # Allow `1.05` only inside comments / strings if any; the daily_rf computation
+    # specifically must use settings.risk_free_rate.
+    assert "(1.05) ** (1 / 252)" not in src, (
+        "report_generator still hard-codes 5% daily_rf"
+    )
+    assert "settings.risk_free_rate" in src
