@@ -1,6 +1,7 @@
 # tooling / machine-local
 .claude/
 .superpowers/
+.worktrees/
 *.pid
 *.tmp
 
