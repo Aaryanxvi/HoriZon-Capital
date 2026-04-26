@@ -181,6 +181,7 @@ class StrategyAgent(BaseAgent):
                 if latest <= 0:
                     continue
                 await kv.set(f"horizon:price:{symbol}", str(latest))
+                await kv.set(f"horizon:price:{symbol}:ts", datetime.now(UTC).isoformat())
                 avg_vol = float(df["volume"].mean())
                 if avg_vol > 0:
                     await kv.set(f"horizon:volume:{symbol}", str(avg_vol))

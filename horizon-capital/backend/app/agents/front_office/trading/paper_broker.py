@@ -25,6 +25,7 @@ _PERMANENT_IMPACT_GAMMA = 0.5  # permanent impact exponent (sqrt-law)
 _PERMANENT_IMPACT_ETA = 0.01  # permanent impact coefficient
 # Half-spread as FRACTION of price (1 bp = 0.0001). Liquid equities ~ 1-2 bps.
 _TEMPORARY_IMPACT_EPSILON = 0.0001
+_PRICE_MAX_AGE_SECONDS = 300  # 5 minutes — reject stale cached prices
 _TEMPORARY_IMPACT_ETA = 0.01  # temporary impact coefficient
 _TEMPORARY_IMPACT_GAMMA = 0.5  # temporary impact exponent
 
@@ -250,12 +251,28 @@ class PaperBroker:
             if live and live > 0:
                 return live
 
-        val = await _get_kv().get(f"horizon:price:{symbol}")
+        kv = _get_kv()
+        val = await kv.get(f"horizon:price:{symbol}")
         if val is not None:
             try:
-                return float(val)
+                price = float(val)
             except (ValueError, TypeError):
-                pass
+                return 0.0
+            ts_str = await kv.get(f"horizon:price:{symbol}:ts")
+            if ts_str is not None:
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    age = (datetime.now(UTC) - ts).total_seconds()
+                    if age > _PRICE_MAX_AGE_SECONDS:
+                        logger.warning(
+                            "stale_price_rejected",
+                            symbol=symbol,
+                            age_seconds=int(age),
+                        )
+                        return 0.0
+                except (ValueError, TypeError):
+                    pass  # No valid timestamp — treat price as fresh (backward compat)
+            return price
         return 0.0
 
     @staticmethod

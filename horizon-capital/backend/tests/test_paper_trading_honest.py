@@ -519,3 +519,61 @@ async def test_limit_sell_accepted_when_price_high_enough():
     })
     assert not fill.get("rejected"), f"unexpected rejection: {fill.get('rejection_reason')}"
     assert fill["fill_price"] >= 90.0
+
+
+@pytest.mark.asyncio
+async def test_stale_price_rejected():
+    """Order rejected when cached price is older than 5 minutes."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "150.0")
+    stale_ts = (datetime.now(UTC) - timedelta(minutes=6)).isoformat()
+    await kv.set("horizon:price:AAPL:ts", stale_ts)
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t7-1", "symbol": "AAPL", "side": "BUY", "quantity": 10,
+    })
+    assert fill.get("rejected") is True
+    assert "No price available" in fill.get("rejection_reason", "")
+
+
+@pytest.mark.asyncio
+async def test_fresh_price_not_rejected():
+    """Order fills normally when cached price is fresh (< 5 minutes)."""
+    from datetime import UTC, datetime
+
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "150.0")
+    await kv.set("horizon:price:AAPL:ts", datetime.now(UTC).isoformat())
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t7-2", "symbol": "AAPL", "side": "BUY", "quantity": 1,
+    })
+    assert not fill.get("rejected"), f"unexpected rejection: {fill.get('rejection_reason')}"
+
+
+@pytest.mark.asyncio
+async def test_missing_timestamp_treated_as_fresh():
+    """If no :ts key exists (legacy data), price is treated as fresh (backward compat)."""
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    # Use a unique symbol so no stale :ts key from previous tests can interfere.
+    await kv.set("horizon:price:NOSYMBOL_T7_TEST_3", "150.0")
+    await kv.delete("horizon:price:NOSYMBOL_T7_TEST_3:ts")
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t7-3", "symbol": "NOSYMBOL_T7_TEST_3", "side": "BUY", "quantity": 1,
+    })
+    assert not fill.get("rejected"), f"should not reject when :ts key absent"

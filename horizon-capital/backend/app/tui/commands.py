@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 
 from rich.console import Console
 
@@ -1274,6 +1274,7 @@ class CommandHandler:
                 f"Check Alpaca credentials or wait for the data feed.[/red]"
             )
         await kv.set(f"horizon:price:{symbol}", str(price))
+        await kv.set(f"horizon:price:{symbol}:ts", datetime.now(UTC).isoformat())
 
         # Auto-size if no qty given
         if qty is None:
