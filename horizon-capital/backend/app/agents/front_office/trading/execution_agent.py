@@ -41,11 +41,14 @@ class ExecutionAgent(BaseAgent):
     All orders are executed through the paper broker for simulation.
 
     Subscribes to:
-      - ``horizon.execution.order.*``
+      - ``horizon.execution.order.new``     -- new orders from PortfolioAgent/REPL
+      - ``horizon.execution.order.pending`` -- orders awaiting human approval
+      - ``horizon.execution.order.cancel``  -- order cancellation requests
 
     Publishes:
-      - ``horizon.execution.order.fill``  -- after a successful fill
-      - ``horizon.execution.order.update`` -- status changes
+      - ``horizon.execution.order.fill``    -- after a successful fill
+      - ``horizon.execution.order.update``  -- status changes (rejections, cancellations)
+      - ``horizon.execution.order.tracked`` -- order tracking for dashboard
     """
 
     def __init__(self, bus: AgentBus) -> None:
@@ -60,7 +63,9 @@ class ExecutionAgent(BaseAgent):
         self._pending_approval: dict[str, dict] = {}
 
     async def _subscribe(self) -> None:
-        await self.bus.subscribe("horizon.execution.order.*", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.new", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.pending", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.cancel", self.on_message)
 
     async def run(self) -> None:
         """Periodically poll for any stale open orders."""
