@@ -1,5 +1,4 @@
 """End-to-end smoke tests for the paper trading pipeline."""
-import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -118,9 +117,10 @@ async def test_atomic_rollback_on_failure_smoke():
     await init_local_db()
     async with local_session_factory() as s:
         await s.execute(text("DELETE FROM positions WHERE symbol = 'NVDA'"))
-        await s.execute(
-            text("DELETE FROM fills WHERE order_id IN (SELECT id FROM orders WHERE symbol = 'NVDA')")
-        )
+        await s.execute(text(
+            "DELETE FROM fills"
+            " WHERE order_id IN (SELECT id FROM orders WHERE symbol = 'NVDA')"
+        ))
         await s.execute(text("DELETE FROM orders WHERE symbol = 'NVDA'"))
         await set_cash(s, "USD", 50_000.0)
         await s.commit()
