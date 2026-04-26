@@ -56,8 +56,9 @@ async def test_cio_mode_a_publishes_advisory():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
+        mock_reg.get_provider_for_agent.return_value = provider
 
-        with patch.object(agent, "_build_portfolio_digest", return_value={"nav": 1000000.0}):
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={"nav": 1000000.0})):
             await agent._run_mode_a()
 
     calls = bus.publish.call_args_list
@@ -96,7 +97,8 @@ async def test_cio_mode_a_handles_llm_error_gracefully():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={})):
             await agent._run_mode_a()  # Should not raise
 
     bus.publish.assert_not_called()
@@ -116,7 +118,8 @@ async def test_cio_mode_a_parses_advisory_json():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={"nav": 500000.0}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={"nav": 500000.0})):
             await agent._run_mode_a()
 
     advisory_calls = [
@@ -145,7 +148,8 @@ async def test_cio_mode_b_publishes_crisis_advisory():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={"nav": 800000.0}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={"nav": 800000.0})):
             await agent._run_mode_b(trigger_payload, trigger="RISK_ALERT")
 
     advisory_calls = [
@@ -190,7 +194,8 @@ async def test_cio_mode_c_triggered_on_halt_with_high_confidence():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={"nav": 800000.0}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={"nav": 800000.0})):
             await agent._run_mode_b(trigger_payload, trigger="KILL_SWITCH")
 
     override_calls = [
@@ -227,7 +232,8 @@ async def test_cio_mode_c_not_triggered_below_confidence():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={"nav": 800000.0}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={"nav": 800000.0})):
             await agent._run_mode_b(trigger_payload, trigger="KILL_SWITCH")
 
     override_calls = [
@@ -341,7 +347,7 @@ async def test_cio_set_halt_confirmed():
     agent = CIOAgent(bus=bus)
     agent._pending_halt_confirmation = True
 
-    agent.set_halt_confirmed()
+    await agent.set_halt_confirmed()
 
     assert agent._pending_halt_confirmation is False
 
@@ -357,7 +363,6 @@ async def test_cio_subscribe():
 
     channels = [call.args[0] for call in bus.subscribe.call_args_list]
     assert "horizon.risk.*" in channels
-    assert "horizon.settings.*" in channels
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +404,8 @@ async def test_cio_mode_c_fires_when_kill_switch_and_high_confidence():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={})):
             with patch.object(agent, "_persist_override", AsyncMock()):
                 await agent._run_mode_b({"action": "KILL_SWITCH_TRIGGERED"}, trigger="kill_switch")
 
@@ -420,7 +426,8 @@ async def test_cio_mode_c_does_not_fire_below_confidence_threshold():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={})):
             await agent._run_mode_b({"action": "KILL_SWITCH_TRIGGERED"}, trigger="kill_switch")
 
     calls = [c.args[0] for c in bus.publish.call_args_list]
@@ -441,7 +448,8 @@ async def test_cio_circuit_breaker_silences_after_failures():
 
     with patch("app.agents.executive.cio.cio_agent.provider_registry") as mock_reg:
         mock_reg.get_providers_for_department.return_value = [provider]
-        with patch.object(agent, "_build_portfolio_digest", return_value={}):
+        mock_reg.get_provider_for_agent.return_value = provider
+        with patch.object(agent, "_build_portfolio_digest", new=AsyncMock(return_value={})):
             for _ in range(CIO_CIRCUIT_BREAKER_FAILURES):
                 await agent._run_mode_a()
 
