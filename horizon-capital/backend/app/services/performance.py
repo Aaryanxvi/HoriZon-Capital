@@ -43,6 +43,16 @@ def _resolve_start(period: str) -> datetime:
     return now - timedelta(days=days)
 
 
+def _to_datetime(value) -> datetime:
+    """Coerce a row timestamp to datetime. SQLite returns ISO strings."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        s = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(s)
+    raise TypeError(f"cannot coerce {type(value).__name__} to datetime")
+
+
 class PerformanceService:
     """Compute and serve portfolio performance analytics."""
 
@@ -113,8 +123,8 @@ class PerformanceService:
 
         total_ret = (eq[-1] - eq[0]) / eq[0] if eq[0] != 0 else 0.0
         if len(equity_data) >= 2:
-            first_ts = equity_data[0][0]
-            last_ts = equity_data[-1][0]
+            first_ts = _to_datetime(equity_data[0][0])
+            last_ts = _to_datetime(equity_data[-1][0])
             calendar_days = max((last_ts - first_ts).days, 1)
             n_trading_days = max(calendar_days * 252 / 365, 1)
         else:
@@ -234,7 +244,7 @@ class PerformanceService:
             data = rows.fetchall()
 
         return [
-            {"timestamp": row[0].isoformat(), "value": float(row[1])}
+            {"timestamp": _to_datetime(row[0]).isoformat(), "value": float(row[1])}
             for row in data
         ]
 
