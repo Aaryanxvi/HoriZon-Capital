@@ -413,3 +413,91 @@ async def test_handle_new_order_rejects_on_atomic_failure():
     assert row is not None
     assert row.status == "REJECTED", f"expected REJECTED, got {row.status}"
     assert "Atomic fill rollback" in (row.rejection_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_limit_buy_rejected_when_price_too_high():
+    """BUY limit at $95 rejected when fill price is $100."""
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "100.0")
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t5-1", "symbol": "AAPL", "side": "BUY",
+        "quantity": 100, "limit_price": 95.0,
+    })
+    assert fill.get("rejected") is True
+    assert "not reachable" in fill.get("rejection_reason", "")
+
+
+@pytest.mark.asyncio
+async def test_limit_buy_accepted_when_price_low_enough():
+    """BUY limit at $200 accepted when market is $100."""
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "100.0")
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t5-2", "symbol": "AAPL", "side": "BUY",
+        "quantity": 1, "limit_price": 200.0,
+    })
+    assert not fill.get("rejected"), f"unexpected rejection: {fill.get('rejection_reason')}"
+    assert fill["fill_price"] <= 200.0
+
+
+@pytest.mark.asyncio
+async def test_limit_sell_rejected_when_price_too_low():
+    """SELL limit at $110 rejected when fill price is $100."""
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "100.0")
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t5-3", "symbol": "AAPL", "side": "SELL",
+        "quantity": 100, "limit_price": 110.0,
+    })
+    assert fill.get("rejected") is True
+    assert "not reachable" in fill.get("rejection_reason", "")
+
+
+def test_noise_never_favorable_for_buy():
+    """BUY: all 500 fills must be >= mid price (noise never lowers fill)."""
+    import random
+
+    from app.agents.front_office.trading.paper_broker import AlmgrenChrissModel
+
+    model = AlmgrenChrissModel()
+    random.seed(0)
+    fills = [
+        model.compute_impact(
+            quantity=1, price=100.0, daily_volume=10_000_000, volatility=0.02, side="BUY"
+        )["fill_price"]
+        for _ in range(500)
+    ]
+    assert all(f >= 100.0 for f in fills), f"found favorable BUY fill: min={min(fills):.4f}"
+
+
+def test_noise_never_favorable_for_sell():
+    """SELL: all 500 fills must be <= mid price (noise never raises fill)."""
+    import random
+
+    from app.agents.front_office.trading.paper_broker import AlmgrenChrissModel
+
+    model = AlmgrenChrissModel()
+    random.seed(0)
+    fills = [
+        model.compute_impact(
+            quantity=1, price=100.0, daily_volume=10_000_000, volatility=0.02, side="SELL"
+        )["fill_price"]
+        for _ in range(500)
+    ]
+    assert all(f <= 100.0 for f in fills), f"found favorable SELL fill: max={max(fills):.4f}"

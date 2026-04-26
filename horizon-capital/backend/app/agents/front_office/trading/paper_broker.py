@@ -106,8 +106,9 @@ class AlmgrenChrissModel:
         direction = 1 if side == "BUY" else -1
         fill_price = price + direction * total_impact
 
-        # Add small random noise (microstructure)
-        noise = random.gauss(0, volatility * price * 0.01)
+        # Add small random noise (microstructure), clamped so it never favours the trader
+        raw_noise = random.gauss(0, volatility * price * 0.01)
+        noise = max(0.0, raw_noise) if side == "BUY" else min(0.0, raw_noise)
         fill_price += noise
 
         slippage_amount = abs(fill_price - price) * quantity
@@ -176,6 +177,15 @@ class PaperBroker:
             volatility=volatility,
             side=side,
         )
+
+        limit_price = order.get("limit_price")
+        if limit_price is not None:
+            lp = float(limit_price)
+            fill_px = impact["fill_price"]
+            if side == "BUY" and fill_px > lp:
+                return self._rejection(order_id, f"Limit price {lp} not reachable (fill {fill_px:.4f})")
+            if side == "SELL" and fill_px < lp:
+                return self._rejection(order_id, f"Limit price {lp} not reachable (fill {fill_px:.4f})")
 
         # Commission model by exchange (round-trip cost retail pays).
         exchange = order.get("exchange", "")
