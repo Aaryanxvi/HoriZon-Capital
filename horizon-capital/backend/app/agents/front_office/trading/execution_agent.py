@@ -17,6 +17,7 @@ from app.agents.base_agent import BaseAgent
 from app.agents.front_office.trading.order_manager import OrderManager
 from app.agents.front_office.trading.paper_broker import PaperBroker
 from app.config import settings
+from app.core.cash import adjust_cash, mirror_to_kv
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 
@@ -146,7 +147,28 @@ class ExecutionAgent(BaseAgent):
                         symbol=order["symbol"])
             return
 
-        await self._execute_order(order)
+        try:
+            await self._execute_order(order)
+        except Exception as exc:
+            await self.order_manager.update_status(
+                order["id"], "REJECTED",
+                rejection_reason=f"Atomic fill rollback: {type(exc).__name__}",
+            )
+            await self.emit(
+                channel="horizon.execution.order.update",
+                message_type=MessageType.ORDER_CANCEL,
+                payload={
+                    "order_id": order["id"],
+                    "status": "REJECTED",
+                    "reason": f"Atomic fill rollback: {type(exc).__name__}",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            logger.error(
+                "execute_order_failed",
+                order_id=order["id"],
+                error=str(exc),
+            )
 
     async def approve_order(self, order_id: str) -> bool:
         """Approve a pending order (called from REPL 'approve' command)."""
@@ -160,7 +182,18 @@ class ExecutionAgent(BaseAgent):
                     break
         if order is None:
             return False
-        await self._execute_order(order)
+        try:
+            await self._execute_order(order)
+        except Exception as exc:
+            await self.order_manager.update_status(
+                order["id"], "REJECTED",
+                rejection_reason=f"Atomic fill rollback: {type(exc).__name__}",
+            )
+            logger.error(
+                "approve_order_failed",
+                order_id=order["id"], error=str(exc),
+            )
+            return False
         return True
 
     async def reject_order(self, order_id: str) -> bool:
@@ -250,38 +283,51 @@ class ExecutionAgent(BaseAgent):
             )
             return
 
-        await self.order_manager.record_fill(
-            order_id=order_id,
-            qty=fill["filled_qty"],
-            price=fill["fill_price"],
-            commission=fill.get("commission", 0.0),
-            slippage=fill.get("slippage", 0.0),
-        )
+        # Atomic transaction: fill + status + position + cash
+        side = order["side"]
+        qty = float(fill["filled_qty"])
+        price = float(fill["fill_price"])
+        commission = float(fill.get("commission", 0.0))
+        slippage = float(fill.get("slippage", 0.0))
+        exchange = order.get("exchange", "")
+        currency = "INR" if exchange in ("NSE", "BSE") else "USD"
+        cost = qty * price
+        delta = -(cost + commission) if side == "BUY" else (cost - commission)
 
-        if fill["filled_qty"] >= order.get("quantity", 0):
-            await self.order_manager.update_status(order_id, "FILLED")
+        if qty >= order.get("quantity", 0):
             new_status = "FILLED"
         else:
-            await self.order_manager.update_status(order_id, "PARTIAL")
             new_status = "PARTIAL"
 
-        await self.order_manager.update_position(
-            symbol=order["symbol"],
-            exchange=order.get("exchange", ""),
-            side=order["side"],
-            qty=fill["filled_qty"],
-            price=fill["fill_price"],
-            stop_loss_price=order.get("stop_loss"),
-        )
+        try:
+            async with _get_session_factory()() as session:
+                await self.order_manager.record_fill(
+                    order_id=order_id,
+                    qty=qty,
+                    price=price,
+                    commission=commission,
+                    slippage=slippage,
+                    session=session,
+                )
+                await self.order_manager.update_status(
+                    order_id, new_status, session=session,
+                )
+                await self.order_manager.update_position(
+                    symbol=order["symbol"],
+                    exchange=exchange,
+                    side=side,
+                    qty=qty,
+                    price=price,
+                    stop_loss_price=order.get("stop_loss"),
+                    session=session,
+                )
+                new_cash = await adjust_cash(session, currency, delta)
+                await session.commit()
+        except Exception:
+            logger.exception("atomic_fill_rollback", order_id=order_id)
+            raise
 
-        # Update cash balance: deduct on BUY, add on SELL
-        await self._update_cash_balance(
-            side=order["side"],
-            exchange=order.get("exchange", ""),
-            qty=fill["filled_qty"],
-            price=fill["fill_price"],
-            commission=fill.get("commission", 0.0),
-        )
+        await mirror_to_kv(currency, new_cash)
 
         await self.emit(
             channel="horizon.execution.order.fill",
@@ -289,11 +335,11 @@ class ExecutionAgent(BaseAgent):
             payload={
                 "order_id": order_id,
                 "symbol": order["symbol"],
-                "side": order["side"],
-                "filled_qty": fill["filled_qty"],
-                "fill_price": fill["fill_price"],
-                "commission": fill.get("commission", 0.0),
-                "slippage": fill.get("slippage", 0.0),
+                "side": side,
+                "filled_qty": qty,
+                "fill_price": price,
+                "commission": commission,
+                "slippage": slippage,
                 "broker": "PAPER",
                 "status": new_status,
                 "timestamp": datetime.now(UTC).isoformat(),
@@ -304,9 +350,10 @@ class ExecutionAgent(BaseAgent):
             "order_executed",
             order_id=order_id,
             symbol=order["symbol"],
-            side=order["side"],
-            qty=fill["filled_qty"],
-            price=fill["fill_price"],
+            side=side,
+            qty=qty,
+            price=price,
+            new_cash=f"{new_cash:.2f}",
         )
 
     async def _poll_open_orders(self) -> None:
@@ -373,44 +420,3 @@ class ExecutionAgent(BaseAgent):
             row = result.fetchone()
         return float(row.total) if row else 0.0
 
-    async def _update_cash_balance(
-        self,
-        side: str,
-        exchange: str,
-        qty: float,
-        price: float,
-        commission: float = 0.0,
-    ) -> None:
-        """Update cash balances in KV store after a fill.
-
-        BUY: deduct cost (qty * price + commission)
-        SELL: add proceeds (qty * price - commission)
-        """
-        kv = _get_kv()
-        cost = qty * price
-
-        # Determine which cash bucket to use
-        if exchange in ("NSE", "BSE"):
-            cash_key = "horizon:cash:inr"
-        else:
-            cash_key = "horizon:cash:usd"
-
-        current_str = await kv.get(cash_key)
-        current = float(current_str) if current_str else 0.0
-
-        if side == "BUY":
-            new_balance = current - cost - commission
-        else:  # SELL
-            new_balance = current + cost - commission
-
-        await kv.set(cash_key, str(round(new_balance, 2)))
-
-        logger.info(
-            "cash_updated",
-            side=side,
-            cost=f"{cost:.2f}",
-            commission=f"{commission:.2f}",
-            old_balance=f"{current:.2f}",
-            new_balance=f"{new_balance:.2f}",
-            currency="INR" if exchange in ("NSE", "BSE") else "USD",
-        )
