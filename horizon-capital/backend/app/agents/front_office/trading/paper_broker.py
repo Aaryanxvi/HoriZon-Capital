@@ -151,6 +151,9 @@ class PaperBroker:
         quantity = order["quantity"]
         order_id = order.get("id", "")
 
+        if side not in ("BUY", "SELL"):
+            return self._rejection(order_id, f"Unknown order side: {side!r}")
+
         # Get last price from Redis
         last_price = await self._get_last_price(symbol)
         if last_price <= 0:
@@ -183,9 +186,11 @@ class PaperBroker:
             lp = float(limit_price)
             fill_px = impact["fill_price"]
             if side == "BUY" and fill_px > lp:
-                return self._rejection(order_id, f"Limit price {lp} not reachable (fill {fill_px:.4f})")
+                reason = f"Limit price {lp} not reachable (fill {fill_px:.4f})"
+                return self._rejection(order_id, reason)
             if side == "SELL" and fill_px < lp:
-                return self._rejection(order_id, f"Limit price {lp} not reachable (fill {fill_px:.4f})")
+                reason = f"Limit price {lp} not reachable (fill {fill_px:.4f})"
+                return self._rejection(order_id, reason)
 
         # Commission model by exchange (round-trip cost retail pays).
         exchange = order.get("exchange", "")

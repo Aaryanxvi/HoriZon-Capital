@@ -501,3 +501,21 @@ def test_noise_never_favorable_for_sell():
         for _ in range(500)
     ]
     assert all(f <= 100.0 for f in fills), f"found favorable SELL fill: max={max(fills):.4f}"
+
+
+@pytest.mark.asyncio
+async def test_limit_sell_accepted_when_price_high_enough():
+    """SELL limit at $90 accepted when market fill is $100 (fill > limit)."""
+    from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "100.0")
+
+    broker = PaperBroker()
+    fill = await broker.execute({
+        "id": "ord-t5-4", "symbol": "AAPL", "side": "SELL",
+        "quantity": 1, "limit_price": 90.0,
+    })
+    assert not fill.get("rejected"), f"unexpected rejection: {fill.get('rejection_reason')}"
+    assert fill["fill_price"] >= 90.0
