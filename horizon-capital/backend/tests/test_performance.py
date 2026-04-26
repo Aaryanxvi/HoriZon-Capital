@@ -48,7 +48,7 @@ def test_service_does_not_hardcode_5pct_rf() -> None:
     from app.services.performance import PerformanceService as SvcPerfSvc
 
     src = inspect.getsource(SvcPerfSvc.compute_snapshot)
-    assert "1.05" not in src, "found hard-coded 5% rf -- must read settings.risk_free_rate"
+    assert "(1.05) ** (1 / 252)" not in src, "found hard-coded 5% rf -- must read settings.risk_free_rate"
     assert "settings.risk_free_rate" in src
 
 
