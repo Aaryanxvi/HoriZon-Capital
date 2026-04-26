@@ -34,6 +34,25 @@ class OrderManager:
     """
 
     # ------------------------------------------------------------------ #
+    # Session dispatch helper
+    # ------------------------------------------------------------------ #
+
+    async def _run_in_session(self, fn, session):
+        """Run an async session-using callable in the caller's session, or
+        in our own freshly-opened session with a commit at the end.
+
+        ``fn`` must be an ``async def fn(s) -> X``. Returns whatever ``fn``
+        returns. When ``session is None`` we manage the lifecycle (open,
+        commit, close); otherwise the caller owns it and we never commit.
+        """
+        if session is None:
+            async with _get_session_factory()() as s:
+                result = await fn(s)
+                await s.commit()
+                return result
+        return await fn(session)
+
+    # ------------------------------------------------------------------ #
     # Order creation
     # ------------------------------------------------------------------ #
 
@@ -57,8 +76,6 @@ class OrderManager:
         """
         order_id = str(uuid.uuid4())
         now = datetime.now(UTC)
-
-        owns_session = session is None
 
         async def _do(s):
             await s.execute(
@@ -91,12 +108,7 @@ class OrderManager:
                 },
             )
 
-        if owns_session:
-            async with _get_session_factory()() as s:
-                await _do(s)
-                await s.commit()
-        else:
-            await _do(session)
+        await self._run_in_session(_do, session)
 
         order = {
             **order_data,
@@ -131,8 +143,6 @@ class OrderManager:
 
         Returns True on success, False if the transition is invalid.
         """
-        owns_session = session is None
-
         # Validate the transition before opening/using the write session so we
         # can return early without touching DB state.
         current_status = await self._get_status(order_id, session=session)
@@ -172,12 +182,7 @@ class OrderManager:
                 },
             )
 
-        if owns_session:
-            async with _get_session_factory()() as s:
-                await _do(s)
-                await s.commit()
-        else:
-            await _do(session)
+        await self._run_in_session(_do, session)
 
         logger.info("order_status_updated", order_id=order_id, status=new_status)
         return True
@@ -207,8 +212,6 @@ class OrderManager:
         fill_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
-        owns_session = session is None
-
         async def _do(s):
             await s.execute(
                 text(
@@ -232,12 +235,7 @@ class OrderManager:
                 },
             )
 
-        if owns_session:
-            async with _get_session_factory()() as s:
-                await _do(s)
-                await s.commit()
-        else:
-            await _do(session)
+        await self._run_in_session(_do, session)
 
         logger.info(
             "fill_recorded",
@@ -288,8 +286,6 @@ class OrderManager:
 
         # Determine currency from exchange
         currency = "INR" if exchange in ("NSE", "BSE") else "USD"
-
-        owns_session = session is None
 
         async def _do(s):
             # Fetch existing position
@@ -404,12 +400,7 @@ class OrderManager:
                     },
                 )
 
-        if owns_session:
-            async with _get_session_factory()() as s:
-                await _do(s)
-                await s.commit()
-        else:
-            await _do(session)
+        await self._run_in_session(_do, session)
 
         logger.info("position_updated", symbol=symbol, side=side, qty=qty, price=price)
 
@@ -426,7 +417,6 @@ class OrderManager:
             Optional caller-owned session.  When provided the read uses the
             caller's transaction so uncommitted writes are visible.
         """
-        owns_session = session is None
 
         async def _do(s):
             result = await s.execute(
@@ -436,8 +426,4 @@ class OrderManager:
             row = result.fetchone()
             return row.status if row else None
 
-        if owns_session:
-            async with _get_session_factory()() as s:
-                return await _do(s)
-        else:
-            return await _do(session)
+        return await self._run_in_session(_do, session)

@@ -138,3 +138,91 @@ async def test_order_manager_uses_shared_session():
         )
         row = result.fetchone()
     assert row is None, "rolled-back order should not persist"
+
+
+@pytest.mark.asyncio
+async def test_record_fill_shared_session_rolls_back():
+    """record_fill on a caller-owned session must not persist after rollback."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.order_manager import OrderManager
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    await init_local_db()
+    om = OrderManager()
+
+    # Seed an order so record_fill has something to attach to.
+    order = await om.create_order({
+        "symbol": "AAPL", "exchange": "", "order_type": "MARKET",
+        "side": "BUY", "quantity": 10, "broker": "PAPER", "mode": "PAPER_TRADING",
+    })
+
+    async with local_session_factory() as session:
+        fill = await om.record_fill(
+            order_id=order["id"], qty=10, price=150.0,
+            commission=0.5, slippage=0.0, session=session,
+        )
+        await session.rollback()
+
+    async with local_session_factory() as session:
+        result = await session.execute(
+            text("SELECT 1 FROM fills WHERE id = :id"),
+            {"id": fill["fill_id"]},
+        )
+    assert result.fetchone() is None, "rolled-back fill should not persist"
+
+
+@pytest.mark.asyncio
+async def test_update_status_shared_session_rolls_back():
+    """update_status on a caller-owned session must not persist after rollback."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.order_manager import OrderManager
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    await init_local_db()
+    om = OrderManager()
+
+    order = await om.create_order({
+        "symbol": "AAPL", "exchange": "", "order_type": "MARKET",
+        "side": "BUY", "quantity": 10, "broker": "PAPER", "mode": "PAPER_TRADING",
+    })
+
+    async with local_session_factory() as session:
+        ok = await om.update_status(order["id"], "OPEN", session=session)
+        assert ok is True
+        await session.rollback()
+
+    async with local_session_factory() as session:
+        result = await session.execute(
+            text("SELECT status FROM orders WHERE id = :id"),
+            {"id": order["id"]},
+        )
+        row = result.fetchone()
+    assert row.status == "PENDING", f"expected PENDING after rollback, got {row.status}"
+
+
+@pytest.mark.asyncio
+async def test_update_position_shared_session_rolls_back():
+    """update_position on a caller-owned session must not persist after rollback."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.order_manager import OrderManager
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    await init_local_db()
+    om = OrderManager()
+
+    async with local_session_factory() as session:
+        await om.update_position(
+            symbol="ROLLBACK_TEST", exchange="", side="BUY",
+            qty=10, price=100.0, session=session,
+        )
+        await session.rollback()
+
+    async with local_session_factory() as session:
+        result = await session.execute(
+            text("SELECT 1 FROM positions WHERE symbol = :sym"),
+            {"sym": "ROLLBACK_TEST"},
+        )
+    assert result.fetchone() is None, "rolled-back position should not persist"
