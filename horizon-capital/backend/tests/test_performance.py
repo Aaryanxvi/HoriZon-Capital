@@ -64,3 +64,15 @@ def test_report_generator_does_not_hardcode_5pct_rf() -> None:
         "report_generator still hard-codes 5% daily_rf"
     )
     assert "settings.risk_free_rate" in src
+
+
+def test_backtest_sharpe_default_matches_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BacktestMetrics.sharpe_ratio default must defer to settings.risk_free_rate, not 0.05."""
+    from app.backtesting.backtest_metrics import BacktestMetrics
+
+    monkeypatch.setattr(settings, "risk_free_rate", 0.0)
+    rng = np.random.default_rng(42)
+    daily = rng.normal(0.0, 0.01, size=252)
+    s_default = BacktestMetrics.sharpe_ratio(daily)
+    s_explicit_zero = BacktestMetrics.sharpe_ratio(daily, risk_free=0.0)
+    assert abs(s_default - s_explicit_zero) < 1e-9
