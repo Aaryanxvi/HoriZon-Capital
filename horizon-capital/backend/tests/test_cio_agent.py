@@ -1,10 +1,9 @@
 """Tests for the CIO agent (Modes A, B, C)."""
 
-import asyncio
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _make_bus():
@@ -177,7 +176,7 @@ async def test_cio_mode_b_no_provider_no_crash():
 @pytest.mark.asyncio
 async def test_cio_mode_c_triggered_on_halt_with_high_confidence():
     """Mode C: Override published when kill switch active + HALT + confidence >= threshold."""
-    from app.agents.executive.cio.cio_agent import CIOAgent, CIO_OVERRIDE_CONFIDENCE_THRESHOLD
+    from app.agents.executive.cio.cio_agent import CIO_OVERRIDE_CONFIDENCE_THRESHOLD, CIOAgent
     from app.core.messaging import MessageType
 
     bus = _make_bus()
@@ -287,8 +286,8 @@ async def test_cio_on_message_kill_switch():
 async def test_cio_circuit_breaker_opens_after_failures():
     """Circuit breaker opens after N consecutive LLM failures."""
     from app.agents.executive.cio.cio_agent import (
-        CIOAgent,
         CIO_CIRCUIT_BREAKER_FAILURES,
+        CIOAgent,
     )
 
     bus = _make_bus()
@@ -431,7 +430,7 @@ async def test_cio_mode_c_does_not_fire_below_confidence_threshold():
 @pytest.mark.asyncio
 async def test_cio_circuit_breaker_silences_after_failures():
     """After 3 LLM failures via _run_mode_a, CIO circuit opens (llm_circuit_open_until > 0)."""
-    from app.agents.executive.cio.cio_agent import CIOAgent, CIO_CIRCUIT_BREAKER_FAILURES
+    from app.agents.executive.cio.cio_agent import CIO_CIRCUIT_BREAKER_FAILURES, CIOAgent
 
     bus = _make_bus()
     agent = CIOAgent(bus=bus)

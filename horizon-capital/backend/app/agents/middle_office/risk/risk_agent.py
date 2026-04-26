@@ -107,6 +107,7 @@ class RiskAgent(BaseAgent):
                     "symbol": symbol,
                     "violations": violations,
                     "action": "REJECTED",
+                    "severity": "HIGH",
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
@@ -236,7 +237,7 @@ class RiskAgent(BaseAgent):
                 message_type=MessageType.RISK_ALERT,
                 payload={
                     "action": "KILL_SWITCH_TRIGGERED",
-                    "severity": "EMERGENCY",
+                    "severity": "CRITICAL",
                     "current_drawdown": current_dd,
                     "limit": _s.risk_max_drawdown_pct,
                     "timestamp": now.isoformat(),

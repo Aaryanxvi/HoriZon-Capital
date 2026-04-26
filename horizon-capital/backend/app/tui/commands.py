@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC
 
+import structlog
 from rich.console import Console
 
 from app.config import settings
 
+logger = structlog.get_logger(__name__)
 console = Console()
+
+
+def _format_fill_time(ts) -> str:
+    """Return 'HH:MM' for today's fills, 'MM-DD HH:MM' for older fills."""
+    from datetime import datetime as _dt
+
+    if ts is None:
+        return "--:--"
+    if isinstance(ts, str):
+        try:
+            ts = _dt.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            return ts[:16]
+    today = _dt.now(UTC).date()
+    fill_day = ts.astimezone(UTC).date() if ts.tzinfo else ts.date()
+    if fill_day == today:
+        return ts.strftime("%H:%M")
+    return ts.strftime("%m-%d %H:%M")
+
 
 HELP_TEXT = """
 [bold cyan]Horizon Capital Terminal Commands[/bold cyan]
@@ -19,7 +40,7 @@ HELP_TEXT = """
   [green]positions[/]           Show open positions from the database
   [green]orders[/] [all]        Show recent orders (default: last 20)
   [green]signals[/]             Show recent trading signals
-  [green]trades[/] [page N|all]  Show filled trades (newest first, paginated)
+  [green]trades[/] [page <N> | all]  Show filled trades (newest first, paginated; all = every fill)
   [green]pnl[/]                 Show realized & unrealized P&L summary
   [green]backtest[/] <SYMBOL> [--days N] [--strategy NAME]
                           Run a backtest using Alpaca historical data
@@ -438,7 +459,7 @@ class CommandHandler:
         )
 
         try:
-            from datetime import timedelta
+            from datetime import datetime, timedelta
 
             from app.backtesting.backtest_broker import SimOrder
             from app.backtesting.backtest_engine import BacktestEngine
@@ -860,31 +881,55 @@ class CommandHandler:
 
         # Parse args: "trades page 2" or "trades all"
         if args:
-            if args[0] == "all":
+            first = args[0].lower()
+            if first == "all":
                 show_all = True
-            elif args[0] == "page" and len(args) > 1:
+            elif first == "page":
+                if len(args) < 2:
+                    return "[red]trades page:[/red] missing page number. Usage: trades page <N>"
                 try:
                     page = max(1, int(args[1]))
                 except ValueError:
-                    pass
-
-        limit = 100 if show_all else page_size
-        offset = 0 if show_all else (page - 1) * page_size
+                    return f"[red]trades page:[/red] '{args[1]}' is not an integer."
+            else:
+                return (
+                    f"[red]Unknown trades arg:[/red] '{args[0]}'. "
+                    "Usage: trades | trades page <N> | trades all"
+                )
 
         try:
-            async with _get_sf()() as session:
+            async with _get_sf()() as session, session.begin():
                 # Get total count
                 count_result = await session.execute(
                     text("SELECT COUNT(*) AS cnt FROM fills")
                 )
                 total = count_result.scalar() or 0
 
+                # Compute limit after knowing total
+                limit = total if show_all else page_size
+                if limit == 0:
+                    limit = 1
+                offset = 0 if show_all else (page - 1) * page_size
+
+                # Check for page overflow and clamp
+                total_pages = max(1, (total + page_size - 1) // page_size)
+                clamped_notice = ""
+                if not show_all and page > total_pages:
+                    clamped_notice = (
+                        f"[yellow]Clamped page {page} → {total_pages} "
+                        f"(only {total_pages} page{'s' if total_pages != 1 else ''}).[/yellow]\n"
+                    )
+                    page = total_pages
+                    offset = (page - 1) * page_size
+
                 result = await session.execute(text("""
-                    SELECT o.id, o.symbol, o.side,
+                    SELECT COALESCE(o.id, f.order_id) AS order_id,
+                           COALESCE(o.symbol, '<orphan>') AS symbol,
+                           COALESCE(o.side, '?') AS side,
                            f.filled_qty, f.fill_price,
                            f.commission, f.slippage, f.filled_at
                     FROM fills f
-                    JOIN orders o ON f.order_id = o.id
+                    LEFT JOIN orders o ON f.order_id = o.id
                     ORDER BY f.filled_at DESC
                     LIMIT :lim OFFSET :off
                 """), {"lim": limit, "off": offset})
@@ -894,8 +939,6 @@ class CommandHandler:
                 if page > 1:
                     return f"[dim]No trades on page {page}.[/dim]"
                 return "[dim]No trades executed yet.[/dim]"
-
-            total_pages = max(1, (total + page_size - 1) // page_size)
             if show_all:
                 header = f"[bold]All Trades ({total}):[/bold]"
             else:
@@ -906,16 +949,22 @@ class CommandHandler:
 
             lines = [
                 header,
-                f"  {'Symbol':16s}  {'Side':5s}  {'Qty':>10s}  "
-                f"{'Price':>10s}  {'Slippage':>10s}  {'Time':>6s}",
+                f"  {'Symbol':14s}  {'Side':4s}  {'Qty':>10s}  "
+                f"{'Price':>10s}  {'Notional':>12s}  "
+                f"{'Comm':>8s}  {'Slip':>8s}  {'Time':>11s}",
             ]
             for r in rows:
-                ts = str(r.filled_at)[11:16] if r.filled_at else "--:--"
-                side_color = "green" if r.side == "BUY" else "red"
+                ts = _format_fill_time(r.filled_at)
+                side_color = "green" if r.side == "BUY" else "red" if r.side == "SELL" else "white"
+                qty = float(r.filled_qty)
+                price = float(r.fill_price)
+                notional = qty * price
+                comm = float(r.commission or 0.0)
+                slip = float(r.slippage or 0.0)
                 lines.append(
-                    f"  {r.symbol:16s}  [{side_color}]{r.side:5s}[/]  "
-                    f"{r.filled_qty:>10.4f}  ${r.fill_price:>9.2f}  "
-                    f"${r.slippage:>9.4f}  {ts}"
+                    f"  {str(r.symbol):14s}  [{side_color}]{str(r.side):4s}[/]  "
+                    f"{qty:>10.4f}  ${price:>9.2f}  ${notional:>11.2f}  "
+                    f"${comm:>7.2f}  ${slip:>7.4f}  {ts:>11s}"
                 )
 
             if not show_all and total_pages > 1:
@@ -932,8 +981,11 @@ class CommandHandler:
                 nav_parts.append("[dim]trades all[/dim]")
                 lines.append("  " + "  |  ".join(nav_parts))
 
-            return "\n".join(lines)
+            return clamped_notice + "\n".join(lines)
         except Exception as exc:
+            import logging as _logging
+            logger.error("trades_command_failed", error=str(exc), exc_info=True)
+            _logging.getLogger(__name__).error("trades_command_failed", exc_info=True)
             return f"[red]trades failed:[/red] {exc}"
 
     async def _cmd_pnl(self, args: list[str]) -> str:
@@ -1018,12 +1070,12 @@ class CommandHandler:
             if cio is None:
                 from app.config import CIOMode, settings
                 if settings.cio_mode != CIOMode.AI:
-                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI to enable AI CIO.[/yellow]"
+                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI.[/yellow]"
                 return "[yellow]CIO agent not running.[/yellow]"
             override = cio.get_last_override()
             if override is None:
                 return "[dim]No override has been issued this session.[/dim]"
-            reasoning = override.get("full_prompt", "No reasoning recorded.")
+            reasoning = override.get("reasoning", "No reasoning recorded.")
             timestamp = override.get("timestamp", "unknown")
             return (
                 f"[bold red]Last CIO Override[/bold red]\n"
@@ -1037,9 +1089,9 @@ class CommandHandler:
             if cio is None:
                 from app.config import CIOMode, settings
                 if settings.cio_mode != CIOMode.AI:
-                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI to enable AI CIO.[/yellow]"
+                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI.[/yellow]"
                 return "[yellow]CIO agent not running.[/yellow]"
-            cio.set_halt_confirmed()
+            await cio.set_halt_confirmed()
             return (
                 "[bold red]HALT confirmed. "
                 "CIO will proceed with halt actions.[/bold red]"
@@ -1146,7 +1198,10 @@ class CommandHandler:
         else:
             settings.us_symbols = new_csv
 
-        return f"[green]{symbol} added to watchlist.[/green] Restart for strategy agent to pick it up."
+        return (
+            f"[green]{symbol} added to watchlist.[/green] "
+            "Restart for strategy agent to pick it up."
+        )
 
     async def _watchlist_remove(self, symbol: str) -> str:
         """Remove a symbol from the trading universe via .env."""
@@ -1175,7 +1230,10 @@ class CommandHandler:
         else:
             settings.us_symbols = new_csv
 
-        return f"[green]{symbol} removed from watchlist.[/green] Restart for changes to take effect."
+        return (
+            f"[green]{symbol} removed from watchlist.[/green] "
+            "Restart for changes to take effect."
+        )
 
     @staticmethod
     def _update_env(key: str, value: str) -> None:
@@ -1215,6 +1273,8 @@ class CommandHandler:
 
     async def _manual_order(self, args: list[str], side: str) -> str:
         """Execute a manual buy/sell order."""
+        from datetime import datetime
+
         from app.core.kv_store import get_kv_store
         from app.core.messaging import AgentMessage, MessageType
         from app.core.runtime import get_bus
@@ -1252,8 +1312,9 @@ class CommandHandler:
 
         if price is None or price <= 0:
             try:
-                import asyncio
-                import yfinance as yf
+                import asyncio  # noqa: PLC0415
+
+                import yfinance as yf  # noqa: PLC0415
                 yf_ticker = raw + ".NS" if ".NSE" in symbol else (
                     raw + ".BO" if ".BSE" in symbol else raw
                 )
@@ -1272,19 +1333,19 @@ class CommandHandler:
                 f"Check Alpaca credentials or wait for the data feed.[/red]"
             )
         await kv.set(f"horizon:price:{symbol}", str(price))
-        await kv.set(f"horizon:price:{symbol}:ts", datetime.now(UTC).isoformat())
 
         # Auto-size if no qty given
         if qty is None:
             if side == "SELL":
                 # Sell entire position
-                from sqlalchemy import text
-                from app.core.runtime import get_session_factory
+                from sqlalchemy import text  # noqa: PLC0415
+
+                from app.core.runtime import get_session_factory  # noqa: PLC0415
                 async with get_session_factory()() as session:
                     result = await session.execute(
                         text(
-                            "SELECT quantity FROM positions"
-                            " WHERE symbol = :sym AND quantity > 0 LIMIT 1"
+                            "SELECT quantity FROM positions "
+                            "WHERE symbol = :sym AND quantity > 0 LIMIT 1"
                         ),
                         {"sym": symbol},
                     )
