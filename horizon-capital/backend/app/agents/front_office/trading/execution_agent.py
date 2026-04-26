@@ -354,6 +354,9 @@ class ExecutionAgent(BaseAgent):
             row = result.fetchone()
         return float(row.total) if row else 0.0
 
+    # TODO(T3): replace with cash.adjust_cash inside the fill transaction.
+    # Until T3 ships, this KV-only write is the live cash mutation; the
+    # cash_balances SQL table seeded by T1 is NOT yet authoritative for fills.
     async def _update_cash_balance(
         self,
         side: str,

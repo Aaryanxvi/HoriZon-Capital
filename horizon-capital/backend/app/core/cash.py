@@ -55,8 +55,17 @@ async def set_cash(session: AsyncSession, currency: str, amount: float) -> None:
 async def adjust_cash(session: AsyncSession, currency: str, delta: float) -> float:
     """Read-modify-write cash within a single SQL statement and return the new total.
 
-    Safe under concurrent transactions because the UPDATE is atomic at the
-    row level and the surrounding caller session serialises the read.
+    LOCAL mode (SQLite): safe under concurrent calls because SQLite serialises
+    all writers at the database level, so the INSERT...ON CONFLICT...SET
+    amount = amount + :d sequence is atomic.
+
+    POSTGRES: this function alone is NOT safe. Postgres allows concurrent
+    sessions; without an explicit ``SERIALIZABLE`` transaction or a
+    ``SELECT ... FOR UPDATE`` lock, two concurrent ``adjust_cash`` calls can
+    lose updates. Wrap accordingly when porting to Postgres.
+
+    Treats a missing row for ``currency`` as a balance of 0 — the INSERT
+    branch seeds the row at exactly ``delta`` (which can be negative).
     """
     _check(currency)
     await session.execute(
