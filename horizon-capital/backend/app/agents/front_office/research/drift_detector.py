@@ -1,17 +1,11 @@
-"""Lightweight Four-Rate (LFR) drift detector.
+"""Four-rate concept drift detector.
 
-Implements a simplified version of the LFR drift detection approach (paper 7)
-that tracks four classification performance rates and uses a normal
-approximation to detect statistically significant drops.
+Tracks four classification performance rates (TPR, TNR, PPV, NPV) using
+EWMA smoothing and normal-approximation control bounds to detect when a
+model's predictive accuracy degrades significantly.
 
-The four rates tracked are:
-    TPR -- True Positive Rate (sensitivity / recall)
-    TNR -- True Negative Rate (specificity)
-    PPV -- Positive Predictive Value (precision)
-    NPV -- Negative Predictive Value
-
-When any of these rates drops below its control limit, a WARNING (at
-``alpha_warn``) or DRIFT (at ``alpha_detect``) signal is emitted.
+When any rate drops below its control limit, a WARNING (at ``alpha_warn``)
+or DRIFT (at ``alpha_detect``) signal is emitted.
 """
 
 from __future__ import annotations

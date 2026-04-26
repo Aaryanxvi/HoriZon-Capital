@@ -1,0 +1,29 @@
+DEMO v4 FULL STACK (2024-01-01 -> 2024-12-31)
+=========================================================
+Stack: HRP weights + Half-Kelly sizing + GMM regime gate + Quality tilt + Sentiment overlay
+Universe : SPY, QQQ, AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, JPM, AVGO, XLE, TLT, GLD
+Initial capital      : $100,000.00
+Final NAV            : $134,798.65
+Total return         : +34.80%
+CAGR                 : +34.96%
+Sharpe               : 1.58
+Sortino              : 2.18
+Max drawdown         : -12.81%
+Probabilistic SR     : 94.4%   (prob true SR > 0)
+Deflated SR (4 trials): 93.2%   (prob true SR > 0 after multi-test deflation)
+Trades executed      : 194
+Audit rows           : 606
+
+--- Benchmark: SPY buy-and-hold ---
+SPY total return     : +26.05%
+SPY CAGR             : +26.16%
+SPY Sharpe           : 1.92
+SPY PSR              : 96.7%
+Alpha vs SPY         : +8.75%
+
+--- Caveats (read these) ---
+* Quality fundamentals: yfinance gives current snapshot only -> point-in-time bias
+* IV features: live-only signal (yfinance has no historical IV) -> not active in backtest
+* Sentiment: deterministic mock used (no historical news feed). Real use needs news API.
+* Universe chosen post-hoc -> survivorship bias risk
+* PSR/DSR computed; DSR < 50% means the result may be noise after multi-test deflation.

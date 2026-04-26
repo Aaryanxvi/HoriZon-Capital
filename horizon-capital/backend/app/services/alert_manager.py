@@ -5,13 +5,6 @@ notifications via multiple channels (console, Telegram, email).
 
 Subscribes to the message bus and evaluates alert rules against incoming
 messages. Supports configurable thresholds and notification routing.
-
-Research references
--------------------
-- Jorion 2006, "Value at Risk" Ch. 15 — risk limit monitoring and breach
-  escalation protocols.
-- Hull 2018, "Risk Management and Financial Institutions" — operational
-  risk monitoring frameworks and alert hierarchies.
 """
 
 from __future__ import annotations
@@ -147,8 +140,6 @@ class AlertManager:
 
     Subscribes to message bus events and triggers alerts based on
     configurable rules. Dispatches to multiple notification channels.
-
-    Ref: Hull 2018 — tiered alert escalation with acknowledgement.
     """
 
     def __init__(self, bus=None) -> None:

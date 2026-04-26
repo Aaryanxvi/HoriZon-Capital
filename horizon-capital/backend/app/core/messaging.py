@@ -40,6 +40,10 @@ class MessageType(StrEnum):
     SENTIMENT_UPDATE = "sentiment_update"
     AGENT_STATUS = "agent_status"
     HEARTBEAT = "heartbeat"
+    # Settings & CIO
+    SETTINGS_UPDATED = "settings_updated"
+    CIO_ADVISORY = "cio_advisory"
+    CIO_OVERRIDE = "cio_override"
 
 
 class AgentMessage(BaseModel):

@@ -27,6 +27,16 @@ _bus = None
 _session_factory = None
 
 
+def _has_balance(raw: str | None) -> bool:
+    """True if a stored cash string represents a usable positive balance."""
+    if raw is None:
+        return False
+    try:
+        return float(raw) > 0
+    except (ValueError, TypeError):
+        return False
+
+
 def get_bus():
     """Return the active message bus (MemoryBus or AgentBus)."""
     global _bus  # noqa: PLW0603
@@ -62,6 +72,9 @@ async def startup(*, headless: bool = False) -> None:
         storage=settings.storage_backend.value,
     )
 
+    import os as _os
+    force_reseed = _os.environ.pop("HORIZON_FORCE_RESEED_CAPITAL", None) == "1"
+
     if settings.storage_backend == StorageBackend.LOCAL:
         from app.core.local_storage import init_local_db
         await init_local_db()
@@ -73,32 +86,31 @@ async def startup(*, headless: bool = False) -> None:
         if hasattr(kv, "restore"):
             await kv.restore()
 
-        # Seed default capital if not already set
-        if not await kv.get("horizon:cash:usd"):
-            usd = str(int(settings.initial_capital_usd))
-            inr = str(int(settings.initial_capital_inr))
-            await kv.set("horizon:cash:usd", usd)
-            await kv.set("horizon:cash:inr", inr)
-            logger.info(
-                "initial_capital_seeded",
-                usd=settings.initial_capital_usd,
-                inr=settings.initial_capital_inr,
-            )
+        # Seed capital on first run (no prior cash) OR when the persisted
+        # value is empty/zero so a fresh install actually shows balance.
+        # Also reseed when wizard explicitly changed INITIAL_CAPITAL_*.
+        existing_usd = await kv.get("horizon:cash:usd")
+        existing_inr = await kv.get("horizon:cash:inr")
+        if force_reseed or not _has_balance(existing_usd):
+            await kv.set("horizon:cash:usd", str(int(settings.initial_capital_usd)))
+            await kv.set("horizon:portfolio:nav", str(int(settings.initial_capital_usd)))
+            logger.info("initial_capital_seeded_usd", usd=settings.initial_capital_usd, forced=force_reseed)
+        if force_reseed or existing_inr is None:
+            await kv.set("horizon:cash:inr", str(int(settings.initial_capital_inr)))
+            logger.info("initial_capital_seeded_inr", inr=settings.initial_capital_inr, forced=force_reseed)
     else:
         from app.core.redis_client import redis_client
         await redis_client.set("horizon:system:mode", settings.system_mode.value)
 
-        # Seed default capital if not already set
-        if not await redis_client.get("horizon:cash:usd"):
-            usd = str(int(settings.initial_capital_usd))
-            inr = str(int(settings.initial_capital_inr))
-            await redis_client.set("horizon:cash:usd", usd)
-            await redis_client.set("horizon:cash:inr", inr)
-            logger.info(
-                "initial_capital_seeded",
-                usd=settings.initial_capital_usd,
-                inr=settings.initial_capital_inr,
-            )
+        existing_usd = await redis_client.get("horizon:cash:usd")
+        existing_inr = await redis_client.get("horizon:cash:inr")
+        if force_reseed or not _has_balance(existing_usd):
+            await redis_client.set("horizon:cash:usd", str(int(settings.initial_capital_usd)))
+            await redis_client.set("horizon:portfolio:nav", str(int(settings.initial_capital_usd)))
+            logger.info("initial_capital_seeded_usd", usd=settings.initial_capital_usd, forced=force_reseed)
+        if force_reseed or existing_inr is None:
+            await redis_client.set("horizon:cash:inr", str(int(settings.initial_capital_inr)))
+            logger.info("initial_capital_seeded_inr", inr=settings.initial_capital_inr, forced=force_reseed)
 
     bus = get_bus()
     await bus.start_listening()

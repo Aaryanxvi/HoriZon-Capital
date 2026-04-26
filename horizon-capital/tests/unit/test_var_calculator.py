@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from app.agents.risk.var_calculator import VaRCalculator
+from app.agents.middle_office.risk.var_calculator import VaRCalculator
 
 
 class TestVaR95:

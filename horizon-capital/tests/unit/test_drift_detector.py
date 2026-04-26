@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.agents.regime.drift_detector import LFRDriftDetector
+from app.agents.front_office.research.drift_detector import LFRDriftDetector
 
 
 @pytest.fixture()

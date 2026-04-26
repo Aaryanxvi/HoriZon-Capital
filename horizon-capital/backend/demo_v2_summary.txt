@@ -1,0 +1,18 @@
+DEMO v2 — research-backed multi-sleeve (2024-01-01 -> 2024-12-31)
+=========================================================
+Universe             : SPY, QQQ, AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, JPM
+Sleeves              : Faber regime + TSMOM + 12-1 momo + vol-target
+Initial capital      : $100,000.00
+Final NAV            : $133,920.66
+Total return         : +33.92%
+CAGR                 : +34.08%
+Sharpe (rf=0)        : 2.02
+Max drawdown         : -10.23%
+Trades executed      : 150
+Audit rows           : 612
+
+--- Benchmark: SPY buy-and-hold ---
+SPY total return     : +26.05%
+SPY CAGR             : +26.16%
+SPY Sharpe           : 1.92
+Alpha vs SPY         : +7.87%

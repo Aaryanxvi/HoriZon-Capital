@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC
+from datetime import UTC, datetime
 
 import yfinance as yf
 
@@ -39,6 +39,58 @@ def _exchange_for_symbol(yf_symbol: str) -> str:
         return "CRYPTO"
     # No suffix -> assume NASDAQ for US equities
     return "NASDAQ"
+
+
+# Exchange UTC trading hours: (open_hour, open_min, close_hour, close_min)
+_EXCHANGE_UTC_HOURS: dict[str, tuple[int, int, int, int]] = {
+    "NSE": (3, 45, 10, 0),       # 09:15-15:30 IST
+    "BSE": (3, 45, 10, 0),
+    "NASDAQ": (13, 30, 20, 0),   # 09:30-16:00 ET
+    "NYSE": (13, 30, 20, 0),
+    "LSE": (8, 0, 16, 30),       # 08:00-16:30 UTC
+    "HKEX": (1, 30, 8, 0),       # 09:30-16:00 HKT
+    "TSE": (0, 0, 6, 30),        # 09:00-15:30 JST
+    "ASX": (23, 0, 5, 0),        # 10:00-16:00 AEST (prev day UTC)
+}
+
+
+def _exchange_from_internal_symbol(symbol: str) -> str:
+    """Extract exchange from internal symbol format (e.g. 'RELIANCE.NSE' -> 'NSE').
+
+    Falls back to 'CRYPTO' for dash-notation symbols (e.g. 'BTC-USD')
+    and 'NASDAQ' for bare symbols.
+    """
+    parts = symbol.rsplit(".", 1)
+    if len(parts) == 2:
+        return parts[1].upper()
+    if "-" in symbol:
+        return "CRYPTO"
+    return "NASDAQ"
+
+
+def _is_market_open(symbol: str, now_utc: datetime | None = None) -> bool:
+    """Return True if the exchange for *symbol* is currently trading.
+
+    Falls back to True (poll anyway) if exchange hours are unknown,
+    so new symbols are never silently skipped.
+    """
+    if now_utc is None:
+        now_utc = datetime.now(UTC)
+
+    exchange = _exchange_from_internal_symbol(symbol)
+    hours = _EXCHANGE_UTC_HOURS.get(exchange)
+    if hours is None:
+        return True  # Unknown exchange -- poll anyway
+
+    open_h, open_m, close_h, close_m = hours
+    now_min = now_utc.hour * 60 + now_utc.minute
+    open_min = open_h * 60 + open_m
+    close_min = close_h * 60 + close_m
+
+    # Handle midnight-crossing exchanges (e.g. ASX)
+    if open_min > close_min:
+        return now_min >= open_min or now_min < close_min
+    return open_min <= now_min < close_min
 
 
 def _currency_for_exchange(exchange: str) -> str:
@@ -85,7 +137,7 @@ class YahooFeed(BaseFeed):
         logger.info("yahoo_feed.subscribe", symbols=self._symbols)
 
     async def start(self) -> None:
-        """Start a background polling loop that fetches daily bars every 5 min."""
+        """Start a background polling loop that fetches 1-min bars every 30s."""
         self._running = True
         self._poll_task = asyncio.create_task(self._poll_loop())
 
@@ -93,8 +145,8 @@ class YahooFeed(BaseFeed):
     # Public helpers
     # ------------------------------------------------------------------
     async def fetch_latest(self, symbol: str) -> list[NormalizedOHLCV]:
-        """Fetch the latest daily bar for *symbol*. Alias used by the ingestion worker."""
-        bars = await self.poll_ohlcv(symbol, period="5d", interval="1d")
+        """Fetch the latest 1-min bars for *symbol*. Alias used by the ingestion worker."""
+        bars = await self.poll_ohlcv(symbol, period="1d", interval="1m")
         for bar in bars:
             await self._emit_ohlcv(bar)
         return bars
@@ -155,16 +207,22 @@ class YahooFeed(BaseFeed):
         return bars
 
     async def _poll_loop(self) -> None:
-        """Periodically polls OHLCV data and emits bars via callbacks."""
+        """Periodically polls 1-min OHLCV data and emits bars via callbacks.
+
+        Skips symbols whose exchange is currently closed.
+        """
         while self._running:
             for symbol in self._symbols:
+                if not _is_market_open(symbol):
+                    logger.debug("yahoo_feed.market_closed", symbol=symbol)
+                    continue
                 try:
-                    bars = await self.poll_ohlcv(symbol)
+                    bars = await self.poll_ohlcv(symbol, period="1d", interval="1m")
                     for bar in bars:
                         await self._emit_ohlcv(bar)
                 except Exception:
                     logger.exception("yahoo_feed.poll_error", symbol=symbol)
-            await asyncio.sleep(300)  # 5 minutes
+            await asyncio.sleep(30)
 
     # ------------------------------------------------------------------
     # Symbol helpers

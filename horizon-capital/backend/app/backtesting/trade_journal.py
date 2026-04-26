@@ -1,16 +1,8 @@
 """Trade journal with full explainability.
 
 Records every trade with comprehensive context: why the trade was made,
-what signals fired, what regime was active, what the debate concluded,
+what signals fired, what market regime was active, what the debate concluded,
 and what the actual outcome was.
-
-Research references
--------------------
-- Brinson, Hood & Beebower 1986, Financial Analysts Journal (~2,000
-  citations) — performance attribution framework; every trade should be
-  attributable to specific decision factors.
-- de Prado 2018, "Advances in Financial Machine Learning" — backtest
-  audit trails for reproducibility and debugging.
 """
 
 from __future__ import annotations
@@ -84,9 +76,6 @@ class TradeJournal:
 
     Combines trade execution data with attribution engine context to
     produce a complete audit trail for every trade.
-
-    Ref: Brinson et al. 1986 — every trade should be decomposable into
-    the factors that drove the decision.
     """
 
     def __init__(self) -> None:

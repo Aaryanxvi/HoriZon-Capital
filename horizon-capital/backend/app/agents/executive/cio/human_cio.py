@@ -47,5 +47,4 @@ class HumanCIO:
 
     def get_pending_approvals(self) -> list[dict[str, Any]]:
         """Return list of items awaiting CIO approval."""
-        # Placeholder -- will be populated when approval workflow is added
         return []

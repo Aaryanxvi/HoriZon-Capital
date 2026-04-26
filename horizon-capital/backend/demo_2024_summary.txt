@@ -1,0 +1,18 @@
+DEMO BACKTEST — SPY 2024 (2024-01-01 -> 2024-12-31)
+=========================================
+Bars processed       : 251
+Strategies           : RSI, MACD, BollingerBands (deterministic, no LLM)
+Initial capital      : $100,000.00
+Final NAV            : $106,469.21
+Total return         : +6.47%
+SPY buy-and-hold     : +26.05%
+Alpha vs SPY         : -19.58%
+Sharpe (rf=0)        : 0.88
+Max drawdown         : -5.77%
+Trades executed      : 7
+Audit rows logged    : 753
+
+Files:
+  demo_2024_audit.csv
+  demo_2024_trades.csv
+  demo_2024_equity.csv

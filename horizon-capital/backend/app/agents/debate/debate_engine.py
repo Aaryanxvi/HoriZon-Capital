@@ -153,9 +153,6 @@ class DebateEngine:
     - At least 3 out of 4 debaters vote ``FOR``
     """
 
-    APPROVAL_THRESHOLD = 0.6
-    MIN_FOR_VOTES = 3
-
     def __init__(self, reasoner: ClaudeReasoner, bus: AgentBus) -> None:
         self.reasoner = reasoner
         self.bus = bus
@@ -280,25 +277,13 @@ class DebateEngine:
                 confidence=arg.confidence,
             )
 
-        # Tally votes
+        # Tally votes — simple majority wins
         for_votes = [a for a in arguments if a.vote == "FOR"]
         against_votes = [a for a in arguments if a.vote == "AGAINST"]
         abstain_votes = [a for a in arguments if a.vote == "ABSTAIN"]
 
-        # Consensus score = weighted average of confidences for FOR votes
-        if for_votes:
-            total_confidence = sum(a.confidence for a in for_votes)
-            consensus_score = round(total_confidence / len(arguments), 4)
-        else:
-            consensus_score = 0.0
-
-        # Decision: APPROVED if consensus_score > 0.6 AND at least 3 FOR
-        decision = (
-            "APPROVED"
-            if consensus_score > self.APPROVAL_THRESHOLD
-            and len(for_votes) >= self.MIN_FOR_VOTES
-            else "REJECTED"
-        )
+        consensus_score = round(len(for_votes) / len(arguments), 4) if arguments else 0.0
+        decision = "APPROVED" if len(for_votes) > len(against_votes) else "REJECTED"
 
         debate_result = DebateResult(
             session_id=session_id,

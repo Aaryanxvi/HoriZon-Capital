@@ -1,15 +1,8 @@
-"""Comprehensive Reporting & Export Service.
+"""Portfolio Reporting & Export Service.
 
 Generates daily/weekly/monthly portfolio reports with performance summary,
 risk metrics, attribution, and trade journal. Supports Rich terminal
 tables and CSV export.
-
-Research references
--------------------
-- GIPS (Global Investment Performance Standards) 2020, CFA Institute
-  — industry standard for performance reporting and composite construction.
-- Bacon 2008, "Practical Portfolio Performance Measurement and Attribution"
-  (Wiley) — standard performance reporting framework.
 """
 
 from __future__ import annotations
@@ -90,10 +83,8 @@ class PortfolioReport:
 class ReportGenerator:
     """Portfolio report generator.
 
-    Produces comprehensive reports following GIPS standards for
-    performance calculation and presentation.
-
-    Ref: CFA Institute, GIPS 2020 — standardized performance reporting.
+    Produces performance reports with standardized metrics including
+    returns, risk-adjusted ratios, drawdown analysis, and trade attribution.
     """
 
     def __init__(self) -> None:

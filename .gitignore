@@ -1,0 +1,34 @@
+# tooling / machine-local
+.claude/
+.superpowers/
+*.pid
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# python caches (also covered in subdirs)
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# env / secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# build / dist
+dist/
+build/
+*.egg-info/
+
+# horizon-pro stale dir (deletions will be staged)

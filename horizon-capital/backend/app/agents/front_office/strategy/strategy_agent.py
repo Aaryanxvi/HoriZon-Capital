@@ -1,8 +1,15 @@
-"""Strategy agent -- runs the three basic strategies on a timer to produce signals.
+"""Strategy agent — runs the sleeve-based portfolio on a timer.
 
-Polls OHLCV data from the KV cache every 60 seconds and runs RSIStrategy,
-MACDStrategy, and BollingerBandStrategy for each symbol. Emits signals on
-``horizon.signal.{symbol}`` and persists them to the ``signals`` table.
+The live system uses three documented-edge sleeves (trend filter on SPY,
+overnight gap fade on QQQ, cross-sectional momentum across the US universe).
+Each sleeve is consulted at its own cadence; between refreshes the cached
+target weights are reused. The agent:
+
+1. Fetches daily bars for every symbol (Alpaca primary, yfinance fallback).
+2. Publishes TICK messages so the dashboard stays live.
+3. During market hours, refreshes sleeve targets + emits SIGNAL messages
+   when a sleeve's desired weight for a symbol has changed vs the last
+   published target. The portfolio agent turns signals into sized orders.
 """
 
 from __future__ import annotations
@@ -16,10 +23,11 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
-from app.agents.front_office.strategy.simple_strategies import (
-    BollingerBandStrategy,
-    MACDStrategy,
-    RSIStrategy,
+from app.agents.front_office.strategy.sleeves import (
+    GapFadeSleeve,
+    MomentumRankSleeve,
+    ResearchStackSleeve,
+    TrendFilterSleeve,
 )
 from app.config import settings
 from app.core.kv_store import get_kv_store
@@ -36,9 +44,38 @@ logger = get_logger("strategy.agent")
 
 POLL_INTERVAL = 60  # seconds
 
+# Skip emit when weight delta is below this threshold (50 bps). Replaces
+# precision-fragile `round(..., 4)` dedup that allowed jitter-driven re-emits.
+MIN_WEIGHT_DELTA = 0.005
+
+
+def _is_us_market_open(now_utc: datetime | None = None) -> bool:
+    """Return True if US equity regular session is open.
+
+    9:30–16:00 ET, Mon–Fri. Approximates DST between second Sunday of March
+    and first Sunday of November.
+    """
+    now = now_utc or datetime.now(UTC)
+    if now.weekday() >= 5:
+        return False
+    m, d = now.month, now.day
+    is_dst = (3, 8) <= (m, d) < (11, 1)
+    et_offset = -4 if is_dst else -5
+    et_hour = (now.hour + et_offset) % 24
+    cur_minutes = et_hour * 60 + now.minute
+    return 9 * 60 + 30 <= cur_minutes < 16 * 60
+
+
+def _exchange_from_symbol(symbol: str) -> str:
+    if "-" in symbol and symbol.endswith(("-USD", "-USDT")):
+        return "CRYPTO"
+    if "." in symbol:
+        return symbol.split(".", 1)[1]
+    return ""
+
 
 class StrategyAgent(BaseAgent):
-    """Periodically generates trading signals for all configured symbols."""
+    """Sleeve-driven strategy agent — replaces RSI/MACD/BB indicators."""
 
     def __init__(self, bus: AgentBus) -> None:
         super().__init__(
@@ -47,12 +84,26 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
-        self._strategies = [RSIStrategy(), MACDStrategy(), BollingerBandStrategy()]
+        self._sleeves = [
+            ResearchStackSleeve(),  # 60% — HRP + Half-Kelly + GMM regime + Quality
+            TrendFilterSleeve(),    # 20% — Faber 200d SMA gate on SPY
+            GapFadeSleeve(),        # 10% — overnight gap reversal on QQQ
+            MomentumRankSleeve(),   # 10% — 12-1 cross-sectional momentum
+        ]
         self._symbols = self._load_symbols()
+        # sleeve name -> last signal list cached until next cadence refresh
+        self._sleeve_cache: dict[str, list] = {}
+        # sleeve name -> last bar timestamp when sleeve was refreshed
+        self._sleeve_last_refresh: dict[str, pd.Timestamp | None] = {
+            s.name: None for s in self._sleeves
+        }
+        # (symbol) -> last emitted target weight. Prevents re-emitting
+        # identical targets every 60s.
+        self._last_emitted_weight: dict[str, float] = {}
+        self._bar_count = 0  # increments per completed poll
 
     @staticmethod
     def _load_symbols() -> list[str]:
-        """Parse all symbols from settings."""
         symbols: list[str] = []
         for csv in [settings.india_symbols, settings.us_symbols, settings.crypto_symbols]:
             symbols.extend(s.strip() for s in csv.split(",") if s.strip())
@@ -66,7 +117,6 @@ class StrategyAgent(BaseAgent):
         await self.bus.subscribe("horizon.features.*", self.on_message)
 
     async def on_message(self, message: AgentMessage) -> None:
-        """Log incoming feature updates."""
         if message.message_type == MessageType.FEATURE_UPDATE:
             logger.debug("feature_update_received", channel=message.channel)
 
@@ -79,61 +129,174 @@ class StrategyAgent(BaseAgent):
         logger.info("strategy_agent_starting", symbols=self._symbols)
 
         while self._running:
-            for symbol in self._symbols:
-                try:
-                    await self._generate_for_symbol(symbol)
-                except Exception as exc:
-                    logger.error("strategy_error", symbol=symbol, error=str(exc))
+            try:
+                await self._tick()
+            except Exception as exc:
+                logger.error("strategy_tick_error", error=str(exc))
             await asyncio.sleep(POLL_INTERVAL)
 
     # ------------------------------------------------------------------
-    # Per-symbol signal generation
+    # One poll cycle
     # ------------------------------------------------------------------
 
-    async def _generate_for_symbol(self, symbol: str) -> None:
-        """Load OHLCV data, run each strategy, emit & persist signals."""
-        df = await self._get_ohlcv(symbol)
-        if df is None or df.empty:
+    async def _tick(self, *, force: bool = False) -> None:
+        """Fetch bars for all symbols, push TICKs, compute + emit sleeve signals.
+
+        ``force=True`` bypasses the market-hours gate (used by the REPL's
+        ``strategy tick`` diagnostic).
+        """
+        bars = await self._fetch_all_bars()
+        if not bars:
             return
 
-        for strategy in self._strategies:
+        await self._publish_ticks(bars)
+
+        # Signal generation gated to market hours — TICKs always flow.
+        if not force and not _is_us_market_open():
+            return
+
+        targets = self._compute_target_weights(bars)
+        await self._emit_signals_from_targets(targets)
+        self._bar_count += 1
+
+    async def _fetch_all_bars(self) -> dict[str, pd.DataFrame]:
+        """Fetch daily OHLCV for every configured symbol."""
+        bars: dict[str, pd.DataFrame] = {}
+        for symbol in self._symbols:
             try:
-                sig = strategy.generate_signal(symbol, df)
+                df = await self._get_ohlcv(symbol)
+                if df is not None and not df.empty:
+                    bars[symbol] = df
             except Exception as exc:
-                logger.warning(
-                    "strategy_run_error",
-                    strategy=strategy.name,
-                    symbol=symbol,
-                    error=str(exc),
+                logger.warning("ohlcv_fetch_error", symbol=symbol, error=str(exc))
+        return bars
+
+    async def _publish_ticks(self, bars: dict[str, pd.DataFrame]) -> None:
+        """Write latest price to KV and emit TICK per symbol for the dashboard."""
+        kv = get_kv_store()
+        for symbol, df in bars.items():
+            try:
+                latest = float(df["close"].iloc[-1])
+                prev = float(df["close"].iloc[-2]) if len(df) >= 2 else 0.0
+                if latest <= 0:
+                    continue
+                await kv.set(f"horizon:price:{symbol}", str(latest))
+                avg_vol = float(df["volume"].mean())
+                if avg_vol > 0:
+                    await kv.set(f"horizon:volume:{symbol}", str(avg_vol))
+                chg_pct = ((latest - prev) / prev * 100.0) if prev > 0 else 0.0
+                await self.emit(
+                    channel=f"horizon.tick.{symbol}",
+                    message_type=MessageType.TICK,
+                    payload={
+                        "symbol": symbol,
+                        "exchange": _exchange_from_symbol(symbol),
+                        "price": latest,
+                        "change_pct": chg_pct,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    },
                 )
-                continue
+            except Exception as exc:
+                logger.debug("tick_publish_error", symbol=symbol, error=str(exc))
 
-            if sig is None:
-                continue
+    # ------------------------------------------------------------------
+    # Sleeve refresh + target aggregation
+    # ------------------------------------------------------------------
 
+    def _compute_target_weights(
+        self, bars: dict[str, pd.DataFrame]
+    ) -> dict[str, float]:
+        """Return aggregated portfolio-weight targets across all sleeves."""
+        as_of = max((df.index[-1] for df in bars.values()), default=None)
+        if as_of is None:
+            return {}
+
+        combined: dict[str, float] = {}
+        for sleeve in self._sleeves:
+            if self._should_refresh(sleeve, as_of):
+                try:
+                    self._sleeve_cache[sleeve.name] = sleeve.compute(bars, as_of)
+                    self._sleeve_last_refresh[sleeve.name] = as_of
+                    logger.info(
+                        "sleeve_refreshed",
+                        sleeve=sleeve.name,
+                        weight=sleeve.target_weight,
+                        n_signals=len(self._sleeve_cache[sleeve.name]),
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "sleeve_compute_error", sleeve=sleeve.name, error=str(exc)
+                    )
+                    continue
+            for sig in self._sleeve_cache.get(sleeve.name, []):
+                share = sig.target_weight * sleeve.target_weight
+                combined[sig.symbol] = combined.get(sig.symbol, 0.0) + share
+        return combined
+
+    def _should_refresh(self, sleeve, as_of: pd.Timestamp) -> bool:
+        """Per-sleeve cadence gate based on business-day delta since last refresh."""
+        last = self._sleeve_last_refresh.get(sleeve.name)
+        if last is None:
+            return True
+        delta_days = (as_of - last).days
+        return delta_days >= sleeve.rebalance_days
+
+    # ------------------------------------------------------------------
+    # Signal emission
+    # ------------------------------------------------------------------
+
+    async def _emit_signals_from_targets(
+        self, targets: dict[str, float]
+    ) -> None:
+        """Emit SIGNAL messages when a symbol's target weight has changed.
+
+        The portfolio agent interprets direction/strength and sizes orders
+        against current cash + positions.
+        """
+        # Include symbols that previously had a non-zero target but are now
+        # absent so we emit exits.
+        union = set(targets) | set(self._last_emitted_weight)
+
+        for symbol in union:
+            new_w = targets.get(symbol, 0.0)
+            old_w = self._last_emitted_weight.get(symbol, 0.0)
+            if abs(new_w - old_w) < MIN_WEIGHT_DELTA:
+                continue  # below threshold — treat as unchanged
+
+            direction = 1 if new_w > old_w else -1
+            strength = min(abs(new_w - old_w) / 0.5, 1.0)  # scale 0–1
+            reasoning = (
+                f"sleeve_target {old_w:.2%} -> {new_w:.2%}"
+            )
+
+            signal_id = str(uuid.uuid4())
             payload = {
-                "symbol": sig.symbol,
-                "direction": sig.direction,
-                "strength": sig.strength,
-                "strategy_name": sig.strategy_name,
-                "reasoning": sig.reasoning,
-                "target_price": sig.target_price,
-                "stop_loss": sig.stop_loss,
+                "signal_id": signal_id,
+                "symbol": symbol,
+                "exchange": _exchange_from_symbol(symbol),
+                "direction": direction,
+                "strength": strength,
+                "strategy_name": "sleeve_system",
+                "reasoning": reasoning,
+                "target_weight": new_w,
+                "previous_weight": old_w,
+                "target_price": None,
+                "stop_loss": None,
+                "bar_timestamp": datetime.now(UTC).isoformat(),
             }
             await self.emit(
                 channel=f"horizon.signal.{symbol}",
                 message_type=MessageType.SIGNAL,
                 payload=payload,
             )
-
-            await self._persist_signal(sig)
+            await self._persist_signal(payload)
+            self._last_emitted_weight[symbol] = new_w
 
             logger.info(
                 "signal_emitted",
-                symbol=sig.symbol,
-                direction=sig.direction,
-                strength=sig.strength,
-                strategy=sig.strategy_name,
+                symbol=symbol, direction=direction,
+                strength=round(strength, 3),
+                target_weight=round(new_w, 4),
             )
 
     # ------------------------------------------------------------------
@@ -142,25 +305,48 @@ class StrategyAgent(BaseAgent):
 
     @staticmethod
     async def _get_ohlcv(symbol: str) -> pd.DataFrame | None:
-        """Build a DataFrame from cached features stored by the feature worker."""
+        """Fetch daily OHLCV. Alpaca preferred for US; yfinance fallback."""
+        from app.data_layer import alpaca_quotes
+
+        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol)
+        if is_us and alpaca_quotes.is_configured():
+            df = await alpaca_quotes.get_bars(
+                symbol, timeframe="1Day", lookback_days=300
+            )
+            if df is not None and not df.empty:
+                return df
+            logger.warning("alpaca_bars_empty_falling_back", symbol=symbol)
+
         raw = symbol.split(".")[0] if "." in symbol else symbol
-        redis_key = f"horizon:features:{raw}:1d"
-        data = await get_kv_store().hgetall(redis_key)
-        if not data:
+        if ".NSE" in symbol:
+            yf_ticker = raw + ".NS"
+        elif ".BSE" in symbol:
+            yf_ticker = raw + ".BO"
+        else:
+            yf_ticker = raw
+
+        try:
+            import yfinance as yf
+
+            ticker = yf.Ticker(yf_ticker)
+            df = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: ticker.history(period="300d", interval="1d"),
+            )
+            if df is None or df.empty:
+                return None
+            df.columns = [c.lower() for c in df.columns]
+            for col in ("open", "high", "low", "close", "volume"):
+                if col not in df.columns:
+                    return None
+            return df[["open", "high", "low", "close", "volume"]].copy()
+        except Exception as exc:
+            logger.warning("yfinance_fetch_error", symbol=symbol, error=str(exc))
             return None
 
-        row: dict[str, float] = {}
-        for k in ("open", "high", "low", "close", "volume"):
-            try:
-                row[k] = float(data[k])
-            except (KeyError, ValueError, TypeError):
-                return None
-
-        return pd.DataFrame([row])
-
     @staticmethod
-    async def _persist_signal(sig) -> None:
-        """Insert signal into the signals table."""
+    async def _persist_signal(payload: dict) -> None:
+        """Insert a sleeve signal into the signals table for audit."""
         try:
             async with _get_session_factory()() as session:
                 await session.execute(
@@ -175,20 +361,24 @@ class StrategyAgent(BaseAgent):
                         """
                     ),
                     {
-                        "signal_id": str(uuid.uuid4()),
+                        "signal_id": payload["signal_id"],
                         "agent_id": "strategy-agent-1",
-                        "symbol": sig.symbol,
-                        "direction": "BUY" if sig.direction > 0 else (
-                            "SELL" if sig.direction < 0 else "HOLD"
+                        "symbol": payload["symbol"],
+                        "direction": "BUY" if payload["direction"] > 0 else (
+                            "SELL" if payload["direction"] < 0 else "HOLD"
                         ),
-                        "strength": sig.strength,
-                        "confidence": sig.strength,
-                        "strategy_name": sig.strategy_name,
+                        "strength": payload["strength"],
+                        "confidence": payload["strength"],
+                        "strategy_name": payload["strategy_name"],
                         "regime": "",
-                        "metadata": json.dumps({}),
+                        "metadata": json.dumps({
+                            "target_weight": payload.get("target_weight"),
+                            "previous_weight": payload.get("previous_weight"),
+                            "reasoning": payload.get("reasoning"),
+                        }),
                         "now": datetime.now(UTC),
                     },
                 )
                 await session.commit()
         except Exception as exc:
-            logger.warning("signal_persist_error", symbol=sig.symbol, error=str(exc))
+            logger.warning("signal_persist_error", error=str(exc))

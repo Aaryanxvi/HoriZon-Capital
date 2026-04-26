@@ -21,6 +21,10 @@ _STREAM_URL_LIVE = "wss://stream.data.alpaca.markets/v2/iex"
 _DATA_REST_PAPER = "https://data.sandbox.alpaca.markets"
 _DATA_REST_LIVE = "https://data.alpaca.markets"
 
+_WS_MAX_RETRIES = 5          # attempts before permanently falling to REST
+_WS_BACKOFF_BASE = 2         # seconds; doubles each retry (2, 4, 8, 16, 32)
+_WS_BACKOFF_MAX = 60         # cap backoff at 60 seconds
+
 
 class AlpacaFeed(BaseFeed):
     """Live US-equity ticks from Alpaca via WebSocket, REST polling fallback."""
@@ -104,6 +108,7 @@ class AlpacaFeed(BaseFeed):
             self._rest_task = asyncio.create_task(self._rest_poll_loop())
             return
 
+        retry = 0
         while self._running:
             try:
                 async with websockets.connect(self._stream_url) as ws:
@@ -124,6 +129,9 @@ class AlpacaFeed(BaseFeed):
                     await ws.send(json.dumps(sub_msg))
                     logger.info("alpaca_feed.ws_subscribed", symbols=self._symbols)
 
+                    # Connection succeeded -- reset retry counter
+                    retry = 0
+
                     async for raw in ws:
                         if not self._running:
                             break
@@ -139,10 +147,24 @@ class AlpacaFeed(BaseFeed):
             except asyncio.CancelledError:
                 break
             except Exception:
-                logger.exception("alpaca_feed.ws_error -- falling back to REST")
-                self._use_websocket = False
-                self._rest_task = asyncio.create_task(self._rest_poll_loop())
-                break
+                if retry >= _WS_MAX_RETRIES:
+                    logger.exception(
+                        "alpaca_feed.ws_max_retries_exhausted -- falling back to REST",
+                        retries=retry,
+                    )
+                    self._use_websocket = False
+                    self._rest_task = asyncio.create_task(self._rest_poll_loop())
+                    break
+
+                delay = min(_WS_BACKOFF_BASE ** (retry + 1), _WS_BACKOFF_MAX)
+                logger.warning(
+                    "alpaca_feed.ws_error -- retrying",
+                    retry=retry + 1,
+                    max_retries=_WS_MAX_RETRIES,
+                    backoff_seconds=delay,
+                )
+                retry += 1
+                await asyncio.sleep(delay)
 
     def _parse_ws_trade(self, msg: dict[str, Any]) -> NormalizedTick | None:
         try:

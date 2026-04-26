@@ -146,6 +146,13 @@ class Settings(BaseSettings):
     ai_back_office: str = "auto"
     ai_executive: str = "auto"
 
+    # Debate role pinning: which provider argues each role.
+    # Values: "auto" (round-robin) | "claude" | "openai" | "gemini"
+    debate_role_strategy: str = "auto"
+    debate_role_risk: str = "auto"
+    debate_role_sentiment: str = "auto"
+    debate_role_portfolio: str = "auto"
+
     # Alerts
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -160,9 +167,10 @@ class Settings(BaseSettings):
     storage_backend: StorageBackend = StorageBackend.LOCAL
     cio_mode: CIOMode = CIOMode.HUMAN
 
-    # Initial capital (paper trading starting balance)
-    initial_capital_usd: float = 1_000_000.0
-    initial_capital_inr: float = 10_000_000.0
+    # Initial capital (paper trading starting balance).
+    # US-equities-only scope: INR bucket is zero so no Indian trades can settle.
+    initial_capital_usd: float = 100_000.0
+    initial_capital_inr: float = 0.0
 
     # LLM rate limits
     llm_max_calls_per_minute: int = 60
@@ -175,10 +183,11 @@ class Settings(BaseSettings):
     risk_daily_loss_limit_pct: float = 5.0
     risk_max_orders_per_minute: int = 10
 
-    # Trading universe
-    india_symbols: str = "RELIANCE.NSE,TCS.NSE,INFY.NSE,HDFCBANK.NSE,ICICIBANK.NSE"
-    us_symbols: str = "AAPL.NASDAQ,MSFT.NASDAQ,GOOGL.NASDAQ,AMZN.NASDAQ,TSLA.NASDAQ"
-    crypto_symbols: str = "BTC-USD,ETH-USD"
+    # Trading universe — US equities only for now.
+    # Leave india_symbols and crypto_symbols empty to disable those markets.
+    india_symbols: str = ""
+    us_symbols: str = "SPY.NYSE,QQQ.NASDAQ,AAPL.NASDAQ,MSFT.NASDAQ,GOOGL.NASDAQ,AMZN.NASDAQ,META.NASDAQ,NVDA.NASDAQ,JPM.NYSE,XOM.NYSE"
+    crypto_symbols: str = ""
 
     @property
     def all_symbols(self) -> list[str]:

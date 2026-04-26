@@ -2,16 +2,9 @@
 
 Primary: FinancialBERT (HuggingFace) for neural sentiment.
 Enhancement: Loughran-McDonald financial dictionary for domain-specific
-word-level signals (6,000-citation standard in financial NLP).
+word-level signals (a standard lexicon for financial text analysis).
 
-Combined scoring: FinBERT + L-M dictionary → F1 97.6% (vs 90.8% alone).
-
-References
-----------
-- Araci (2019), "FinBERT: Financial Sentiment Analysis with Pre-trained
-  Language Models", arXiv (97% accuracy on Financial PhraseBank).
-- Loughran & McDonald (2011), "When is a Liability not a Liability?",
-  J. Finance, 66(1) (6,000 citations; Harvard Dictionary misclassifies 75%).
+Combined scoring: FinBERT neural output + L-M dictionary word counts.
 """
 
 import math
@@ -94,7 +87,6 @@ _LM_LITIGIOUS: set[str] = {
 def _preprocess(text: str) -> str:
     """Clean raw text before feeding into the model.
 
-    Follows preprocessing recommendations from paper 9:
     * Replace URLs with the ``[URL]`` token.
     * Remove ``#`` characters (keep the tag word).
     * Collapse duplicate punctuation (e.g. ``!!!`` -> ``!``).

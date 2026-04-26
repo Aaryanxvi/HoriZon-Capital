@@ -351,6 +351,11 @@ class AgentOrchestrator:
             })
         return grouped
 
+    def get_agent(self, agent_id: str) -> BaseAgent | None:
+        """Return the live agent instance for *agent_id*, or None if not found."""
+        slot = self._slots.get(agent_id)
+        return slot.agent if slot is not None else None
+
     def get_worker_statuses(self) -> dict[str, dict[str, Any]]:
         """Return status of all supervised workers."""
         result: dict[str, dict[str, Any]] = {}

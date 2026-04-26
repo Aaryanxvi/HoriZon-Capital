@@ -48,7 +48,7 @@ class DebateAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _subscribe(self) -> None:
-        await self.bus.subscribe("horizon.signal.*", self.on_message)
+        await self.bus.subscribe("horizon.risk.approved.*", self.on_message)
 
     async def on_message(self, message: AgentMessage) -> None:
         if message.message_type == MessageType.SIGNAL:
@@ -236,6 +236,20 @@ class DebateAgent(BaseAgent):
     async def _persist_debate(result) -> None:
         """Store debate result in the debate_sessions table."""
         try:
+            # Build a one-line reason from the first argument of the majority vote
+            reason = ""
+            if result.arguments:
+                majority = "FOR" if result.for_count >= result.against_count else "AGAINST"
+                for arg in result.arguments:
+                    if arg.vote == majority and arg.argument:
+                        reason = arg.argument[:120]
+                        break
+            if not reason:
+                reason = (
+                    f"{result.for_count} for, {result.against_count} against, "
+                    f"{result.abstain_count} abstain"
+                )
+
             async with _get_session_factory()() as session:
                 await session.execute(
                     text(
@@ -243,10 +257,10 @@ class DebateAgent(BaseAgent):
                         INSERT INTO debate_sessions
                             (id, symbol, proposed_action, status,
                              total_rounds, final_decision, consensus_score,
-                             created_at)
+                             reason, created_at)
                         VALUES
                             (:id, :symbol, :action, 'COMPLETED',
-                             :rounds, :decision, :consensus, :now)
+                             :rounds, :decision, :consensus, :reason, :now)
                         """
                     ),
                     {
@@ -256,6 +270,7 @@ class DebateAgent(BaseAgent):
                         "rounds": result.rounds,
                         "decision": result.decision,
                         "consensus": result.consensus_score,
+                        "reason": reason,
                         "now": datetime.now(UTC),
                     },
                 )
@@ -276,16 +291,17 @@ class DebateAgent(BaseAgent):
                         INSERT INTO debate_sessions
                             (id, symbol, proposed_action, status,
                              total_rounds, final_decision, consensus_score,
-                             created_at)
+                             reason, created_at)
                         VALUES
                             (:id, :symbol, :action, 'COMPLETED',
-                             0, 'REJECTED', 0.0, :now)
+                             0, 'REJECTED', 0.0, :reason, :now)
                         """
                     ),
                     {
                         "id": session_id,
                         "symbol": symbol,
                         "action": action,
+                        "reason": "FULLY_AUTONOMOUS mode requires LLM debate; no providers",
                         "now": datetime.now(UTC),
                     },
                 )
@@ -299,6 +315,11 @@ class DebateAgent(BaseAgent):
     ) -> None:
         """Store auto-approval in the debate_sessions table."""
         try:
+            reason = (
+                f"Auto-approved (no LLM); "
+                f"strategy={signal_payload.get('strategy_name', '?')}, "
+                f"strength={signal_payload.get('strength', '?')}"
+            )
             async with _get_session_factory()() as session:
                 await session.execute(
                     text(
@@ -306,16 +327,17 @@ class DebateAgent(BaseAgent):
                         INSERT INTO debate_sessions
                             (id, symbol, proposed_action, status,
                              total_rounds, final_decision, consensus_score,
-                             created_at)
+                             reason, created_at)
                         VALUES
                             (:id, :symbol, :action, 'COMPLETED',
-                             0, 'APPROVED', 1.0, :now)
+                             0, 'APPROVED', 1.0, :reason, :now)
                         """
                     ),
                     {
                         "id": session_id,
                         "symbol": symbol,
                         "action": action,
+                        "reason": reason,
                         "now": datetime.now(UTC),
                     },
                 )

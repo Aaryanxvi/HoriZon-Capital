@@ -51,7 +51,7 @@ class OrderManager:
         dict
             The created order (mirrors the ``orders`` table row).
         """
-        order_id = uuid.uuid4()
+        order_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
         async with _get_session_factory()() as session:
@@ -88,11 +88,11 @@ class OrderManager:
 
         order = {
             **order_data,
-            "id": str(order_id),
+            "id": order_id,
             "status": "PENDING",
             "created_at": now.isoformat(),
         }
-        logger.info("order_created", order_id=str(order_id), symbol=order_data["symbol"])
+        logger.info("order_created", order_id=order_id, symbol=order_data["symbol"])
         return order
 
     # ------------------------------------------------------------------ #
@@ -164,7 +164,7 @@ class OrderManager:
         slippage: float = 0.0,
     ) -> dict:
         """Record a fill against an order and return the fill record."""
-        fill_id = uuid.uuid4()
+        fill_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
         async with _get_session_factory()() as session:
@@ -304,14 +304,14 @@ class OrderManager:
                             new_avg = price
                 elif side == "SELL":
                     if existing.side == "LONG":
-                        # Selling long
-                        new_qty = old_qty - qty
+                        # Selling long — clamp to held quantity. Oversized SELL
+                        # used to silently flip to a short; that's blocked by
+                        # execution's naked-short check but would bypass it here.
+                        effective_qty = min(qty, old_qty)
+                        new_qty = old_qty - effective_qty
                         new_avg = old_avg
-                        realized_delta = (price - old_avg) * min(qty, old_qty)
-                        new_side = "LONG" if new_qty > 0 else ("SHORT" if new_qty < 0 else "FLAT")
-                        new_qty = abs(new_qty)
-                        if new_side == "SHORT":
-                            new_avg = price
+                        realized_delta = (price - old_avg) * effective_qty
+                        new_side = "LONG" if new_qty > 0 else "FLAT"
                     else:
                         # Adding to short
                         new_qty = old_qty + qty

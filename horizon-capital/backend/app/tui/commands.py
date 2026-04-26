@@ -1,108 +1,66 @@
-"""Interactive terminal command handler for Horizon Capital.
-
-Provides a REPL-like command interface that runs alongside the dashboard,
-allowing the CIO to issue commands like:
-  status, signals, risk, regime, debate, mode, departments, cio, quit
-"""
+"""Interactive terminal command handler for Horizon Capital."""
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC
-from pathlib import Path
 
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
-from app.config import SystemMode, settings
+from app.config import settings
 
 console = Console()
 
 HELP_TEXT = """
 [bold cyan]Horizon Capital Terminal Commands[/bold cyan]
 
-  [green]status[/]              Show all agent statuses (grouped by department)
-  [green]signals[/]             Show recent trading signals
-  [green]risk[/]                Show current risk metrics
-  [green]debate[/]              Show recent debate summaries
-  [green]portfolio[/]           Show current portfolio
-  [green]departments[/]         Show department-level overview
-  [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
-  [green]workers[/]             Show background worker status
-  [green]cio[/]                 Enter CIO chat mode (natural language)
-  [green]agents config[/]       Show agent-per-role configuration
-  [green]mode[/] <MODE>         Switch system mode
-  [green]symbols[/]             Show trading universe
-  [green]config[/]              Show current configuration
-  [green]dashboard[/]           Show full-screen live dashboard (Ctrl+C to return)
-  [green]office[/]              Show pixel agent office (animated ASCII agents)
-  [green]data[/]                Show live market data (prices, OHLCV, features, feeds)
   [green]help[/]                Show this help
-  [green]setup[/]               Re-run the onboarding wizard
-  [green]quit[/] / [green]exit[/]        Shutdown Horizon Capital
-
-[bold cyan]Backtesting & Analytics[/bold cyan]
-
+  [green]status[/]              Show all agent statuses
+  [green]portfolio[/]           Show current portfolio (NAV, cash, positions)
+  [green]positions[/]           Show open positions from the database
+  [green]orders[/] [all]        Show recent orders (default: last 20)
+  [green]signals[/]             Show recent trading signals
+  [green]trades[/] [page N|all]  Show filled trades (newest first, paginated)
+  [green]pnl[/]                 Show realized & unrealized P&L summary
   [green]backtest[/] <SYMBOL> [--days N] [--strategy NAME]
-                          Run a backtest on historical data
+                          Run a backtest using Alpaca historical data
                           Strategies: momentum, mean_reversion, volatility, crisis
-                          Default: all strategies, 252 days
-  [green]backtest results[/]    Show last backtest result summary
-  [green]backtest list[/]       List all saved backtest runs (persisted to DB)
-  [green]backtest compare[/] <id1> <id2>
-                          Compare two saved backtest runs side-by-side
+                          Example: backtest AAPL --days 252 --strategy momentum
+  [green]risk[/] [reset]       Show risk metrics. `risk reset` clears kill-switch halt.
+  [green]sentiment[/]           Show latest sentiment data
+  [green]debate[/]              Show recent debate summaries
+  [green]agents[/]              Show agent configuration
+  [green]health[/]              Show system health
+  [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
+  [green]config[/]              Show current configuration
 
-[bold cyan]Alerts & Notifications[/bold cyan]
+  [bold yellow]Order Approval (HUMAN_APPROVAL mode):[/bold yellow]
+  [green]pending[/]             Show orders awaiting CIO approval
+  [green]approve[/] <id>        Approve a pending order
+  [green]reject[/] <id>         Reject a pending order
 
-  [green]alerts[/]                        Show recent alerts
-  [green]alert rules[/]                   Show alert rules and their status
+  [green]settings[/]            Open interactive settings editor (keys, AI allocation, debate roles)
+  [green]model[/]               Per-agent LLM model selection (cheap/mid/premium)
+                          Usage: model | model list [provider] | model agents
+                                 model set <agent_id> <provider> <model_id>
+                                 model clear <agent_id>
 
-[bold cyan]Reports[/bold cyan]
+  [bold yellow]CIO Commands:[/bold yellow]
+  [green]cio[/]                 Show latest CIO advisory
+  [green]cio why[/]             Show reasoning behind the most recent CIO override
+  [green]cio confirm halt[/]    Confirm a CIO-recommended HALT in FULLY_AUTONOMOUS mode
 
-  [green]report[/] [daily|weekly|monthly] Generate portfolio report
-  [green]report[/] export [csv|json]      Export last report to file
+  [bold yellow]Watchlist:[/bold yellow]
+  [green]watchlist[/]            Show current watchlist symbols
+  [green]watchlist add[/] <SYM>  Add a US symbol (e.g. NVDA.NASDAQ, JPM.NYSE)
+  [green]watchlist remove[/] <SYM>  Remove a symbol from watchlist
 
-[bold cyan]System Health[/bold cyan]
+  [bold yellow]Manual Trading:[/bold yellow]
+  [green]buy[/] <SYMBOL> [qty]   Place a manual BUY order (default qty: auto-size)
+  [green]sell[/] <SYMBOL> [qty]  Place a manual SELL order (default: sell entire position)
 
-  [green]health[/]                        Show system health dashboard
+  [green]dashboard[/]           Open live fullscreen dashboard (press q to exit)
 
-[bold cyan]Order Management (HUMAN_APPROVAL mode)[/bold cyan]
-
-  [green]orders[/] [pending|all]          Show pending or all recent orders
-  [green]approve[/] <order_id>            Approve a pending order (routes to broker)
-  [green]reject[/] <order_id>             Reject a pending order
-
-[bold cyan]Debate History[/bold cyan]
-
-  [green]debate history[/]                Show recent debate sessions and linked orders
-
-[bold cyan]AI Department Routing[/bold cyan]
-
-  [green]ai-routing[/]                    Show current AI provider per department
-  [green]ai-routing[/] <dept> <provider>  Assign AI provider to a department
-                          Depts: front_office, middle_office, back_office, executive
-                          Providers: claude, openai, gemini, auto, none
-
-[bold cyan]Broker & Live Trading[/bold cyan]
-
-  [green]connect[/]                      Show connected broker status
-  [green]connect alpaca[/]               Connect Alpaca broker (API key + secret)
-  [green]connect zerodha[/]              Connect Zerodha broker (API key + secret + token)
-  [green]broker[/] / [green]broker status[/]       Show broker connection health
-  [green]broker account[/]               Show real account balances/equity
-  [green]broker positions[/]             Show real broker positions
-  [green]go-live[/]                      Guided checklist to switch to live trading
-  [green]disconnect alpaca[/]            Remove Alpaca credentials, revert to paper
-  [green]disconnect zerodha[/]           Remove Zerodha credentials, revert to paper
-
-[bold cyan]CIO Power Commands (Phase 2)[/bold cyan]
-
-  [green]interrupt[/] <agent_id>          Pause a specific agent
-  [green]risk-tolerance[/] <value>        Adjust max drawdown % at runtime
-  [green]toggle sentiment[/]              Enable/disable sentiment agent
-  [green]exposures[/]                     Show current exposures by market
-  [green]execution-mode[/] <MODE>         Change execution mode
+  [green]quit[/] / [green]exit[/]        Shutdown Horizon Capital
 """
 
 
@@ -113,7 +71,8 @@ class CommandHandler:
         self._dashboard = dashboard
         self._orchestrator = orchestrator
         self._should_quit = False
-        self._cio_chat = None  # Lazy-initialized
+        self._cio_chat = None
+        self._cio_agent = None
         self._last_backtest_result: dict | None = None
 
     @property
@@ -121,7 +80,7 @@ class CommandHandler:
         return self._should_quit
 
     async def handle(self, raw_input: str) -> str | None:
-        """Parse and execute a command. Returns None for empty input."""
+        """Parse and execute a command."""
         parts = raw_input.strip().split()
         if not parts:
             return None
@@ -129,64 +88,38 @@ class CommandHandler:
         cmd = parts[0].lower()
         args = parts[1:]
 
-        # Handle compound commands
-        if cmd == "agents" and args and args[0].lower() == "config":
-            return await self._cmd_agents_config([])
-        if cmd == "toggle" and args and args[0].lower() == "sentiment":
-            return await self._cmd_toggle_sentiment(args[1:])
-        if cmd == "execution-mode":
-            return await self._cmd_execution_mode(args)
-        if cmd == "broker" and args and args[0].lower() == "account":
-            return await self._cmd_broker_account([])
-        if cmd == "broker" and args and args[0].lower() == "positions":
-            return await self._cmd_broker_positions([])
-        if cmd == "broker" and args and args[0].lower() == "status":
-            return await self._cmd_broker(args[1:])
-        if cmd == "go-live":
-            return await self._cmd_go_live(args)
         if cmd == "backtest" and args and args[0].lower() == "results":
             return await self._cmd_backtest_results([])
-        if cmd == "backtest" and args and args[0].lower() == "list":
-            return await self._cmd_backtest_list([])
-        if cmd == "backtest" and args and args[0].lower() == "compare":
-            return await self._cmd_backtest_compare(args[1:])
-        if cmd == "alert" and args and args[0].lower() == "rules":
-            return await self._cmd_alert_rules([])
-        if cmd == "debate" and args and args[0].lower() == "history":
-            return await self._cmd_debate_history([])
 
         handlers = {
             "help": self._cmd_help,
             "status": self._cmd_status,
-            "signals": self._cmd_signals,
-            "risk": self._cmd_risk,
-            "debate": self._cmd_debate,
             "portfolio": self._cmd_portfolio,
-            "departments": self._cmd_departments,
-            "cio": self._cmd_cio,
-            "mode": self._cmd_mode,
-            "symbols": self._cmd_symbols,
-            "data": self._cmd_data,
-            "config": self._cmd_config,
-            "setup": self._cmd_setup,
-            "interrupt": self._cmd_interrupt,
-            "risk-tolerance": self._cmd_risk_tolerance,
-            "exposures": self._cmd_exposures,
-            "performance": self._cmd_performance,
-            "workers": self._cmd_workers,
-            "backtest": self._cmd_backtest,
-            "alerts": self._cmd_alerts,
-            "report": self._cmd_report,
-            "health": self._cmd_health,
-            "office": self._cmd_office,
-            "dashboard": self._cmd_dashboard,
+            "positions": self._cmd_positions,
             "orders": self._cmd_orders,
+            "signals": self._cmd_signals,
+            "backtest": self._cmd_backtest,
+            "risk": self._cmd_risk,
+            "sentiment": self._cmd_sentiment,
+            "debate": self._cmd_debate,
+            "agents": self._cmd_agents,
+            "health": self._cmd_health,
+            "performance": self._cmd_performance,
+            "config": self._cmd_config,
             "approve": self._cmd_approve,
             "reject": self._cmd_reject,
-            "ai-routing": self._cmd_ai_routing,
-            "connect": self._cmd_connect,
-            "broker": self._cmd_broker,
-            "disconnect": self._cmd_disconnect,
+            "pending": self._cmd_pending,
+            "trades": self._cmd_trades,
+            "pnl": self._cmd_pnl,
+            "cio": self._cmd_cio,
+            "watchlist": self._cmd_watchlist,
+            "buy": self._cmd_buy,
+            "sell": self._cmd_sell,
+            "strategy": self._cmd_strategy,
+            "dashboard": self._cmd_dashboard,
+            "settings": self._cmd_settings,
+            "model": self._cmd_model,
+            "models": self._cmd_model,
             "quit": self._cmd_quit,
             "exit": self._cmd_quit,
         }
@@ -197,29 +130,76 @@ class CommandHandler:
 
         return await handler(args)
 
+    async def _cmd_strategy(self, args: list[str]) -> str:
+        """Show sleeve-system diagnostics.
+
+        `strategy status` — sleeves, cadences, last refresh, last targets.
+        `strategy tick`   — force one poll cycle NOW (ignores market-hours).
+        """
+        sub = args[0].lower() if args else "status"
+
+        if self._orchestrator is None:
+            return "[red]Orchestrator not available.[/red]"
+        agent = None
+        for slot in self._orchestrator._slots.values():
+            if slot.agent.agent_type == "strategy":
+                agent = slot.agent
+                break
+        if agent is None:
+            return "[red]Strategy agent not running.[/red]"
+
+        if sub == "tick":
+            try:
+                await agent._tick(force=True)
+                return "[green]Forced strategy tick complete. Check `signals`.[/green]"
+            except Exception as exc:
+                return f"[red]Forced tick failed: {exc}[/red]"
+
+        # status
+        from app.agents.front_office.strategy.strategy_agent import (
+            _is_us_market_open,
+        )
+        lines = [
+            "[bold]Strategy Agent — Sleeve System[/bold]",
+            f"  Market open now:       {_is_us_market_open()}",
+            f"  Symbols tracked:       {len(agent._symbols)}",
+            f"  Last poll counter:     {agent._bar_count}",
+            "",
+            "[bold]Sleeves:[/bold]",
+        ]
+        for sleeve in agent._sleeves:
+            last_refresh = agent._sleeve_last_refresh.get(sleeve.name)
+            cached = agent._sleeve_cache.get(sleeve.name, [])
+            lines.append(
+                f"  {sleeve.name:14s} "
+                f"weight={sleeve.target_weight:>5.0%}  "
+                f"cadence={sleeve.rebalance_days:>2}d  "
+                f"last={last_refresh}  "
+                f"signals={len(cached)}"
+            )
+        if agent._last_emitted_weight:
+            lines.append("")
+            lines.append("[bold]Last-emitted target weights:[/bold]")
+            for sym, w in sorted(agent._last_emitted_weight.items()):
+                lines.append(f"  {sym:14s}  {w:.2%}")
+        else:
+            lines.append("")
+            lines.append(
+                "[dim]No signals emitted yet. Sleeves fire only during US "
+                "market hours — run `strategy tick` to force one cycle.[/dim]"
+            )
+        return "\n".join(lines)
+
+    async def _cmd_dashboard(self, args: list[str]) -> str | None:
+        """Launch the live fullscreen dashboard."""
+        if not self._dashboard:
+            return "[red]Dashboard not available.[/red]"
+        console.print("[dim]Opening live dashboard... press 'q' to return to REPL.[/dim]")
+        await self._dashboard.run_interactive()
+        return None
+
     async def _cmd_help(self, args: list[str]) -> str:
         return HELP_TEXT
-
-    async def _cmd_setup(self, args: list[str]) -> str:
-        """Re-run the onboarding wizard to reconfigure API keys, brokers, etc."""
-        from app.tui.onboarding import run_onboarding
-
-        console.print("[bold cyan]Launching onboarding wizard...[/bold cyan]\n")
-        try:
-            await asyncio.get_event_loop().run_in_executor(None, run_onboarding)
-        except (KeyboardInterrupt, EOFError):
-            return "[yellow]Setup cancelled.[/yellow]"
-
-        # Reload settings from updated .env
-        import app.config as config_mod
-        from app.config import Settings
-        config_mod.settings = Settings()
-
-        # Re-register LLM providers with new keys
-        from app.llm.provider_registry import provider_registry
-        provider_registry.auto_register_from_settings()
-
-        return "[green]Onboarding complete. Settings reloaded.[/green]"
 
     async def _cmd_status(self, args: list[str]) -> str:
         if self._orchestrator:
@@ -227,7 +207,6 @@ class CommandHandler:
             if not statuses:
                 return "[yellow]No agents registered yet.[/yellow]"
 
-            # Group by department
             by_dept: dict[str, list[tuple[str, dict]]] = {}
             for aid, info in sorted(statuses.items()):
                 dept = info.get("department", "unassigned")
@@ -254,7 +233,6 @@ class CommandHandler:
                     color = "green" if status == "RUNNING" else "red"
                     lines.append(f"    [{color}]{aid:25s} {status}[/]")
 
-            # Unassigned
             for dept, agents in by_dept.items():
                 if agents:
                     lines.append(f"\n  [dim]{dept}[/]")
@@ -266,6 +244,120 @@ class CommandHandler:
             return "\n".join(lines)
         return "[yellow]Orchestrator not available.[/yellow]"
 
+    async def _cmd_portfolio(self, args: list[str]) -> str:
+        p = self._dashboard._portfolio if self._dashboard else {}
+        nav = p.get("nav", 0.0)
+        cash = p.get("cash", 0.0)
+
+        # Fallback: read directly from KV if dashboard hasn't received update yet
+        if nav == 0.0 and cash == 0.0:
+            try:
+                from app.core.kv_store import get_kv_store
+                kv = get_kv_store()
+                cash_str = await kv.get("horizon:cash:usd")
+                nav_str = await kv.get("horizon:portfolio:nav")
+                if cash_str:
+                    cash = float(cash_str)
+                if nav_str:
+                    nav = float(nav_str)
+                if nav == 0.0:
+                    nav = cash  # Before first snapshot, NAV ≈ cash
+            except Exception:
+                pass
+
+        positions = p.get("positions", 0)
+        if isinstance(positions, list):
+            positions = len(positions)
+
+        return (
+            f"[bold]Portfolio:[/bold]\n"
+            f"  NAV:       ${nav:,.2f}\n"
+            f"  Cash:      ${cash:,.2f}\n"
+            f"  Positions: {positions}"
+        )
+
+    async def _cmd_positions(self, args: list[str]) -> str:
+        """Show open positions from the database."""
+        from sqlalchemy import text
+
+        def _get_sf():
+            from app.core.runtime import get_session_factory
+            return get_session_factory()
+
+        try:
+            async with _get_sf()() as session:
+                result = await session.execute(text("""
+                    SELECT symbol, exchange, side, quantity, avg_entry_price,
+                           current_price, unrealized_pnl
+                    FROM positions
+                    WHERE quantity != 0
+                    ORDER BY symbol
+                """))
+                rows = result.fetchall()
+
+            if not rows:
+                return "[dim]No open positions.[/dim]"
+
+            lines = [
+                "[bold]Open Positions:[/bold]",
+                f"  {'Symbol':16s}  {'Side':5s}  {'Qty':>10s}  "
+                f"{'Entry':>10s}  {'Price':>10s}  {'P&L':>10s}",
+            ]
+            for r in rows:
+                pnl = r.unrealized_pnl or 0.0
+                color = "green" if pnl >= 0 else "red"
+                lines.append(
+                    f"  {r.symbol:16s}  {r.side:5s}  {r.quantity:>10.4f}  "
+                    f"${r.avg_entry_price or 0:>9.2f}  "
+                    f"${r.current_price or 0:>9.2f}  "
+                    f"[{color}]${pnl:>+9.2f}[/]"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[red]positions failed:[/red] {exc}"
+
+    async def _cmd_orders(self, args: list[str]) -> str:
+        """Show recent orders."""
+        from sqlalchemy import text
+
+        def _get_sf():
+            from app.core.runtime import get_session_factory
+            return get_session_factory()
+
+        try:
+            async with _get_sf()() as session:
+                result = await session.execute(text("""
+                    SELECT id, symbol, side, quantity, status, broker, created_at
+                    FROM orders
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                """))
+                rows = result.fetchall()
+
+            if not rows:
+                return "[dim]No orders.[/dim]"
+
+            lines = [
+                "[bold]Recent Orders:[/bold]",
+                f"  {'ID':8s}  {'Symbol':16s}  {'Side':5s}  "
+                f"{'Qty':>10s}  {'Status':10s}  {'Broker':8s}",
+            ]
+            for r in rows:
+                status_color = (
+                    "yellow" if r.status == "PENDING"
+                    else "green" if r.status == "FILLED"
+                    else "red" if r.status in ("REJECTED", "CANCELLED")
+                    else "cyan"
+                )
+                lines.append(
+                    f"  {str(r.id)[:8]:8s}  {r.symbol:16s}  "
+                    f"{r.side:5s}  {r.quantity:>10.4f}  "
+                    f"[{status_color}]{r.status:10s}[/]  {r.broker:8s}"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[red]orders failed:[/red] {exc}"
+
     async def _cmd_signals(self, args: list[str]) -> str:
         if self._dashboard and self._dashboard._signals:
             lines = ["[bold]Recent Signals:[/bold]"]
@@ -276,99 +368,314 @@ class CommandHandler:
                 strength = sig.get("strength", 0.0)
                 lines.append(f"  {symbol:14s} {d:5s}  strength={strength:.2f}")
             return "\n".join(lines)
-        return "[yellow]No signals available yet.[/yellow]"
+
+        # Fall through to the DB — signals emitted on prior runs live there
+        # even if the dashboard buffer is empty after a restart.
+        try:
+            from sqlalchemy import text
+
+            from app.core.runtime import get_session_factory as _gsf
+            async with _gsf()() as session:
+                result = await session.execute(text(
+                    """
+                    SELECT symbol, direction, strength, strategy_name, created_at
+                    FROM signals
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                    """
+                ))
+                rows = result.fetchall()
+            if rows:
+                lines = ["[bold]Recent Signals (from DB):[/bold]"]
+                for r in rows:
+                    lines.append(
+                        f"  {r.symbol:14s} {r.direction:5s}  "
+                        f"str={float(r.strength or 0):.2f}  "
+                        f"{r.strategy_name}  {str(r.created_at)[:19]}"
+                    )
+                return "\n".join(lines)
+        except Exception:
+            pass
+
+        return (
+            "[yellow]No signals available yet.[/yellow]\n"
+            "[dim]Sleeves (trend/gap/momentum) emit only during US market "
+            "hours (9:30–16:00 ET, Mon–Fri).\n"
+            "Run `strategy status` for diagnostics or `buy <SYM>` to trade "
+            "manually.[/dim]"
+        )
+
+    async def _cmd_backtest(self, args: list[str]) -> str:
+        """Run a backtest on historical data."""
+        if not args:
+            return (
+                "Usage: backtest <SYMBOL> [--days N] [--strategy NAME]\n"
+                "  Strategies: momentum, mean_reversion, volatility, crisis\n"
+                "  Example: backtest AAPL --days 120 --strategy momentum"
+            )
+
+        symbol = args[0]
+        days = 252
+        strategy_name = "momentum"
+
+        i = 1
+        while i < len(args):
+            if args[i] == "--days" and i + 1 < len(args):
+                try:
+                    days = int(args[i + 1])
+                except ValueError:
+                    return f"[red]Invalid days value:[/red] {args[i + 1]}"
+                i += 2
+            elif args[i] == "--strategy" and i + 1 < len(args):
+                strategy_name = args[i + 1].lower()
+                i += 2
+            else:
+                i += 1
+
+        console.print(
+            f"[dim]Running backtest on {symbol} "
+            f"({days}d, strategy={strategy_name})...[/dim]"
+        )
+
+        try:
+            from datetime import datetime, timedelta
+
+            from app.backtesting.backtest_broker import SimOrder
+            from app.backtesting.backtest_engine import BacktestEngine
+
+            end_date = datetime.now(UTC)
+            start_date = end_date - timedelta(days=days)
+
+            def _make_strategy(name: str):
+                if name == "momentum":
+                    def strategy(history, context):
+                        if len(history) < 20:
+                            return None
+                        sma_fast = float(history["close"].iloc[-5:].mean())
+                        sma_slow = float(history["close"].iloc[-20:].mean())
+                        if sma_fast > sma_slow * 1.02 and context["position_qty"] == 0:
+                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
+                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
+                        elif sma_fast < sma_slow * 0.98 and context["position_qty"] > 0:
+                            return SimOrder(
+                                symbol=symbol, side="SELL",
+                                quantity=context["position_qty"],
+                            )
+                        return None
+                elif name == "mean_reversion":
+                    def strategy(history, context):
+                        if len(history) < 20:
+                            return None
+                        close = history["close"]
+                        sma = float(close.iloc[-20:].mean())
+                        std = float(close.iloc[-20:].std())
+                        if std == 0:
+                            return None
+                        z_score = (float(close.iloc[-1]) - sma) / std
+                        if z_score < -2.0 and context["position_qty"] == 0:
+                            qty = context["cash"] * 0.1 / float(close.iloc[-1])
+                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
+                        elif z_score > 1.0 and context["position_qty"] > 0:
+                            return SimOrder(
+                                symbol=symbol, side="SELL",
+                                quantity=context["position_qty"],
+                            )
+                        return None
+                elif name == "volatility":
+                    def strategy(history, context):
+                        if len(history) < 30:
+                            return None
+                        returns = history["close"].pct_change().dropna()
+                        vol = float(returns.iloc[-20:].std())
+                        avg_vol = float(returns.iloc[-30:].std())
+                        if vol < avg_vol * 0.7 and context["position_qty"] == 0:
+                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
+                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
+                        elif vol > avg_vol * 1.5 and context["position_qty"] > 0:
+                            return SimOrder(
+                                symbol=symbol, side="SELL",
+                                quantity=context["position_qty"],
+                            )
+                        return None
+                else:
+                    def strategy(history, context):
+                        if len(history) < 50:
+                            return None
+                        close = history["close"]
+                        sma_50 = float(close.iloc[-50:].mean())
+                        current = float(close.iloc[-1])
+                        if current > sma_50 and context["position_qty"] == 0:
+                            qty = context["cash"] * 0.05 / current
+                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
+                        elif current < sma_50 * 0.95 and context["position_qty"] > 0:
+                            return SimOrder(
+                                symbol=symbol, side="SELL",
+                                quantity=context["position_qty"],
+                            )
+                        return None
+                return strategy
+
+            from app.config import settings as _cfg
+            engine = BacktestEngine(initial_capital=_cfg.initial_capital_usd)
+            result = await engine.run(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                strategy=_make_strategy(strategy_name),
+            )
+
+            self._last_backtest_result = {
+                "symbol": result.symbol,
+                "bars": result.bars_processed,
+                "initial": result.initial_capital,
+                "final": result.final_capital,
+                "trades": len(result.trades),
+                "metrics": result.metrics,
+            }
+
+            m = result.metrics
+            return (
+                f"[bold green]Backtest Complete: {symbol}[/bold green]\n"
+                f"  Period:            {start_date.date()} -> {end_date.date()}\n"
+                f"  Strategy:          {strategy_name}\n"
+                f"  Bars Processed:    {result.bars_processed}\n"
+                f"  Initial Capital:   ${result.initial_capital:,.2f}\n"
+                f"  Final Capital:     ${result.final_capital:,.2f}\n"
+                f"  Total Return:      {m.get('total_return', 0):+.4%}\n"
+                f"  Sharpe Ratio:      {m.get('sharpe_ratio', 0):.4f}\n"
+                f"  Max Drawdown:      {m.get('max_drawdown', 0):.4%}\n"
+                f"  Win Rate:          {m.get('win_rate', 0):.1%}\n"
+                f"  Total Trades:      {len(result.trades)}"
+            )
+        except Exception as exc:
+            return f"[red]Backtest failed:[/red] {exc}"
+
+    async def _cmd_backtest_results(self, args: list[str]) -> str:
+        """Show last backtest result summary."""
+        if not self._last_backtest_result:
+            return (
+                "[yellow]No backtest has been run yet. "
+                "Use 'backtest <SYMBOL>' to run one.[/yellow]"
+            )
+
+        r = self._last_backtest_result
+        m = r.get("metrics", {})
+        return (
+            f"[bold]Last Backtest Result:[/bold]\n"
+            f"  Symbol:          {r['symbol']}\n"
+            f"  Bars:            {r['bars']}\n"
+            f"  Initial:         ${r['initial']:,.2f}\n"
+            f"  Final:           ${r['final']:,.2f}\n"
+            f"  Total Return:    {m.get('total_return', 0):+.4%}\n"
+            f"  Sharpe:          {m.get('sharpe_ratio', 0):.4f}\n"
+            f"  Max Drawdown:    {m.get('max_drawdown', 0):.4%}\n"
+            f"  Win Rate:        {m.get('win_rate', 0):.1%}\n"
+            f"  Trades:          {r['trades']}"
+        )
 
     async def _cmd_risk(self, args: list[str]) -> str:
+        # `risk reset` clears the kill-switch halt flag manually (sticky halt
+        # design: automatic auto-recovery was removed).
+        if args and args[0] == "reset":
+            from app.core.kv_store import get_kv_store
+            kv = get_kv_store()
+            halted = await kv.get("horizon:system:halted")
+            if halted != "1":
+                return "[yellow]System not currently halted. Nothing to reset.[/yellow]"
+            await kv.set("horizon:system:halted", "0")
+            return (
+                "[bold green]Kill switch reset — system may resume trading.[/bold green]"
+            )
+
         if self._dashboard and self._dashboard._risk:
             r = self._dashboard._risk
+            halted_hint = ""
+            if r.get("kill_switch_active"):
+                halted_hint = (
+                    "\n[bold red]Kill switch ACTIVE.[/bold red] "
+                    "Run `risk reset` to clear."
+                )
             return (
                 f"[bold]Risk Metrics:[/bold]\n"
                 f"  VaR (95%):     {r.get('var_95', 0.0):.4f}\n"
                 f"  Max Drawdown:  {r.get('max_drawdown', 0.0):.2f}%\n"
                 f"  Curr Drawdown: {r.get('current_drawdown', 0.0):.2f}%"
+                f"{halted_hint}"
             )
         return "[yellow]No risk data available yet.[/yellow]"
 
-    async def _cmd_debate(self, args: list[str]) -> str:
-        if self._dashboard and self._dashboard._debates:
-            lines = ["[bold]Recent Debates:[/bold]"]
-            for d in self._dashboard._debates[:5]:
-                symbol = d.get("symbol", "--")
-                consensus = d.get("consensus", "--")
-                lines.append(f"  {symbol:12s}  consensus={consensus}")
-            return "\n".join(lines)
-        return "[yellow]No debate data available yet.[/yellow]"
-
-    async def _cmd_portfolio(self, args: list[str]) -> str:
-        p = self._dashboard._portfolio if self._dashboard else {}
-        return (
-            f"[bold]Portfolio:[/bold]\n"
-            f"  NAV:       ${p.get('nav', 0.0):,.2f}\n"
-            f"  Cash:      ${p.get('cash', 0.0):,.2f}\n"
-            f"  Positions: {p.get('positions', 0)}"
-        )
-
-    async def _cmd_departments(self, args: list[str]) -> str:
-        """Show department-level overview."""
-        if not self._orchestrator:
-            return "[yellow]Orchestrator not available.[/yellow]"
-
-        depts = self._orchestrator.get_department_statuses()
-        if not depts:
-            return "[yellow]No departments registered.[/yellow]"
-
-        lines = ["[bold]Department Overview:[/bold]"]
-        for d in depts:
-            health = "[green]HEALTHY[/]" if d.get("healthy") else "[red]DEGRADED[/]"
-            lines.append(
-                f"  {d['display_name']:40s} "
-                f"{d['agents_running']}/{d['agents_total']} agents  {health}"
-            )
+    async def _cmd_sentiment(self, args: list[str]) -> str:
+        """Show latest sentiment data from KV store."""
+        from app.core.kv_store import get_kv_store
+        kv = get_kv_store()
+        lines = ["[bold]Sentiment Data:[/bold]"]
+        symbols = settings.all_symbols[:5]
+        found = False
+        for symbol in symbols:
+            raw = symbol.split(".")[0] if "." in symbol else symbol
+            data = await kv.hgetall(f"horizon:sentiment:{raw}")
+            if data:
+                found = True
+                score = data.get("score", "?")
+                label = data.get("label", "?")
+                lines.append(f"  {raw:16s}  {label:10s}  score={score}")
+        if not found:
+            return "[yellow]No sentiment data available yet.[/yellow]"
         return "\n".join(lines)
 
-    async def _cmd_cio(self, args: list[str]) -> str:
-        """Enter CIO chat mode."""
-        if self._cio_chat is None:
-            from app.tui.cio_chat import CIOChat
-            self._cio_chat = CIOChat(
-                orchestrator=self._orchestrator,
-                dashboard=self._dashboard,
-            )
+    async def _cmd_debate(self, args: list[str]) -> str:
+        """Show recent debate history."""
+        from sqlalchemy import text
 
-        console.print("\n[bold cyan]CIO Chat Mode[/bold cyan]")
-        console.print(
-            "[dim]Type your questions in natural language."
-            " Type 'exit' to return.[/dim]\n"
-        )
+        def _get_sf():
+            from app.core.runtime import get_session_factory
+            return get_session_factory()
 
-        while True:
-            try:
-                raw = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: input("cio> ")
+        try:
+            async with _get_sf()() as session:
+                result = await session.execute(text("""
+                    SELECT id, symbol, proposed_action, final_decision,
+                           consensus_score, reason, created_at
+                    FROM debate_sessions
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                """))
+                rows = result.fetchall()
+
+            if not rows:
+                return "[dim]No debate history yet.[/dim]"
+
+            lines = [
+                "[bold]Recent Debates:[/bold]",
+                f"  {'Session':8s}  {'Symbol':16s}  {'Action':6s}  "
+                f"{'Decision':10s}  {'Score':>7s}  {'Reason'}",
+            ]
+            for r in rows:
+                decision = r.final_decision or "--"
+                dec_color = (
+                    "green" if decision == "APPROVED"
+                    else "red" if decision == "REJECTED"
+                    else "dim"
                 )
-                if raw.strip().lower() in ("exit", "quit", "back"):
-                    return "[dim]Returned to command mode.[/dim]"
-                if not raw.strip():
-                    continue
+                score = f"{r.consensus_score:.2f}" if r.consensus_score else "--"
+                reason = (r.reason or "")[:60]
+                lines.append(
+                    f"  {str(r.id)[:8]:8s}  {r.symbol:16s}  "
+                    f"{r.proposed_action or '':6s}  "
+                    f"[{dec_color}]{decision:10s}[/]  {score:>7s}"
+                    f"  [dim]{reason}[/dim]"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[red]debate failed:[/red] {exc}"
 
-                response = await self._cio_chat.chat(raw.strip())
-                console.print(f"\n{response}\n")
-            except EOFError:
-                return "[dim]Returned to command mode.[/dim]"
-            except KeyboardInterrupt:
-                return "\n[dim]Returned to command mode.[/dim]"
-
-    async def _cmd_agents_config(self, args: list[str]) -> str:
-        """Show agent-per-role configuration."""
+    async def _cmd_agents(self, args: list[str]) -> str:
+        """Show agent configuration."""
         from app.llm.agent_config import DEFAULT_AGENT_CONFIGS
         from app.llm.provider_registry import provider_registry
 
         available_llms = provider_registry.list_available()
-
-        llm_list = (
-            ", ".join(available_llms) if available_llms
-            else "none configured"
-        )
+        llm_list = ", ".join(available_llms) if available_llms else "none configured"
         lines = [
             "[bold]Agent Configuration:[/bold]",
             f"  Available LLM providers: {llm_list}",
@@ -400,182 +707,50 @@ class CommandHandler:
 
         return "\n".join(lines)
 
-    async def _cmd_mode(self, args: list[str]) -> str:
-        if not args:
-            return (
-                f"[bold]Current mode:[/bold] {settings.system_mode.value}\n"
-                f"Usage: mode <PAPER_TRADING | HUMAN_APPROVAL"
-                f" | FULLY_AUTONOMOUS>"
-            )
-        new_mode = args[0].upper()
+    async def _cmd_health(self, args: list[str]) -> str:
+        """Show system health."""
         try:
-            SystemMode(new_mode)  # validate
-        except ValueError:
-            return (
-                f"[red]Invalid mode: {new_mode}[/red]. "
-                "Use PAPER_TRADING, HUMAN_APPROVAL, "
-                "or FULLY_AUTONOMOUS."
-            )
+            from app.services.health_monitor import HealthMonitor
 
-        # Safety checks for live modes
-        if new_mode in ("HUMAN_APPROVAL", "FULLY_AUTONOMOUS"):
-            has_broker = bool(settings.alpaca_api_key or settings.zerodha_api_key)
-            if not has_broker:
-                console.print(
-                    "[yellow]Warning: No broker credentials configured.[/yellow]\n"
-                    "  Use 'connect alpaca' or 'connect zerodha' first."
+            monitor = getattr(self._orchestrator, "_health_monitor_svc", None)
+            if monitor is None:
+                monitor = HealthMonitor(
+                    bus=self._orchestrator.bus if self._orchestrator else None,
                 )
 
-        if new_mode == "FULLY_AUTONOMOUS":
-            console.print(
-                "[bold red]WARNING: FULLY_AUTONOMOUS mode trades "
-                "without human confirmation.[/bold red]"
-            )
-            try:
-                confirm = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: input("  Type AUTONOMOUS to confirm: ")
-                )
-            except (EOFError, KeyboardInterrupt):
-                return "[yellow]Mode change cancelled.[/yellow]"
-            if confirm.strip() != "AUTONOMOUS":
-                return "[yellow]Mode change cancelled.[/yellow]"
-
-        settings.system_mode = SystemMode(new_mode)
-        return f"[green]System mode changed to: {new_mode}[/green]"
-
-    async def _cmd_symbols(self, args: list[str]) -> str:
-        symbols = settings.all_symbols
-        return (
-            f"[bold]Trading Universe ({len(symbols)} symbols):[/bold]\n"
-            f"  India:  {settings.india_symbols}\n"
-            f"  US:     {settings.us_symbols}\n"
-            f"  Crypto: {settings.crypto_symbols}"
-        )
-
-    async def _cmd_data(self, args: list[str]) -> str:
-        """Show live market data: prices, OHLCV counts, features, feed status."""
-        from app.config import settings as _settings
-        from app.core.kv_store import get_kv_store
-
-        kv = get_kv_store()
-        lines = ["[bold]Market Data Status[/bold]"]
-
-        # -- Latest prices --
-        lines.append("\n  [bold cyan]Latest Prices[/bold cyan]")
-        all_symbols = _settings.all_symbols
-        for symbol in all_symbols:
-            # Try canonical (RELIANCE.NSE) then raw (RELIANCE)
-            raw = symbol.split(".")[0] if "." in symbol else symbol
-            price_str = await kv.get(f"horizon:price:{symbol}")
-            if not price_str:
-                price_str = await kv.get(f"horizon:price:{raw}")
-            if price_str:
-                try:
-                    price = float(price_str)
-                    lines.append(f"    {symbol:20s} ${price:>12,.2f}")
-                except (ValueError, TypeError):
-                    lines.append(f"    {symbol:20s} [dim]{price_str}[/dim]")
-            else:
-                lines.append(f"    {symbol:20s} [dim]no data[/dim]")
-
-        # -- OHLCV row counts per symbol --
-        lines.append("\n  [bold cyan]OHLCV Data (rows per symbol)[/bold cyan]")
-        try:
-            from sqlalchemy import text
-
-            def _get_session_factory():
-                from app.core.runtime import get_session_factory
-                return get_session_factory()
-
-            async with _get_session_factory()() as session:
-                result = await session.execute(
-                    text(
-                        "SELECT symbol, exchange, COUNT(*) as cnt, "
-                        "MAX(timestamp) as latest "
-                        "FROM ohlcv GROUP BY symbol, exchange "
-                        "ORDER BY symbol"
-                    )
-                )
-                rows = result.fetchall()
-                if rows:
-                    for row in rows:
-                        latest = str(row.latest)[:10] if row.latest else "?"
-                        lines.append(
-                            f"    {row.symbol:16s} {row.exchange:8s} "
-                            f"{row.cnt:>6,} bars  latest={latest}"
-                        )
-                else:
-                    lines.append("    [dim]No OHLCV data yet (backfill pending)[/dim]")
+            snapshot = await monitor.get_snapshot(orchestrator=self._orchestrator)
+            return monitor.to_rich_text(snapshot)
         except Exception as exc:
-            lines.append(f"    [yellow]DB query failed: {exc}[/yellow]")
+            return f"[yellow]Health check failed: {exc}[/yellow]"
 
-        # -- Feature cache status --
-        lines.append("\n  [bold cyan]Feature Cache[/bold cyan]")
-        for symbol in all_symbols:
-            raw = symbol.split(".")[0] if "." in symbol else symbol
-            feat_data = await kv.hgetall(f"horizon:features:{raw}:1d")
-            if feat_data:
-                ts = feat_data.get("timestamp", "?")[:19]
-                n_features = len([
-                    k for k in feat_data
-                    if k not in ("timestamp", "symbol", "timeframe")
-                ])
-                lines.append(
-                    f"    {symbol:20s} {n_features:>2} indicators  "
-                    f"updated={ts}"
-                )
-            else:
-                lines.append(f"    {symbol:20s} [dim]not computed[/dim]")
+    async def _cmd_performance(self, args: list[str]) -> str:
+        """Show performance metrics for a given period."""
+        period = args[0].upper() if args else "30D"
+        valid = {"1D", "7D", "30D", "90D", "YTD", "ALL"}
+        if period not in valid:
+            return f"[red]Invalid period:[/red] {period}. Use: {', '.join(sorted(valid))}"
 
-        # -- Forex rate --
-        lines.append("\n  [bold cyan]Forex[/bold cyan]")
-        forex_rate = await kv.get("horizon:forex:usd_inr")
-        if forex_rate:
-            lines.append(f"    USD/INR: {float(forex_rate):,.2f}")
-        else:
-            lines.append("    USD/INR: [dim]not available[/dim]")
+        try:
+            from app.services.performance import PerformanceService
+            snapshot = await PerformanceService.compute_snapshot(period.lower())
+        except Exception as exc:
+            return f"[yellow]Performance computation failed: {exc}[/yellow]"
 
-        # -- Feed health / circuit breakers --
-        lines.append("\n  [bold cyan]Feed Status[/bold cyan]")
-        feed_status = await kv.hgetall("horizon:worker:data_ingestion")
-        if feed_status:
-            last_check = feed_status.get("last_check", "?")[:19]
-            lines.append(f"    Last health check:  {last_check}")
-            # Map circuit breaker states to user-friendly labels
-            _cb_labels = {
-                "CLOSED": ("[green]", "OK"),
-                "HALF_OPEN": ("[yellow]", "RECOVERING"),
-                "OPEN": ("[red]", "DOWN"),
-            }
-            for key in ("yahoo_circuit", "crypto_circuit", "forex_circuit"):
-                state = feed_status.get(key, "?")
-                name = key.replace("_circuit", "").title()
-                color, label = _cb_labels.get(state, ("[dim]", state))
-                lines.append(f"    {name:12s} {color}{label}[/]")
-        else:
-            lines.append("    [dim]Feed health not reported yet[/dim]")
-
-        # -- Last update timestamps --
-        lines.append("\n  [bold cyan]Last Updates[/bold cyan]")
-        eod_ts = await kv.get("horizon:data:eod_updated")
-        crypto_ts = await kv.get("horizon:data:crypto_updated")
-        lines.append(
-            f"    Yahoo EOD:  {eod_ts[:19] if eod_ts else '[dim]never[/dim]'}"
+        return (
+            f"[bold]Performance ({period}):[/bold]\n"
+            f"  Total Return:      {snapshot['total_return']:+.4%}\n"
+            f"  Annualized Return: {snapshot['annualized_return']:+.4%}\n"
+            f"  Sharpe Ratio:      {snapshot['sharpe']:.4f}\n"
+            f"  Max Drawdown:      {snapshot['max_drawdown']:.4%}\n"
+            f"  Win Rate:          {snapshot['win_rate']:.1%}\n"
+            f"  Total Trades:      {snapshot['total_trades']}"
         )
-        lines.append(
-            f"    CoinGecko:  {crypto_ts[:19] if crypto_ts else '[dim]never[/dim]'}"
-        )
-
-        return "\n".join(lines)
 
     async def _cmd_config(self, args: list[str]) -> str:
         from app.llm.provider_registry import provider_registry
 
         available_llms = provider_registry.list_available()
-        llm_list = (
-            ", ".join(available_llms) if available_llms
-            else "none"
-        )
+        llm_list = ", ".join(available_llms) if available_llms else "none"
         anthropic_key = (
             "***" + settings.anthropic_api_key[-4:]
             if settings.anthropic_api_key else "NOT SET"
@@ -604,1633 +779,671 @@ class CommandHandler:
             f"  Symbols:         {len(settings.all_symbols)} total"
         )
 
-    # ------------------------------------------------------------------
-    # Phase 2 CIO Power Commands
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------ #
+    # Order approval commands (HUMAN_APPROVAL mode)
+    # ------------------------------------------------------------------ #
 
-    async def _cmd_interrupt(self, args: list[str]) -> str:
-        """Pause a specific agent."""
-        if not args:
-            return "Usage: interrupt <agent_id>"
+    def _get_execution_agent(self):
+        """Find the execution agent from the orchestrator."""
         if not self._orchestrator:
-            return "[yellow]Orchestrator not available.[/yellow]"
-
-        agent_id = args[0]
-        slots = self._orchestrator._slots
-        if agent_id not in slots:
-            return f"[red]Agent not found:[/red] {agent_id}"
-
-        slot = slots[agent_id]
-        if slot.status == "STOPPED":
-            return f"[yellow]{agent_id} is already stopped.[/yellow]"
-
-        await self._orchestrator._cancel_agent(slot)
-        return f"[yellow]{agent_id} paused.[/yellow] Use 'status' to verify."
-
-    async def _cmd_risk_tolerance(self, args: list[str]) -> str:
-        """Adjust risk_max_drawdown_pct at runtime."""
-        if not args:
-            dd = settings.risk_max_drawdown_pct
-            return (
-                f"[bold]Current risk tolerance:[/bold] "
-                f"{dd}% max drawdown\n"
-                f"Usage: risk-tolerance <value>"
-            )
-
-        try:
-            value = float(args[0])
-            if not 1.0 <= value <= 50.0:
-                return "[red]Value must be between 1.0 and 50.0[/red]"
-            old = settings.risk_max_drawdown_pct
-            settings.risk_max_drawdown_pct = value
-            return f"[green]Max drawdown changed: {old}% -> {value}%[/green]"
-        except ValueError:
-            return f"[red]Invalid number:[/red] {args[0]}"
-
-    async def _cmd_toggle_sentiment(self, args: list[str]) -> str:
-        """Enable/disable the sentiment agent."""
-        if not self._orchestrator:
-            return "[yellow]Orchestrator not available.[/yellow]"
-
-        slots = self._orchestrator._slots
-        sentiment_id = None
-        for aid in slots:
-            if "sentiment" in aid:
-                sentiment_id = aid
-                break
-
-        if not sentiment_id:
-            return "[yellow]Sentiment agent not found.[/yellow]"
-
-        slot = slots[sentiment_id]
-        if slot.status == "RUNNING":
-            await self._orchestrator._cancel_agent(slot)
-            return f"[yellow]Sentiment agent ({sentiment_id}) DISABLED.[/yellow]"
-        else:
-            await self._orchestrator._launch_agent(slot)
-            return f"[green]Sentiment agent ({sentiment_id}) ENABLED.[/green]"
-
-    async def _cmd_exposures(self, args: list[str]) -> str:
-        """Show current exposures by market/symbol."""
-        if not self._dashboard:
-            return "[yellow]Dashboard not available.[/yellow]"
-
-        signals = self._dashboard._signals
-        if not signals:
-            return "[yellow]No signal data available to compute exposures.[/yellow]"
-
-        # Aggregate by symbol
-        by_symbol: dict[str, dict] = {}
-        for sig in signals[:20]:
-            symbol = sig.get("symbol", "")
-            if symbol and symbol not in by_symbol:
-                direction = sig.get("direction", 0)
-                d = "LONG" if direction > 0 else "SHORT" if direction < 0 else "FLAT"
-                by_symbol[symbol] = {
-                    "direction": d,
-                    "strength": sig.get("strength", 0.0),
-                    "strategy": sig.get("strategy_name", ""),
-                }
-
-        lines = ["[bold]Current Exposures:[/bold]"]
-        for sym, info in sorted(by_symbol.items()):
-            d = info["direction"]
-            if d == "LONG":
-                color = "green"
-            elif d == "SHORT":
-                color = "red"
-            else:
-                color = "dim"
-            lines.append(
-                f"  {sym:16s} [{color}]{d:6s}[/] "
-                f"strength={info['strength']:.2f}"
-                f"  via {info['strategy']}"
-            )
-
-        if not by_symbol:
-            lines.append("  [dim]No active exposures[/dim]")
-        return "\n".join(lines)
-
-    async def _cmd_execution_mode(self, args: list[str]) -> str:
-        """Change execution mode at runtime."""
-        if not args:
-            return (
-                f"[bold]Current execution mode:[/bold] {settings.system_mode.value}\n"
-                f"Usage: execution-mode <PAPER_TRADING | HUMAN_APPROVAL | FULLY_AUTONOMOUS>"
-            )
-        return await self._cmd_mode(args)
-
-    # ------------------------------------------------------------------
-    # Backtesting & Analytics
-    # ------------------------------------------------------------------
-
-    async def _cmd_performance(self, args: list[str]) -> str:
-        """Show performance metrics for a given period."""
-        period = args[0].upper() if args else "30d"
-        valid = {"1D", "7D", "30D", "90D", "YTD", "ALL"}
-        if period not in valid:
-            return f"[red]Invalid period:[/red] {period}. Use: {', '.join(sorted(valid))}"
-
-        try:
-            from app.services.performance import PerformanceService
-            snapshot = await PerformanceService.compute_snapshot(period.lower())
-        except Exception as exc:
-            return f"[yellow]Performance computation failed: {exc}[/yellow]"
-
-        return (
-            f"[bold]Performance ({period}):[/bold]\n"
-            f"  Total Return:      {snapshot['total_return']:+.4%}\n"
-            f"  Annualized Return: {snapshot['annualized_return']:+.4%}\n"
-            f"  Sharpe Ratio:      {snapshot['sharpe']:.4f}\n"
-            f"  Max Drawdown:      {snapshot['max_drawdown']:.4%}\n"
-            f"  Win Rate:          {snapshot['win_rate']:.1%}\n"
-            f"  Total Trades:      {snapshot['total_trades']}"
-        )
-
-    async def _cmd_workers(self, args: list[str]) -> str:
-        """Show background worker status."""
-        lines = ["[bold]Background Workers:[/bold]"]
-        worker_names = [
-            ("data_ingestion_worker", "Data Ingestion"),
-            ("feature_computation_worker", "Feature Computation"),
-            ("performance_worker", "Performance Analytics"),
-            ("position_monitor_worker", "Position Monitor"),
-        ]
-
-        for task_name, display_name in worker_names:
-            # Check if task exists in current event loop
-            status = "[yellow]UNKNOWN[/]"
-            for task in asyncio.all_tasks():
-                if task.get_name() == task_name:
-                    if task.done():
-                        exc = task.exception() if not task.cancelled() else None
-                        if exc:
-                            status = f"[red]CRASHED ({type(exc).__name__})[/]"
-                        elif task.cancelled():
-                            status = "[red]CANCELLED[/]"
-                        else:
-                            status = "[dim]COMPLETED[/]"
-                    else:
-                        status = "[green]RUNNING[/]"
-                    break
-            else:
-                status = "[dim]NOT STARTED[/]"
-
-            lines.append(f"  {display_name:30s} {status}")
-
-        return "\n".join(lines)
-
-    async def _cmd_backtest(self, args: list[str]) -> str:
-        """Run a backtest on historical data."""
-        if not args:
-            return (
-                "Usage: backtest <SYMBOL> [--days N] [--strategy NAME]\n"
-                "  Strategies: momentum, mean_reversion, volatility, crisis\n"
-                "  Example: backtest RELIANCE.NSE --days 120 --strategy momentum"
-            )
-
-        symbol = args[0]
-        days = 252
-        strategy_name = "momentum"
-
-        # Parse optional flags
-        i = 1
-        while i < len(args):
-            if args[i] == "--days" and i + 1 < len(args):
-                try:
-                    days = int(args[i + 1])
-                except ValueError:
-                    return f"[red]Invalid days value:[/red] {args[i + 1]}"
-                i += 2
-            elif args[i] == "--strategy" and i + 1 < len(args):
-                strategy_name = args[i + 1].lower()
-                i += 2
-            else:
-                i += 1
-
-        console.print(
-            f"[dim]Running backtest on {symbol} "
-            f"({days}d, strategy={strategy_name})...[/dim]"
-        )
-
-        try:
-            from datetime import datetime, timedelta
-
-            from app.backtesting.backtest_broker import SimOrder
-            from app.backtesting.backtest_engine import BacktestEngine
-
-            end_date = datetime.now(UTC)
-            start_date = end_date - timedelta(days=days)
-
-            # Create strategy function based on name
-            def _make_strategy(name: str):
-                if name == "momentum":
-                    def strategy(history, context):
-                        if len(history) < 20:
-                            return None
-                        sma_fast = float(history["close"].iloc[-5:].mean())
-                        sma_slow = float(history["close"].iloc[-20:].mean())
-                        if sma_fast > sma_slow * 1.02 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif sma_fast < sma_slow * 0.98 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol,
-                                side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                elif name == "mean_reversion":
-                    def strategy(history, context):
-                        if len(history) < 20:
-                            return None
-                        close = history["close"]
-                        sma = float(close.iloc[-20:].mean())
-                        std = float(close.iloc[-20:].std())
-                        if std == 0:
-                            return None
-                        z_score = (float(close.iloc[-1]) - sma) / std
-                        if z_score < -2.0 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(close.iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif z_score > 1.0 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol,
-                                side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                elif name == "volatility":
-                    def strategy(history, context):
-                        if len(history) < 30:
-                            return None
-                        returns = history["close"].pct_change().dropna()
-                        vol = float(returns.iloc[-20:].std())
-                        avg_vol = float(returns.iloc[-30:].std())
-                        if vol < avg_vol * 0.7 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif vol > avg_vol * 1.5 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol,
-                                side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                else:  # crisis / default
-                    def strategy(history, context):
-                        if len(history) < 50:
-                            return None
-                        close = history["close"]
-                        sma_50 = float(close.iloc[-50:].mean())
-                        current = float(close.iloc[-1])
-                        if current > sma_50 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.05 / current
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif current < sma_50 * 0.95 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol,
-                                side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                return strategy
-
-            from app.config import settings as _cfg
-            engine = BacktestEngine(initial_capital=_cfg.initial_capital_usd)
-            result = await engine.run(
-                symbol=symbol,
-                start_date=start_date,
-                end_date=end_date,
-                strategy=_make_strategy(strategy_name),
-            )
-
-            self._last_backtest_result = {
-                "symbol": result.symbol,
-                "bars": result.bars_processed,
-                "initial": result.initial_capital,
-                "final": result.final_capital,
-                "trades": len(result.trades),
-                "metrics": result.metrics,
-            }
-
-            # Persist to backtest_runs table
-            run_id = await self._save_backtest_run(
-                symbol=symbol,
-                strategy=strategy_name,
-                start_date=start_date,
-                end_date=end_date,
-                result=self._last_backtest_result,
-            )
-
-            m = result.metrics
-            return (
-                f"[bold green]Backtest Complete: {symbol}[/bold green]\n"
-                f"  Period:            {start_date.date()} -> {end_date.date()}\n"
-                f"  Strategy:          {strategy_name}\n"
-                f"  Bars Processed:    {result.bars_processed}\n"
-                f"  Initial Capital:   ${result.initial_capital:,.2f}\n"
-                f"  Final Capital:     ${result.final_capital:,.2f}\n"
-                f"  Total Return:      {m.get('total_return', 0):+.4%}\n"
-                f"  Sharpe Ratio:      {m.get('sharpe_ratio', 0):.4f}\n"
-                f"  Max Drawdown:      {m.get('max_drawdown', 0):.4%}\n"
-                f"  Win Rate:          {m.get('win_rate', 0):.1%}\n"
-                f"  Total Trades:      {len(result.trades)}\n"
-                f"  [dim]Run ID: {run_id}[/dim]"
-            )
-        except Exception as exc:
-            return f"[red]Backtest failed:[/red] {exc}"
-
-    async def _save_backtest_run(
-        self,
-        symbol: str,
-        strategy: str,
-        start_date,
-        end_date,
-        result: dict,
-    ) -> str:
-        """Persist a backtest result to the backtest_runs table."""
-        import uuid as _uuid
-
-        import orjson
-        from sqlalchemy import text
-
-        def _get_sf():
-            from app.core.runtime import get_session_factory
-            return get_session_factory()
-
-        run_id = str(_uuid.uuid4())[:8]
-        m = result.get("metrics", {})
-        try:
-            async with _get_sf()() as session:
-                await session.execute(
-                    text("""
-                        INSERT INTO backtest_runs
-                            (id, symbol, strategy, start_date, end_date,
-                             bars_processed, initial_capital, final_capital,
-                             total_return, sharpe_ratio, max_drawdown,
-                             win_rate, total_trades, metrics)
-                        VALUES
-                            (:id, :symbol, :strategy, :start_date, :end_date,
-                             :bars, :initial, :final,
-                             :ret, :sharpe, :dd,
-                             :wr, :trades, :metrics)
-                    """),
-                    {
-                        "id": run_id,
-                        "symbol": symbol,
-                        "strategy": strategy,
-                        "start_date": start_date,
-                        "end_date": end_date,
-                        "bars": result.get("bars", 0),
-                        "initial": result.get("initial", 0.0),
-                        "final": result.get("final", 0.0),
-                        "ret": m.get("total_return", 0.0),
-                        "sharpe": m.get("sharpe_ratio", 0.0),
-                        "dd": m.get("max_drawdown", 0.0),
-                        "wr": m.get("win_rate", 0.0),
-                        "trades": result.get("trades", 0),
-                        "metrics": orjson.dumps(m).decode(),
-                    },
-                )
-                await session.commit()
-        except Exception as exc:
-            console.print(f"[dim]Backtest save failed: {exc}[/dim]")
-        return run_id
-
-    async def _cmd_backtest_list(self, args: list[str]) -> str:
-        """List all persisted backtest runs."""
-        from sqlalchemy import text
-
-        def _get_sf():
-            from app.core.runtime import get_session_factory
-            return get_session_factory()
-
-        try:
-            async with _get_sf()() as session:
-                result = await session.execute(text("""
-                    SELECT id, symbol, strategy, start_date, end_date,
-                           total_return, sharpe_ratio, max_drawdown, total_trades, created_at
-                    FROM backtest_runs
-                    ORDER BY created_at DESC
-                    LIMIT 20
-                """))
-                rows = result.fetchall()
-
-            if not rows:
-                return "[yellow]No backtest runs saved yet.[/yellow]"
-
-            lines = [
-                "[bold]Saved Backtest Runs:[/bold]",
-                f"  {'ID':8s}  {'Symbol':16s}  {'Strategy':14s}  "
-                f"{'Return':>8s}  {'Sharpe':>7s}  {'MaxDD':>7s}  "
-                f"{'Trades':>6s}  Date",
-            ]
-            for r in rows:
-                ret = r.total_return or 0.0
-                ret_color = "green" if ret >= 0 else "red"
-                date = str(r.created_at)[:10] if r.created_at else "?"
-                lines.append(
-                    f"  {r.id:8s}  {r.symbol:16s}  {r.strategy:14s}  "
-                    f"[{ret_color}]{ret:+8.2%}[/]  "
-                    f"{(r.sharpe_ratio or 0):7.4f}  "
-                    f"{(r.max_drawdown or 0):7.4%}  "
-                    f"{(r.total_trades or 0):6d}  {date}"
-                )
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[red]backtest list failed:[/red] {exc}"
-
-    async def _cmd_backtest_compare(self, args: list[str]) -> str:
-        """Compare two backtest runs side-by-side."""
-        if len(args) < 2:
-            return "Usage: backtest compare <id1> <id2>"
-
-        import orjson
-        from sqlalchemy import text
-
-        def _get_sf():
-            from app.core.runtime import get_session_factory
-            return get_session_factory()
-
-        id1, id2 = args[0], args[1]
-        try:
-            async with _get_sf()() as session:
-                r1_row = (await session.execute(
-                    text("SELECT * FROM backtest_runs WHERE id = :id"), {"id": id1}
-                )).fetchone()
-                r2_row = (await session.execute(
-                    text("SELECT * FROM backtest_runs WHERE id = :id"), {"id": id2}
-                )).fetchone()
-
-            if not r1_row:
-                return f"[red]Run not found:[/red] {id1}"
-            if not r2_row:
-                return f"[red]Run not found:[/red] {id2}"
-
-            m1 = orjson.loads(r1_row.metrics or "{}")
-            m2 = orjson.loads(r2_row.metrics or "{}")
-
-            def _fmt(v: float | None, pct: bool = False) -> str:
-                if v is None:
-                    return "N/A"
-                if pct:
-                    return f"{v:+.2%}"
-                return f"{v:.4f}"
-
-            def _winner(v1: float | None, v2: float | None, higher_better: bool = True) -> tuple:
-                if v1 is None or v2 is None:
-                    return ("", "")
-                better = v1 > v2 if higher_better else v1 < v2
-                return ("[green]*[/]", "[dim] [/]") if better else ("[dim] [/]", "[green]*[/]")
-
-            lines = [
-                f"[bold]Backtest Comparison: {id1} vs {id2}[/bold]",
-                f"  {'Metric':22s}  {id1:>12s}  {id2:>12s}",
-                f"  {'-'*22}  {'-'*12}  {'-'*12}",
-            ]
-
-            def _row(label: str, v1: float | None, v2: float | None,
-                     pct: bool = False, higher_better: bool = True) -> str:
-                w1, w2 = _winner(v1, v2, higher_better)
-                return (
-                    f"  {label:22s}  "
-                    f"{w1}{_fmt(v1, pct):>12s}  "
-                    f"{w2}{_fmt(v2, pct):>12s}"
-                )
-
-            lines += [
-                f"  {'Symbol':22s}  {r1_row.symbol:>12s}  {r2_row.symbol:>12s}",
-                f"  {'Strategy':22s}  {r1_row.strategy:>12s}  {r2_row.strategy:>12s}",
-                _row("Total Return", r1_row.total_return, r2_row.total_return, pct=True),
-                _row("Sharpe Ratio", r1_row.sharpe_ratio, r2_row.sharpe_ratio),
-                _row("Max Drawdown", r1_row.max_drawdown, r2_row.max_drawdown,
-                     pct=True, higher_better=False),
-                _row("Win Rate", m1.get("win_rate"), m2.get("win_rate"), pct=True),
-                f"  {'Total Trades':22s}  {(r1_row.total_trades or 0):>12d}"
-                f"  {(r2_row.total_trades or 0):>12d}",
-            ]
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[red]backtest compare failed:[/red] {exc}"
-
-    async def _cmd_backtest_results(self, args: list[str]) -> str:
-        """Show last backtest result summary."""
-        if not self._last_backtest_result:
-            return (
-                "[yellow]No backtest has been run yet. "
-                "Use 'backtest <SYMBOL>' to run one.[/yellow]"
-            )
-
-        r = self._last_backtest_result
-        m = r.get("metrics", {})
-        return (
-            f"[bold]Last Backtest Result:[/bold]\n"
-            f"  Symbol:          {r['symbol']}\n"
-            f"  Bars:            {r['bars']}\n"
-            f"  Initial:         ${r['initial']:,.2f}\n"
-            f"  Final:           ${r['final']:,.2f}\n"
-            f"  Total Return:    {m.get('total_return', 0):+.4%}\n"
-            f"  Sharpe:          {m.get('sharpe_ratio', 0):.4f}\n"
-            f"  Max Drawdown:    {m.get('max_drawdown', 0):.4%}\n"
-            f"  Win Rate:        {m.get('win_rate', 0):.1%}\n"
-            f"  Trades:          {r['trades']}"
-        )
-
-    # ------------------------------------------------------------------
-    # Alerts
-    # ------------------------------------------------------------------
-
-    async def _cmd_alerts(self, args: list[str]) -> str:
-        """Show recent alerts."""
-        try:
-            engine = getattr(self._orchestrator, "_alert_manager", None)
-            if engine is None:
-                return "[yellow]Alert manager not initialized yet.[/yellow]"
-
-            severity = args[0].upper() if args else None
-            alerts = engine.get_recent_alerts(limit=15, severity=severity)
-
-            if not alerts:
-                return "[dim]No alerts yet.[/dim]"
-
-            lines = ["[bold]Recent Alerts:[/bold]"]
-            severity_colors = {
-                "INFO": "cyan",
-                "WARNING": "yellow",
-                "CRITICAL": "red",
-                "EMERGENCY": "bold red",
-            }
-            for a in reversed(alerts):
-                color = severity_colors.get(a["severity"], "white")
-                ack = " [green]ACK[/]" if a["acknowledged"] else ""
-                lines.append(
-                    f"  [{color}]{a['severity']:10s}[/] {a['title']}{ack}"
-                )
-                lines.append(f"           [dim]{a['message']}[/dim]")
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[yellow]Alerts unavailable: {exc}[/yellow]"
-
-    async def _cmd_alert_rules(self, args: list[str]) -> str:
-        """Show alert rules."""
-        try:
-            engine = getattr(self._orchestrator, "_alert_manager", None)
-            if engine is None:
-                return "[yellow]Alert manager not initialized yet.[/yellow]"
-
-            rules = engine.get_rules()
-            lines = ["[bold]Alert Rules:[/bold]"]
-            for r in rules:
-                status = "[green]ON[/]" if r["enabled"] else "[red]OFF[/]"
-                channels = ", ".join(r["channels"])
-                lines.append(
-                    f"  {r['name']:25s} {status}  {r['severity']:10s}  -> {channels}"
-                )
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[yellow]Alert rules unavailable: {exc}[/yellow]"
-
-    # ------------------------------------------------------------------
-    # Phase 9: Reports
-    # ------------------------------------------------------------------
-
-    async def _cmd_report(self, args: list[str]) -> str:
-        """Generate and display a portfolio report."""
-        try:
-            from app.services.report_generator import ReportGenerator
-
-            generator = ReportGenerator()
-
-            # Handle export subcommand
-            if args and args[0].lower() == "export":
-                if not hasattr(self, "_last_report") or self._last_report is None:
-                    return "[yellow]No report generated yet. Run 'report' first.[/yellow]"
-                fmt = args[1].lower() if len(args) > 1 else "csv"
-                path = await generator.export_to_file(self._last_report, fmt=fmt)
-                return f"[green]Report exported to:[/green] {path}"
-
-            report_type = args[0].lower() if args else "daily"
-            valid = {"daily", "weekly", "monthly"}
-            if report_type not in valid:
-                return f"[red]Invalid report type:[/red] {report_type}. Use: {', '.join(valid)}"
-
-            console.print(f"[dim]Generating {report_type} report...[/dim]")
-            report = await generator.generate(report_type=report_type)
-            self._last_report = report
-
-            return generator.to_rich_text(report)
-        except Exception as exc:
-            return f"[red]Report generation failed:[/red] {exc}"
-
-    # ------------------------------------------------------------------
-    # Health
-    # ------------------------------------------------------------------
-
-    async def _cmd_health(self, args: list[str]) -> str:
-        """Show system health dashboard."""
-        try:
-            from app.services.health_monitor import HealthMonitor
-
-            monitor = getattr(
-                self._orchestrator,
-                "_health_monitor_svc",
-                None,
-            )
-            if monitor is None:
-                monitor = HealthMonitor(
-                    bus=(
-                        self._orchestrator.bus
-                        if self._orchestrator else None
-                    ),
-                )
-
-            snapshot = await monitor.get_snapshot(orchestrator=self._orchestrator)
-            return monitor.to_rich_text(snapshot)
-        except Exception as exc:
-            return f"[yellow]Health check failed: {exc}[/yellow]"
-
-    async def _cmd_dashboard(self, args: list[str]) -> str:
-        """Show the full-screen live dashboard. Press Ctrl+C to return to REPL."""
-        if not self._dashboard:
-            return "[yellow]Dashboard not available.[/yellow]"
-
-        console.print("[dim]Launching dashboard... Press Ctrl+C to return to REPL.[/dim]")
-        try:
-            await self._dashboard.run()
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            self._dashboard.stop()
+            return None
+        for slot in self._orchestrator._slots.values():
+            if slot.agent.agent_type == "execution":
+                return slot.agent
         return None
-
-    async def _cmd_office(self, args: list[str]) -> str:
-        """Show the pixel agent office with animated ASCII characters."""
-        if not self._dashboard:
-            return "[yellow]Dashboard not available.[/yellow]"
-
-        viz = self._dashboard.pixel_agents
-
-        # Register agents from orchestrator if not already registered
-        if viz.get_agent_count() == 0 and self._orchestrator:
-            statuses = self._orchestrator.get_agent_statuses()
-            for agent_id, info in statuses.items():
-                viz.update_state(agent_id, info["status"], department=info.get("department", ""))
-
-        panel = viz.build_panel()
-        console.print(panel)
-        return None
-
-    # ------------------------------------------------------------------
-    # Order management (HUMAN_APPROVAL mode)
-    # ------------------------------------------------------------------
-
-    async def _cmd_orders(self, args: list[str]) -> str:
-        """Show pending or all recent orders."""
-        from sqlalchemy import text
-
-        show_all = args and args[0].lower() == "all"
-
-        def _get_sf():
-            from app.core.runtime import get_session_factory
-            return get_session_factory()
-
-        try:
-            async with _get_sf()() as session:
-                if show_all:
-                    result = await session.execute(text("""
-                        SELECT id, symbol, side, quantity, status, broker,
-                               signal_id, debate_id, created_at
-                        FROM orders
-                        ORDER BY created_at DESC
-                        LIMIT 20
-                    """))
-                else:
-                    result = await session.execute(text("""
-                        SELECT id, symbol, side, quantity, status, broker,
-                               signal_id, debate_id, created_at
-                        FROM orders
-                        WHERE status = 'PENDING'
-                        ORDER BY created_at ASC
-                    """))
-                rows = result.fetchall()
-
-            if not rows:
-                label = "orders" if show_all else "pending orders"
-                return f"[dim]No {label}.[/dim]"
-
-            label = "All Recent Orders" if show_all else "Pending Orders"
-            lines = [
-                f"[bold]{label}:[/bold]",
-                f"  {'ID':8s}  {'Symbol':16s}  {'Side':5s}  {'Qty':>10s}  "
-                f"{'Status':10s}  {'Broker':8s}  Age",
-            ]
-            from datetime import UTC, datetime
-            now = datetime.now(UTC)
-            for r in rows:
-                created = r.created_at
-                if created and hasattr(created, "replace"):
-                    if created.tzinfo is None:
-                        created = created.replace(tzinfo=UTC)
-                    age_s = int((now - created).total_seconds())
-                    age = f"{age_s // 60}:{age_s % 60:02d}"
-                else:
-                    age = "?"
-                status_color = (
-                    "yellow" if r.status == "PENDING"
-                    else "green" if r.status == "FILLED"
-                    else "red" if r.status in ("REJECTED", "CANCELLED")
-                    else "cyan"
-                )
-                lines.append(
-                    f"  {str(r.id)[:8]:8s}  {r.symbol:16s}  "
-                    f"{r.side:5s}  {r.quantity:>10.4f}  "
-                    f"[{status_color}]{r.status:10s}[/]  {r.broker:8s}  {age}"
-                )
-            return "\n".join(lines)
-        except Exception as exc:
-            return f"[red]orders failed:[/red] {exc}"
 
     async def _cmd_approve(self, args: list[str]) -> str:
-        """Approve a pending order and route it to the broker."""
+        """Approve a pending order by ID prefix."""
         if not args:
-            return "Usage: approve <order_id>"
-
-        order_id = args[0]
-        if not self._orchestrator:
-            return "[yellow]Orchestrator not available.[/yellow]"
-
-        from app.core.messaging import AgentMessage, MessageType
-        await self._orchestrator.bus.publish(
-            AgentMessage(
-                sender_id="cio-terminal",
-                channel="horizon.execution.order.approve",
-                message_type=MessageType.ORDER_NEW,
-                payload={
-                    "order_id": order_id,
-                    "approved_by": "CIO",
-                },
-            )
-        )
-        return f"[green]Approved order {order_id}.[/green] Routing to broker..."
+            return "Usage: approve <order-id-prefix>"
+        agent = self._get_execution_agent()
+        if not agent:
+            return "[red]Execution agent not available.[/red]"
+        ok = await agent.approve_order(args[0])
+        if ok:
+            return f"[green]Order {args[0]} approved and sent for execution.[/green]"
+        return f"[red]No pending order matching '{args[0]}'. Use 'pending' to list.[/red]"
 
     async def _cmd_reject(self, args: list[str]) -> str:
-        """Reject a pending order."""
+        """Reject a pending order by ID prefix."""
         if not args:
-            return "Usage: reject <order_id>"
+            return "Usage: reject <order-id-prefix>"
+        agent = self._get_execution_agent()
+        if not agent:
+            return "[red]Execution agent not available.[/red]"
+        ok = await agent.reject_order(args[0])
+        if ok:
+            return f"[yellow]Order {args[0]} rejected.[/yellow]"
+        return f"[red]No pending order matching '{args[0]}'. Use 'pending' to list.[/red]"
 
-        order_id = args[0]
-        reason = " ".join(args[1:]) if len(args) > 1 else "Rejected by CIO via REPL"
-
-        if not self._orchestrator:
-            return "[yellow]Orchestrator not available.[/yellow]"
-
-        from app.core.messaging import AgentMessage, MessageType
-        await self._orchestrator.bus.publish(
-            AgentMessage(
-                sender_id="cio-terminal",
-                channel="horizon.execution.order.reject",
-                message_type=MessageType.ORDER_CANCEL,
-                payload={
-                    "order_id": order_id,
-                    "reason": reason,
-                },
+    async def _cmd_pending(self, args: list[str]) -> str:
+        """Show orders awaiting CIO approval."""
+        agent = self._get_execution_agent()
+        if not agent:
+            return "[red]Execution agent not available.[/red]"
+        pending = agent.get_pending_approvals()
+        if not pending:
+            return "[dim]No orders awaiting approval.[/dim]"
+        lines = [
+            "[bold]Pending Approvals:[/bold]",
+            f"  {'ID':8s}  {'Symbol':16s}  {'Side':5s}  {'Qty':>10s}  {'Type':8s}",
+        ]
+        for o in pending:
+            oid = str(o.get("id", ""))[:8]
+            lines.append(
+                f"  {oid:8s}  {o['symbol']:16s}  {o['side']:5s}  "
+                f"{o['quantity']:>10.4f}  {o.get('order_type', 'MARKET'):8s}"
             )
-        )
-        return f"[yellow]Rejected order {order_id}.[/yellow]"
+        lines.append("\n  Use 'approve <id>' or 'reject <id>' to act on an order.")
+        return "\n".join(lines)
 
-    # ------------------------------------------------------------------
-    # Debate history
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------ #
+    # Trade and P&L commands
+    # ------------------------------------------------------------------ #
 
-    async def _cmd_debate_history(self, args: list[str]) -> str:
-        """Show recent debate sessions and their linked orders."""
+    async def _cmd_trades(self, args: list[str]) -> str:
+        """Show filled trades. Usage: trades [page N] [all]
+
+        trades          — last 20 trades (most recent first)
+        trades page 2   — trades 21-40
+        trades all       — all trades (capped at 100)
+        """
         from sqlalchemy import text
 
         def _get_sf():
             from app.core.runtime import get_session_factory
             return get_session_factory()
 
+        page_size = 20
+        page = 1
+        show_all = False
+
+        # Parse args: "trades page 2" or "trades all"
+        if args:
+            if args[0] == "all":
+                show_all = True
+            elif args[0] == "page" and len(args) > 1:
+                try:
+                    page = max(1, int(args[1]))
+                except ValueError:
+                    pass
+
+        limit = 100 if show_all else page_size
+        offset = 0 if show_all else (page - 1) * page_size
+
         try:
             async with _get_sf()() as session:
+                # Get total count
+                count_result = await session.execute(
+                    text("SELECT COUNT(*) AS cnt FROM fills")
+                )
+                total = count_result.scalar() or 0
+
                 result = await session.execute(text("""
-                    SELECT ds.id, ds.symbol, ds.proposed_action, ds.final_decision,
-                           ds.consensus_score, o.id as order_id, o.status,
-                           ds.created_at
-                    FROM debate_sessions ds
-                    LEFT JOIN orders o ON o.debate_id = ds.id
-                    ORDER BY ds.created_at DESC
-                    LIMIT 15
-                """))
+                    SELECT o.id, o.symbol, o.side,
+                           f.filled_qty, f.fill_price,
+                           f.commission, f.slippage, f.filled_at
+                    FROM fills f
+                    JOIN orders o ON f.order_id = o.id
+                    ORDER BY f.filled_at DESC
+                    LIMIT :lim OFFSET :off
+                """), {"lim": limit, "off": offset})
                 rows = result.fetchall()
 
             if not rows:
-                return "[dim]No debate history yet.[/dim]"
+                if page > 1:
+                    return f"[dim]No trades on page {page}.[/dim]"
+                return "[dim]No trades executed yet.[/dim]"
+
+            total_pages = max(1, (total + page_size - 1) // page_size)
+            if show_all:
+                header = f"[bold]All Trades ({total}):[/bold]"
+            else:
+                header = (
+                    f"[bold]Trades (page {page}/{total_pages},"
+                    f" {total} total):[/bold]"
+                )
 
             lines = [
-                "[bold]Debate History:[/bold]",
-                f"  {'Session':8s}  {'Symbol':16s}  {'Decision':10s}  "
-                f"{'Consensus':>9s}  {'Order':8s}  Status",
+                header,
+                f"  {'Symbol':16s}  {'Side':5s}  {'Qty':>10s}  "
+                f"{'Price':>10s}  {'Slippage':>10s}  {'Time':>6s}",
             ]
             for r in rows:
-                decision = r.final_decision or "--"
-                if decision == "APPROVED":
-                    dec_color = "green"
-                elif decision == "REJECTED":
-                    dec_color = "red"
-                else:
-                    dec_color = "dim"
-
-                order_id = str(r.order_id)[:8] if r.order_id else "—"
-                order_status = r.status or "—"
-                consensus = f"{r.consensus_score:.2f}" if r.consensus_score else "--"
+                ts = str(r.filled_at)[11:16] if r.filled_at else "--:--"
+                side_color = "green" if r.side == "BUY" else "red"
                 lines.append(
-                    f"  {str(r.id)[:8]:8s}  {r.symbol:16s}  "
-                    f"[{dec_color}]{decision:10s}[/]  {consensus:>9s}  "
-                    f"{order_id:8s}  {order_status}"
+                    f"  {r.symbol:16s}  [{side_color}]{r.side:5s}[/]  "
+                    f"{r.filled_qty:>10.4f}  ${r.fill_price:>9.2f}  "
+                    f"${r.slippage:>9.4f}  {ts}"
                 )
+
+            if not show_all and total_pages > 1:
+                lines.append("")
+                nav_parts = []
+                if page > 1:
+                    nav_parts.append(
+                        f"[dim]trades page {page - 1}[/dim] ←"
+                    )
+                if page < total_pages:
+                    nav_parts.append(
+                        f"→ [dim]trades page {page + 1}[/dim]"
+                    )
+                nav_parts.append("[dim]trades all[/dim]")
+                lines.append("  " + "  |  ".join(nav_parts))
+
             return "\n".join(lines)
         except Exception as exc:
-            return f"[red]debate history failed:[/red] {exc}"
+            return f"[red]trades failed:[/red] {exc}"
 
-    # ------------------------------------------------------------------
-    # AI Department Routing
-    # ------------------------------------------------------------------
+    async def _cmd_pnl(self, args: list[str]) -> str:
+        """Show total realized and unrealized P&L."""
+        from sqlalchemy import text
 
-    async def _cmd_ai_routing(self, args: list[str]) -> str:
-        """Show or update per-department AI provider assignments."""
-        import app.config as config_mod
-        from app.llm.provider_registry import provider_registry
-
-        dept_labels = {
-            "front_office": "Front Office",
-            "middle_office": "Middle Office",
-            "back_office": "Back Office",
-            "executive": "Executive",
-        }
-        dept_attr = {
-            "front_office": "ai_front_office",
-            "middle_office": "ai_middle_office",
-            "back_office": "ai_back_office",
-            "executive": "ai_executive",
-        }
-        valid_providers = {"claude", "openai", "gemini", "auto", "none"}
-
-        # --- UPDATE mode: ai-routing <dept> <provider> ---
-        if len(args) >= 2:
-            dept = args[0].lower()
-            provider = args[1].lower()
-
-            if dept not in dept_attr:
-                return (
-                    f"[red]Unknown department:[/red] {dept}\n"
-                    f"Valid: {', '.join(dept_attr)}"
-                )
-            if provider not in valid_providers:
-                return (
-                    f"[red]Unknown provider:[/red] {provider}\n"
-                    f"Valid: {', '.join(sorted(valid_providers))}"
-                )
-
-            # Persist to .env
-            try:
-                from pathlib import Path
-                env_path = Path(config_mod.settings.model_config.get("env_file", ".env"))
-                if not env_path.is_absolute():
-                    env_path = Path(__file__).resolve().parents[2] / ".env"
-                env_key = f"AI_{dept.upper()}"
-                lines: list[str] = []
-                found = False
-                if env_path.exists():
-                    for line in env_path.read_text().splitlines():
-                        if line.startswith(f"{env_key}="):
-                            lines.append(f"{env_key}={provider}")
-                            found = True
-                        else:
-                            lines.append(line)
-                if not found:
-                    lines.append(f"{env_key}={provider}")
-                env_path.write_text("\n".join(lines) + "\n")
-            except Exception as exc:
-                return f"[red]Failed to write .env:[/red] {exc}"
-
-            # Hot-reload settings
-            from app.config import Settings
-            config_mod.settings = Settings()
-            provider_registry.auto_register_from_settings()
-
-            label = dept_labels[dept]
-            return (
-                f"[green]{label}[/green] AI routing set to [bold]{provider}[/bold]"
-                " (saved to .env)."
-            )
-
-        # --- DISPLAY mode ---
-        available = provider_registry.list_available()
-        lines_out = [
-            "[bold]AI Department Routing:[/bold]",
-            f"  {'Department':20s}  {'Setting':12s}  {'Active Provider':16s}",
-        ]
-        for dept, label in dept_labels.items():
-            attr = dept_attr[dept]
-            setting_val = getattr(config_mod.settings, attr, "auto")
-            active = provider_registry.get_provider_name_for_department(dept) or "—"
-            if not active and setting_val != "none":
-                active = "(none configured)"
-            color = "green" if active and active != "(none configured)" else "dim"
-            lines_out.append(
-                f"  {label:20s}  {setting_val:12s}  [{color}]{active}[/]"
-            )
-
-        lines_out.append("")
-        if available:
-            lines_out.append(f"  Registered providers: [cyan]{', '.join(available)}[/cyan]")
-        else:
-            lines_out.append("  [dim]No LLM providers registered (add API keys via 'setup')[/dim]")
-
-        lines_out.append(
-            "\n  [dim]To change: ai-routing <dept> <provider>[/dim]\n"
-            "  [dim]Example:   ai-routing front_office claude[/dim]"
-        )
-        return "\n".join(lines_out)
-
-    # ------------------------------------------------------------------
-    # Broker Connect & Go-Live
-    # ------------------------------------------------------------------
-
-    def _get_env_path(self) -> Path:
-        """Resolve the .env file path."""
-        import app.config as config_mod
-        env_path = Path(config_mod.settings.model_config.get("env_file", ".env"))
-        if not env_path.is_absolute():
-            env_path = Path(__file__).resolve().parents[2] / ".env"
-        return env_path
-
-    def _write_env_keys(
-        self,
-        updates: dict[str, str] | None = None,
-        removals: list[str] | None = None,
-    ) -> None:
-        """Merge key=value pairs into .env, removing specified keys."""
-        env_path = self._get_env_path()
-        lines: list[str] = []
-        updated_keys: set[str] = set()
-        removals_set = set(removals or [])
-
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                key_part = line.split("=", 1)[0].strip()
-                if key_part in removals_set:
-                    continue  # skip removed keys
-                if updates and key_part in updates:
-                    lines.append(f"{key_part}={updates[key_part]}")
-                    updated_keys.add(key_part)
-                else:
-                    lines.append(line)
-
-        # Append new keys that weren't already in the file
-        if updates:
-            for k, v in updates.items():
-                if k not in updated_keys:
-                    lines.append(f"{k}={v}")
-
-        env_path.write_text("\n".join(lines) + "\n")
-
-    def _reload_settings(self) -> None:
-        """Hot-reload settings from .env."""
-        import app.config as config_mod
-        from app.config import Settings
-        config_mod.settings = Settings()
-        try:
-            from app.llm.provider_registry import provider_registry
-            provider_registry.auto_register_from_settings()
-        except Exception:
-            pass
-
-    async def _cmd_connect(self, args: list[str]) -> str:
-        """Connect a broker or show connection status."""
-        if not args:
-            # Show which brokers are connected
-            table = Table(title="Broker Connections")
-            table.add_column("Broker", style="cyan")
-            table.add_column("Credentials", style="white")
-            table.add_column("Mode", style="white")
-
-            alpaca_key = settings.alpaca_api_key
-            zerodha_key = settings.zerodha_api_key
-
-            table.add_row(
-                "Alpaca",
-                f"[green]configured (***{alpaca_key[-4:]})[/]" if alpaca_key
-                else "[red]not set[/]",
-                "Paper" if settings.alpaca_paper_mode else "Live",
-            )
-            table.add_row(
-                "Zerodha",
-                f"[green]configured (***{zerodha_key[-4:]})[/]" if zerodha_key
-                else "[red]not set[/]",
-                "Mock" if settings.zerodha_mock_mode else "Live",
-            )
-            console.print(table)
-            return (
-                "[dim]Use 'connect alpaca' or 'connect zerodha' "
-                "to add broker credentials.[/dim]"
-            )
-
-        broker = args[0].lower()
-
-        if broker == "alpaca":
-            return await self._connect_alpaca()
-        elif broker == "zerodha":
-            return await self._connect_zerodha()
-        else:
-            return f"[red]Unknown broker:[/red] {broker}. Use: alpaca, zerodha"
-
-    async def _connect_alpaca(self) -> str:
-        """Interactive Alpaca connection flow."""
-        import httpx
-
-        console.print("\n[bold cyan]Connect Alpaca Broker[/bold cyan]\n")
-
-        # 1. Paper or Live?
-        try:
-            mode_input = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: input("  Paper or Live? (paper/live) [paper]: "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Connection cancelled.[/yellow]"
-
-        is_paper = mode_input.strip().lower() != "live"
-        base_url = (
-            "https://paper-api.alpaca.markets"
-            if is_paper
-            else "https://api.alpaca.markets"
-        )
-
-        # 2. Prompt credentials
-        try:
-            api_key = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  API Key: "),
-            )
-            api_secret = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  API Secret: "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Connection cancelled.[/yellow]"
-
-        api_key = api_key.strip()
-        api_secret = api_secret.strip()
-        if not api_key or not api_secret:
-            return "[red]API Key and Secret are required.[/red]"
-
-        # 3. Verify credentials
-        console.print("[dim]  Verifying credentials...[/dim]")
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(
-                    f"{base_url}/v2/account",
-                    headers={
-                        "APCA-API-KEY-ID": api_key,
-                        "APCA-API-SECRET-KEY": api_secret,
-                    },
-                )
-            if resp.status_code != 200:
-                return (
-                    f"[red]Alpaca verification failed "
-                    f"(HTTP {resp.status_code}):[/red] {resp.text[:200]}"
-                )
-
-            acct = resp.json()
-        except httpx.HTTPError as exc:
-            return f"[red]Connection failed:[/red] {exc}"
-
-        # 4. Show account info
-        equity = float(acct.get("equity", 0))
-        acct_num = acct.get("account_number", "?")
-        console.print(
-            Panel(
-                f"  Account: {acct_num}\n"
-                f"  Equity:  ${equity:,.2f}\n"
-                f"  Status:  {acct.get('status', '?')}\n"
-                f"  Mode:    {'Paper' if is_paper else 'LIVE'}",
-                title="[green]Alpaca Connected[/green]",
-                border_style="green",
-            )
-        )
-
-        # 5. Save to .env and hot-reload
-        self._write_env_keys({
-            "ALPACA_API_KEY": api_key,
-            "ALPACA_API_SECRET": api_secret,
-            "ALPACA_BASE_URL": base_url,
-            "ALPACA_PAPER_MODE": "true" if is_paper else "false",
-        })
-        self._reload_settings()
-
-        return "[green]Alpaca credentials saved and loaded.[/green]"
-
-    async def _connect_zerodha(self) -> str:
-        """Interactive Zerodha connection flow."""
-        import httpx
-
-        console.print("\n[bold cyan]Connect Zerodha Broker[/bold cyan]\n")
-
-        # 1. Prompt credentials
-        try:
-            api_key = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  API Key: "),
-            )
-            api_secret = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  API Secret: "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Connection cancelled.[/yellow]"
-
-        api_key = api_key.strip()
-        api_secret = api_secret.strip()
-        if not api_key or not api_secret:
-            return "[red]API Key and Secret are required.[/red]"
-
-        # 2. Login URL
-        login_url = f"https://kite.zerodha.com/connect/login?api_key={api_key}&v=3"
-        console.print("\n  [bold]Open this URL in your browser:[/bold]")
-        console.print(f"  [cyan]{login_url}[/cyan]\n")
-        console.print(
-            "  After login, you'll be redirected. "
-            "Copy the 'request_token' from the URL."
-        )
-
-        try:
-            access_token = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  Access Token (or request_token): "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Connection cancelled.[/yellow]"
-
-        access_token = access_token.strip()
-        if not access_token:
-            return "[red]Access token is required.[/red]"
-
-        # 3. Verify via profile API
-        console.print("[dim]  Verifying credentials...[/dim]")
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(
-                    "https://api.kite.trade/user/profile",
-                    headers={
-                        "X-Kite-Version": "3",
-                        "Authorization": f"token {api_key}:{access_token}",
-                    },
-                )
-            if resp.status_code != 200:
-                return (
-                    f"[red]Zerodha verification failed "
-                    f"(HTTP {resp.status_code}):[/red] {resp.text[:200]}"
-                )
-
-            profile = resp.json().get("data", {})
-        except httpx.HTTPError as exc:
-            return f"[red]Connection failed:[/red] {exc}"
-
-        # 4. Show profile
-        console.print(
-            Panel(
-                f"  User:       {profile.get('user_name', '?')}\n"
-                f"  User ID:    {profile.get('user_id', '?')}\n"
-                f"  Email:      {profile.get('email', '?')}\n"
-                f"  Exchanges:  {', '.join(profile.get('exchanges', []))}",
-                title="[green]Zerodha Connected[/green]",
-                border_style="green",
-            )
-        )
-
-        # 5. Save to .env and hot-reload
-        self._write_env_keys({
-            "ZERODHA_API_KEY": api_key,
-            "ZERODHA_API_SECRET": api_secret,
-            "ZERODHA_ACCESS_TOKEN": access_token,
-            "ZERODHA_MOCK_MODE": "false",
-        })
-        self._reload_settings()
-
-        return "[green]Zerodha credentials saved and loaded.[/green]"
-
-    async def _cmd_broker(self, args: list[str]) -> str:
-        """Show broker connection health."""
-        import httpx
-
-        table = Table(title="Broker Status")
-        table.add_column("Broker", style="cyan")
-        table.add_column("Credentials", style="white")
-        table.add_column("Connection", style="white")
-        table.add_column("Mode", style="white")
-
-        # Alpaca
-        alpaca_key = settings.alpaca_api_key
-        alpaca_creds = (
-            f"[green]OK (***{alpaca_key[-4:]})[/]" if alpaca_key
-            else "[red]not set[/]"
-        )
-        alpaca_conn = "[dim]—[/]"
-        if alpaca_key:
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(
-                        f"{settings.alpaca_base_url.rstrip('/')}/v2/account",
-                        headers={
-                            "APCA-API-KEY-ID": settings.alpaca_api_key,
-                            "APCA-API-SECRET-KEY": settings.alpaca_api_secret,
-                        },
-                    )
-                alpaca_conn = (
-                    "[green]reachable[/]" if resp.status_code == 200
-                    else f"[red]HTTP {resp.status_code}[/]"
-                )
-            except Exception:
-                alpaca_conn = "[red]unreachable[/]"
-
-        table.add_row(
-            "Alpaca",
-            alpaca_creds,
-            alpaca_conn,
-            "Paper" if settings.alpaca_paper_mode else "Live",
-        )
-
-        # Zerodha
-        zerodha_key = settings.zerodha_api_key
-        zerodha_creds = (
-            f"[green]OK (***{zerodha_key[-4:]})[/]" if zerodha_key
-            else "[red]not set[/]"
-        )
-        zerodha_conn = "[dim]—[/]"
-        if zerodha_key and settings.zerodha_access_token:
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(
-                        "https://api.kite.trade/user/profile",
-                        headers={
-                            "X-Kite-Version": "3",
-                            "Authorization": (
-                                f"token {zerodha_key}:"
-                                f"{settings.zerodha_access_token}"
-                            ),
-                        },
-                    )
-                zerodha_conn = (
-                    "[green]reachable[/]" if resp.status_code == 200
-                    else f"[red]HTTP {resp.status_code}[/]"
-                )
-            except Exception:
-                zerodha_conn = "[red]unreachable[/]"
-
-        table.add_row(
-            "Zerodha",
-            zerodha_creds,
-            zerodha_conn,
-            "Mock" if settings.zerodha_mock_mode else "Live",
-        )
-
-        console.print(table)
-        return f"  System mode: [bold]{settings.system_mode.value}[/bold]"
-
-    async def _cmd_broker_account(self, args: list[str]) -> str:
-        """Show real broker account balances."""
-        lines = ["[bold]Broker Account Info:[/bold]"]
-
-        # Alpaca
-        if settings.alpaca_api_key:
-            try:
-                from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
-                broker = AlpacaBroker()
-                acct = await broker.get_account()
-                if acct:
-                    lines.append("\n  [cyan]Alpaca[/cyan]")
-                    lines.append(f"    Account:      {acct['account_number']}")
-                    lines.append(f"    Equity:       ${acct['equity']:,.2f}")
-                    lines.append(f"    Buying Power: ${acct['buying_power']:,.2f}")
-                    lines.append(f"    Cash:         ${acct['cash']:,.2f}")
-                    lines.append(f"    Status:       {acct['status']}")
-                else:
-                    lines.append("\n  [cyan]Alpaca[/cyan]: [red]failed to fetch[/]")
-            except Exception as exc:
-                lines.append(f"\n  [cyan]Alpaca[/cyan]: [red]{exc}[/]")
-        else:
-            lines.append("\n  [cyan]Alpaca[/cyan]: [dim]not configured[/dim]")
-
-        # Zerodha
-        if settings.zerodha_api_key and not settings.zerodha_mock_mode:
-            try:
-                from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-                broker = ZerodhaBroker()
-                margins = await broker.get_margins()
-                if margins:
-                    lines.append("\n  [cyan]Zerodha[/cyan]")
-                    lines.append(
-                        f"    Available:  {margins['currency']} "
-                        f"{margins['equity_available']:,.2f}"
-                    )
-                    lines.append(
-                        f"    Used:       {margins['currency']} "
-                        f"{margins['equity_used']:,.2f}"
-                    )
-                    lines.append(
-                        f"    Net:        {margins['currency']} "
-                        f"{margins['equity_net']:,.2f}"
-                    )
-                else:
-                    lines.append("\n  [cyan]Zerodha[/cyan]: [red]failed to fetch[/]")
-            except Exception as exc:
-                lines.append(f"\n  [cyan]Zerodha[/cyan]: [red]{exc}[/]")
-        else:
-            lines.append(
-                "\n  [cyan]Zerodha[/cyan]: "
-                "[dim]not configured or in mock mode[/dim]"
-            )
-
-        # Paper mode NAV
-        p = self._dashboard._portfolio if self._dashboard else {}
-        nav = p.get("nav", 0.0)
-        if nav > 0:
-            lines.append("\n  [cyan]Paper Portfolio[/cyan]")
-            lines.append(f"    NAV:  ${nav:,.2f}")
-
-        return "\n".join(lines)
-
-    async def _cmd_broker_positions(self, args: list[str]) -> str:
-        """Show real broker positions."""
-        table = Table(title="Broker Positions")
-        table.add_column("Symbol", style="cyan")
-        table.add_column("Side", style="white")
-        table.add_column("Qty", justify="right")
-        table.add_column("Entry", justify="right")
-        table.add_column("Price", justify="right")
-        table.add_column("P&L", justify="right")
-        table.add_column("Broker", style="dim")
-
-        has_positions = False
-
-        # Alpaca
-        if settings.alpaca_api_key:
-            try:
-                from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
-                broker = AlpacaBroker()
-                positions = await broker.get_positions()
-                for p in positions:
-                    has_positions = True
-                    pnl = (p["current_price"] - p["avg_entry"]) * p["qty"]
-                    pnl_color = "green" if pnl >= 0 else "red"
-                    table.add_row(
-                        p["symbol"],
-                        p["side"],
-                        f"{p['qty']:.4f}",
-                        f"${p['avg_entry']:.2f}",
-                        f"${p['current_price']:.2f}",
-                        f"[{pnl_color}]${pnl:+,.2f}[/]",
-                        "Alpaca",
-                    )
-            except Exception as exc:
-                console.print(f"[yellow]Alpaca positions error: {exc}[/yellow]")
-
-        # Zerodha
-        if settings.zerodha_api_key and not settings.zerodha_mock_mode:
-            try:
-                from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-                broker = ZerodhaBroker()
-                positions = await broker.get_positions()
-                for p in positions:
-                    has_positions = True
-                    pnl = p.get("pnl", 0)
-                    pnl_color = "green" if pnl >= 0 else "red"
-                    table.add_row(
-                        p["symbol"],
-                        "LONG" if p["quantity"] > 0 else "SHORT",
-                        str(abs(p["quantity"])),
-                        f"{p.get('avg_price', 0):.2f}",
-                        "—",
-                        f"[{pnl_color}]{pnl:+,.2f}[/]",
-                        "Zerodha",
-                    )
-            except Exception as exc:
-                console.print(f"[yellow]Zerodha positions error: {exc}[/yellow]")
-
-        if not has_positions:
-            return (
-                "[dim]No broker positions. "
-                "(Brokers may not be connected or have no positions.)[/dim]"
-            )
-
-        console.print(table)
-        return ""
-
-    async def _cmd_go_live(self, args: list[str]) -> str:
-        """Guided safety checklist to switch to live trading."""
         from app.core.kv_store import get_kv_store
 
-        console.print(
-            Panel(
-                "[bold red]LIVE TRADING[/bold red]\n\n"
-                "This will switch the system to use real money.\n"
-                "Trades will be executed on your connected broker account.",
-                title="[bold red]WARNING[/bold red]",
-                border_style="red",
+        def _get_sf():
+            from app.core.runtime import get_session_factory
+            return get_session_factory()
+
+        try:
+            kv = get_kv_store()
+            cash_usd = float(await kv.get("horizon:cash:usd") or 0)
+            cash_inr = float(await kv.get("horizon:cash:inr") or 0)
+            nav_str = await kv.get("horizon:portfolio:nav")
+            nav = float(nav_str) if nav_str else 0.0
+
+            async with _get_sf()() as session:
+                result = await session.execute(text("""
+                    SELECT COALESCE(SUM(unrealized_pnl), 0) AS total_unrealized,
+                           COALESCE(SUM(realized_pnl), 0) AS total_realized,
+                           COUNT(*) AS position_count
+                    FROM positions WHERE quantity != 0
+                """))
+                row = result.fetchone()
+
+            unrealized = row.total_unrealized if row else 0.0
+            realized = row.total_realized if row else 0.0
+            pos_count = row.position_count if row else 0
+            total = realized + unrealized
+
+            initial_usd = settings.initial_capital_usd
+            return_pct = ((nav - initial_usd) / initial_usd * 100) if initial_usd else 0.0
+
+            r_color = "green" if realized >= 0 else "red"
+            u_color = "green" if unrealized >= 0 else "red"
+            t_color = "green" if total >= 0 else "red"
+            ret_color = "green" if return_pct >= 0 else "red"
+
+            return (
+                f"[bold]Profit & Loss:[/bold]\n"
+                f"  Initial Capital:   ${initial_usd:>12,.2f}\n"
+                f"  Current NAV:       ${nav:>12,.2f}\n"
+                f"  Cash (USD):        ${cash_usd:>12,.2f}\n"
+                f"  Cash (INR):        ₹{cash_inr:>12,.2f}\n"
+                f"  Open Positions:    {pos_count}\n"
+                f"  [{r_color}]Realized P&L:      ${realized:>+12,.2f}[/]\n"
+                f"  [{u_color}]Unrealized P&L:    ${unrealized:>+12,.2f}[/]\n"
+                f"  [{t_color}]Total P&L:         ${total:>+12,.2f}[/]\n"
+                f"  [{ret_color}]Return:            {return_pct:>+11.2f}%[/]"
             )
-        )
+        except Exception as exc:
+            return f"[red]pnl failed:[/red] {exc}"
 
-        # Pre-flight checklist
-        checks: list[tuple[str, bool, str]] = []
+    # ------------------------------------------------------------------ #
+    # CIO commands
+    # ------------------------------------------------------------------ #
 
-        # 1. Broker credentials configured?
-        has_alpaca = bool(settings.alpaca_api_key)
-        has_zerodha = bool(settings.zerodha_api_key and settings.zerodha_access_token)
-        has_broker = has_alpaca or has_zerodha
-        checks.append((
-            "Broker credentials configured",
-            has_broker,
-            "Use 'connect alpaca' or 'connect zerodha'" if not has_broker else "",
-        ))
+    def set_cio_agent(self, cio_agent) -> None:
+        """Wire in the running CIO agent instance."""
+        self._cio_agent = cio_agent
 
-        # 2. Broker API reachable?
-        api_ok = False
-        if has_alpaca:
-            try:
-                import httpx
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(
-                        f"{settings.alpaca_base_url.rstrip('/')}/v2/account",
-                        headers={
-                            "APCA-API-KEY-ID": settings.alpaca_api_key,
-                            "APCA-API-SECRET-KEY": settings.alpaca_api_secret,
-                        },
-                    )
-                if resp.status_code == 200:
-                    api_ok = True
-            except Exception:
-                pass
-        if has_zerodha and not api_ok:
-            try:
-                import httpx
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(
-                        "https://api.kite.trade/user/profile",
-                        headers={
-                            "X-Kite-Version": "3",
-                            "Authorization": (
-                                f"token {settings.zerodha_api_key}:"
-                                f"{settings.zerodha_access_token}"
-                            ),
-                        },
-                    )
-                if resp.status_code == 200:
-                    api_ok = True
-            except Exception:
-                pass
-        checks.append((
-            "Broker API reachable",
-            api_ok,
-            "Check API keys and network" if not api_ok else "",
-        ))
+    def _get_cio_agent(self):
+        """Resolve the CIO agent: prefer wired instance, fall back to orchestrator lookup."""
+        if self._cio_agent is not None:
+            return self._cio_agent
+        if self._orchestrator is not None:
+            agent = self._orchestrator.get_agent("cio-agent-1")
+            if agent is not None:
+                self._cio_agent = agent
+                return agent
+        return None
 
-        # 3. Account equity sufficient?
-        equity_ok = False
-        equity_msg = ""
-        if has_alpaca and api_ok:
+    async def _cmd_cio(self, args: list[str]) -> str:
+        """Handle 'cio', 'cio why', 'cio confirm halt' commands."""
+        sub = " ".join(args).lower().strip() if args else ""
+
+        if sub == "why":
+            cio = self._get_cio_agent()
+            if cio is None:
+                from app.config import CIOMode, settings
+                if settings.cio_mode != CIOMode.AI:
+                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI to enable AI CIO.[/yellow]"
+                return "[yellow]CIO agent not running.[/yellow]"
+            override = cio.get_last_override()
+            if override is None:
+                return "[dim]No override has been issued this session.[/dim]"
+            reasoning = override.get("full_prompt", "No reasoning recorded.")
+            timestamp = override.get("timestamp", "unknown")
+            return (
+                f"[bold red]Last CIO Override[/bold red]\n"
+                f"Time: {timestamp}\n"
+                f"Confidence: {override.get('confidence', '?')}\n"
+                f"Reasoning: {reasoning}"
+            )
+
+        elif sub == "confirm halt":
+            cio = self._get_cio_agent()
+            if cio is None:
+                from app.config import CIOMode, settings
+                if settings.cio_mode != CIOMode.AI:
+                    return "[yellow]CIO is in HUMAN mode. Set CIO_MODE=AI to enable AI CIO.[/yellow]"
+                return "[yellow]CIO agent not running.[/yellow]"
+            cio.set_halt_confirmed()
+            return (
+                "[bold red]HALT confirmed. "
+                "CIO will proceed with halt actions.[/bold red]"
+            )
+
+        else:
+            return await self._cmd_cio_latest()
+
+    async def _cmd_cio_latest(self) -> str:
+        """Fetch and display the latest CIO advisory from DB."""
+        try:
+            from sqlalchemy import text
+
+            from app.core.runtime import get_session_factory
+            async with get_session_factory()() as session:
+                result = await session.execute(text(
+                    "SELECT outlook, summary, recommended_adjustments, "
+                    "risk_flags, timestamp "
+                    "FROM cio_advisories ORDER BY timestamp DESC LIMIT 1"
+                ))
+                row = result.fetchone()
+            if row is None:
+                return (
+                    "[dim]No CIO advisory recorded yet. "
+                    "CIO issues advisories every 15 minutes "
+                    "when LLM is configured.[/dim]"
+                )
+            import json
+            adj = json.loads(row[2]) if row[2] else []
+            flags = json.loads(row[3]) if row[3] else []
+            lines = [
+                f"[bold cyan]CIO Advisory[/bold cyan] — {row[4]}",
+                f"Outlook: [yellow]{row[0]}[/yellow]",
+                f"Summary: {row[1]}",
+            ]
+            if adj:
+                lines.append("Adjustments:")
+                for a in adj[:5]:
+                    if isinstance(a, dict):
+                        lines.append(
+                            f"  • {a.get('symbol', '')} → {a.get('action', '')}: "
+                            f"{a.get('reason', '')}"
+                        )
+                    else:
+                        lines.append(f"  • {a}")
+            if flags:
+                lines.append("Risk flags: " + ", ".join(flags[:3]))
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[red]Error fetching CIO advisory: {exc}[/red]"
+
+    # ------------------------------------------------------------------ #
+    # Watchlist commands
+    # ------------------------------------------------------------------ #
+
+    async def _cmd_watchlist(self, args: list[str]) -> str:
+        """Show, add, or remove watchlist symbols."""
+        if not args:
+            symbols = settings.all_symbols
+            lines = ["[bold]Watchlist ([/bold]" + str(len(symbols)) + "[bold] symbols):[/bold]"]
+            for s in symbols:
+                lines.append(f"  {s}")
+            lines.append("\n  [dim]Use 'watchlist add <SYM>' or 'watchlist remove <SYM>'[/dim]")
+            return "\n".join(lines)
+
+        sub = args[0].lower()
+        if sub == "add" and len(args) >= 2:
+            symbol = args[1].upper()
+            return await self._watchlist_add(symbol)
+        elif sub == "remove" and len(args) >= 2:
+            symbol = args[1].upper()
+            return await self._watchlist_remove(symbol)
+        return "[red]Usage: watchlist [add|remove] <SYMBOL>[/red]"
+
+    async def _watchlist_add(self, symbol: str) -> str:
+        """Add a symbol to the trading universe via .env."""
+        current = settings.all_symbols
+        if symbol in current:
+            return f"[yellow]{symbol} already in watchlist.[/yellow]"
+
+        # US-only scope — Alpaca feed handles US equities; INR/crypto buckets
+        # are currently zero so orders would fail sizing.
+        if ".NSE" in symbol or ".BSE" in symbol:
+            return (
+                "[red]Indian symbols not supported in current scope "
+                "(INR cash bucket is 0).[/red]"
+            )
+        if "-USD" in symbol or "-USDT" in symbol:
+            return (
+                "[red]Crypto symbols not supported in current scope.[/red]"
+            )
+
+        key = "US_SYMBOLS"
+        current_csv = settings.us_symbols
+
+        new_csv = current_csv + "," + symbol if current_csv else symbol
+        self._update_env(key, new_csv)
+
+        # Update settings in-memory
+        if key == "INDIA_SYMBOLS":
+            settings.india_symbols = new_csv
+        elif key == "CRYPTO_SYMBOLS":
+            settings.crypto_symbols = new_csv
+        else:
+            settings.us_symbols = new_csv
+
+        return f"[green]{symbol} added to watchlist.[/green] Restart for strategy agent to pick it up."
+
+    async def _watchlist_remove(self, symbol: str) -> str:
+        """Remove a symbol from the trading universe via .env."""
+        current = settings.all_symbols
+        if symbol not in current:
+            return f"[yellow]{symbol} not in watchlist.[/yellow]"
+
+        if ".NSE" in symbol or ".BSE" in symbol:
+            key = "INDIA_SYMBOLS"
+            current_csv = settings.india_symbols
+        elif "-USD" in symbol:
+            key = "CRYPTO_SYMBOLS"
+            current_csv = settings.crypto_symbols
+        else:
+            key = "US_SYMBOLS"
+            current_csv = settings.us_symbols
+
+        parts = [s.strip() for s in current_csv.split(",") if s.strip() != symbol]
+        new_csv = ",".join(parts)
+        self._update_env(key, new_csv)
+
+        if key == "INDIA_SYMBOLS":
+            settings.india_symbols = new_csv
+        elif key == "CRYPTO_SYMBOLS":
+            settings.crypto_symbols = new_csv
+        else:
+            settings.us_symbols = new_csv
+
+        return f"[green]{symbol} removed from watchlist.[/green] Restart for changes to take effect."
+
+    @staticmethod
+    def _update_env(key: str, value: str) -> None:
+        """Update a key in the backend .env file."""
+        import os
+        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+        lines = []
+        found = False
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    if line.strip().startswith(key + "="):
+                        lines.append(f"{key}={value}\n")
+                        found = True
+                    else:
+                        lines.append(line)
+        if not found:
+            lines.append(f"{key}={value}\n")
+        with open(env_path, "w") as f:
+            f.writelines(lines)
+
+    # ------------------------------------------------------------------ #
+    # Manual trading commands
+    # ------------------------------------------------------------------ #
+
+    async def _cmd_buy(self, args: list[str]) -> str:
+        """Place a manual BUY order."""
+        if not args:
+            return "Usage: buy <SYMBOL> [quantity]"
+        return await self._manual_order(args, side="BUY")
+
+    async def _cmd_sell(self, args: list[str]) -> str:
+        """Place a manual SELL order."""
+        if not args:
+            return "Usage: sell <SYMBOL> [quantity]"
+        return await self._manual_order(args, side="SELL")
+
+    async def _manual_order(self, args: list[str], side: str) -> str:
+        """Execute a manual buy/sell order."""
+        from datetime import datetime
+
+        from app.core.kv_store import get_kv_store
+        from app.core.messaging import AgentMessage, MessageType
+        from app.core.runtime import get_bus
+
+        symbol = args[0].upper()
+        qty = None
+        if len(args) >= 2:
             try:
-                from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
-                acct = await AlpacaBroker().get_account()
-                if acct and acct["equity"] >= 100:
-                    equity_ok = True
-                elif acct:
-                    equity_msg = f"Equity ${acct['equity']:.2f} < $100 minimum"
-            except Exception:
-                pass
-        if has_zerodha and api_ok and not equity_ok:
-            try:
-                from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-                margins = await ZerodhaBroker().get_margins()
-                if margins and margins["equity_net"] >= 10000:
-                    equity_ok = True
-                elif margins:
-                    equity_msg = f"Equity INR {margins['equity_net']:.2f} < INR 10,000"
-            except Exception:
-                pass
-        checks.append((
-            "Account equity sufficient",
-            equity_ok,
-            equity_msg or ("Add funds to your broker account" if not equity_ok else ""),
-        ))
+                qty = float(args[1])
+            except ValueError:
+                return f"[red]Invalid quantity: {args[1]}[/red]"
 
         kv = get_kv_store()
 
-        # 5. Risk parameters set?
-        risk_ok = (
-            settings.risk_max_drawdown_pct > 0
-            and settings.risk_max_position_pct > 0
-        )
-        checks.append((
-            "Risk parameters set",
-            risk_ok,
-            "Configure risk settings in .env" if not risk_ok else "",
-        ))
+        # Get price — Alpaca live first (if configured and US ticker), then
+        # KV cache, then yfinance as a last resort.
+        raw = symbol.split(".")[0] if "." in symbol else symbol
+        price: float | None = None
 
-        # Display checklist
-        console.print("\n[bold]Pre-flight Checklist:[/bold]")
-        critical_fail = False
-        for label, passed, fix in checks:
-            mark = "[green]\u2713[/]" if passed else "[red]\u2717[/]"
-            console.print(f"  {mark} {label}")
-            if not passed:
-                console.print(f"      [dim]{fix}[/dim]")
-                if label in ("Broker credentials configured", "Broker API reachable"):
-                    critical_fail = True
-        console.print()
+        from app.data_layer import alpaca_quotes
+        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol)
+        if is_us and alpaca_quotes.is_configured():
+            price = await alpaca_quotes.get_latest_price(symbol)
 
-        if critical_fail:
+        if price is None or price <= 0:
+            price_str = (
+                await kv.get(f"horizon:price:{symbol}")
+                or await kv.get(f"horizon:price:{raw}")
+            )
+            if price_str:
+                try:
+                    price = float(price_str)
+                except (ValueError, TypeError):
+                    price = None
+
+        if price is None or price <= 0:
+            try:
+                import asyncio
+                import yfinance as yf
+                yf_ticker = raw + ".NS" if ".NSE" in symbol else (
+                    raw + ".BO" if ".BSE" in symbol else raw
+                )
+                ticker = yf.Ticker(yf_ticker)
+                hist = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: ticker.history(period="1d")
+                )
+                if hist is not None and not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+            except Exception:
+                pass
+
+        if price is None or price <= 0:
             return (
-                "[red]Cannot go live: critical checks failed.[/red]\n"
-                "Fix the issues above and try again."
+                f"[red]No price available for {symbol}. "
+                f"Check Alpaca credentials or wait for the data feed.[/red]"
             )
+        await kv.set(f"horizon:price:{symbol}", str(price))
 
-        # Choose mode
-        console.print(
-            "  [bold]Choose trading mode:[/bold]\n"
-            "  1. HUMAN_APPROVAL — you approve each trade (recommended)\n"
-            "  2. FULLY_AUTONOMOUS — AI trades without confirmation\n"
-        )
-        try:
-            choice = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  Choice (1/2) [1]: "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Go-live cancelled.[/yellow]"
+        # Auto-size if no qty given
+        if qty is None:
+            if side == "SELL":
+                # Sell entire position
+                from sqlalchemy import text
+                from app.core.runtime import get_session_factory
+                async with get_session_factory()() as session:
+                    result = await session.execute(
+                        text("SELECT quantity FROM positions WHERE symbol = :sym AND quantity > 0 LIMIT 1"),
+                        {"sym": symbol},
+                    )
+                    row = result.fetchone()
+                if not row:
+                    return f"[red]No open position in {symbol} to sell.[/red]"
+                qty = row.quantity
+            else:
+                # Buy: use 3% of NAV
+                cash_str = await kv.get("horizon:cash:usd")
+                cash = float(cash_str) if cash_str else 0.0
+                allocation = cash * (settings.risk_max_position_pct / 100.0)
+                qty = int(allocation / price) if price > 0 else 0
+                if qty <= 0:
+                    return f"[red]Insufficient cash to buy {symbol} at ${price:.2f}[/red]"
 
-        new_mode = (
-            "FULLY_AUTONOMOUS" if choice.strip() == "2"
-            else "HUMAN_APPROVAL"
-        )
-
-        # Final confirm
-        console.print(
-            f"\n  [bold red]You are about to enable {new_mode} "
-            f"with real money.[/bold red]"
-        )
-        try:
-            confirm = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: input("  Type GO LIVE to confirm: "),
-            )
-        except (EOFError, KeyboardInterrupt):
-            return "[yellow]Go-live cancelled.[/yellow]"
-
-        if confirm.strip() != "GO LIVE":
-            return "[yellow]Go-live cancelled.[/yellow]"
-
-        # Write mode
-        self._write_env_keys({"SYSTEM_MODE": new_mode})
-        self._reload_settings()
-        settings.system_mode = SystemMode(new_mode)
-
-        # Also set in KV for workers to pick up
-        await kv.set("horizon:system:mode", new_mode)
-
-        return (
-            f"\n[bold green]LIVE TRADING ENABLED[/bold green]\n"
-            f"  Mode: {new_mode}\n"
-            f"  Broker: {'Alpaca' if has_alpaca else ''}"
-            f"{'Zerodha' if has_zerodha else ''}\n\n"
-            f"  [dim]Set mode to PAPER_TRADING for emergency stop.[/dim]"
-        )
-
-    async def _cmd_disconnect(self, args: list[str]) -> str:
-        """Remove broker credentials and revert to paper mode."""
-        if not args:
-            return (
-                "Usage: disconnect <alpaca|zerodha>\n"
-                "  Removes broker credentials from .env and reverts to paper mode."
-            )
-
-        broker = args[0].lower()
-
-        if broker == "alpaca":
-            self._write_env_keys(
-                updates={"ALPACA_PAPER_MODE": "true"},
-                removals=["ALPACA_API_KEY", "ALPACA_API_SECRET"],
-            )
-        elif broker == "zerodha":
-            self._write_env_keys(
-                updates={"ZERODHA_MOCK_MODE": "true"},
-                removals=[
-                    "ZERODHA_API_KEY",
-                    "ZERODHA_API_SECRET",
-                    "ZERODHA_ACCESS_TOKEN",
-                ],
-            )
+        # Determine exchange
+        if ".NSE" in symbol:
+            exchange = "NSE"
+        elif ".BSE" in symbol:
+            exchange = "BSE"
+        elif "-USD" in symbol:
+            exchange = "CRYPTO"
         else:
-            return f"[red]Unknown broker:[/red] {broker}. Use: alpaca, zerodha"
+            exchange = "NASDAQ"
 
-        # If currently in live mode, revert to paper
-        if settings.system_mode != SystemMode.PAPER_TRADING:
-            self._write_env_keys({"SYSTEM_MODE": "PAPER_TRADING"})
+        # Publish order to execution pipeline
+        bus = get_bus()
+        await bus.publish(
+            AgentMessage(
+                sender_id="manual-cio",
+                channel="horizon.execution.order.new",
+                message_type=MessageType.ORDER_NEW,
+                payload={
+                    "symbol": symbol,
+                    "exchange": exchange,
+                    "side": side,
+                    "quantity": qty,
+                    "order_type": "MARKET",
+                    "signal_id": None,
+                    "debate_id": None,
+                    "stop_loss": None,
+                    "allocation_usd": qty * price,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+        )
 
-        self._reload_settings()
-        return f"[green]{broker.capitalize()} disconnected.[/green] Reverted to paper mode."
+        action = "Buying" if side == "BUY" else "Selling"
+        return f"[green]{action} {qty:.4f} {symbol} @ ~${price:.2f} (${qty * price:,.2f})[/green]"
+
+    async def _cmd_settings(self, args: list[str]) -> str:
+        """Open the interactive settings panel."""
+        return "__OPEN_SETTINGS__"
+
+    async def _cmd_model(self, args: list[str]) -> str:
+        """Per-agent LLM model selection.
+
+        Usage:
+            model                                — show current overrides + LLM agents
+            model list                           — list every available model (cheap->premium)
+            model list <provider>                — list models for one provider
+            model agents                         — list agents that use an LLM
+            model set <agent_id> <provider> <model_id>  — pin agent to model
+            model clear <agent_id>               — remove override (back to default)
+        """
+        from app.llm.agent_config import get_agent_configs
+        from app.llm.agent_model_overrides import (
+            clear_override,
+            list_overrides,
+            set_override,
+        )
+        from app.llm.models_registry import all_models, list_models
+        from app.llm.provider_registry import provider_registry
+
+        sub = args[0].lower() if args else ""
+
+        if sub == "list":
+            provider = args[1].lower() if len(args) > 1 else None
+            models = list_models(provider) if provider else all_models()
+            if not models:
+                return f"[yellow]No models for provider '{provider}'.[/yellow]"
+            lines = [
+                "[bold]Available models[/bold] (provider | model_id | tier | "
+                "$/1M in | $/1M out)",
+            ]
+            for m in models:
+                lines.append(
+                    f"  {m.provider:8s} {m.model_id:34s} {m.tier:8s} "
+                    f"${m.input_cost_per_1m:>5.2f} / ${m.output_cost_per_1m:>5.2f}  "
+                    f"({m.label})"
+                )
+            return "\n".join(lines)
+
+        if sub == "agents":
+            cfgs = [c for c in get_agent_configs() if c.llm_provider]
+            if not cfgs:
+                return "[yellow]No LLM-using agents (no providers registered?).[/yellow]"
+            lines = ["[bold]LLM-using agents[/bold] (id | role | dept | default-provider)"]
+            for c in cfgs:
+                lines.append(
+                    f"  {c.instance_id:30s} {c.role:22s} "
+                    f"{c.department:14s} {c.llm_provider}"
+                )
+            return "\n".join(lines)
+
+        if sub == "set":
+            if len(args) < 4:
+                return "[red]Usage:[/red] model set <agent_id> <provider> <model_id>"
+            agent_id, provider, model_id = args[1], args[2].lower(), args[3]
+            ok = set_override(agent_id, provider, model_id)
+            if not ok:
+                return (
+                    f"[red]Rejected.[/red] Check provider/model. "
+                    f"Run `model list {provider}` for valid IDs."
+                )
+            # Verify the registry can actually build the provider
+            prov = provider_registry.get_provider_for_agent(agent_id, provider)
+            if prov is None:
+                return (
+                    f"[yellow]Override saved but provider '{provider}' not "
+                    f"registered yet.[/yellow] Set the API key for {provider} "
+                    f"and restart, or use a registered provider."
+                )
+            return (
+                f"[green]Override set:[/green] {agent_id} -> "
+                f"{provider}/{model_id} (active model: {prov.model})"
+            )
+
+        if sub == "clear":
+            if len(args) < 2:
+                return "[red]Usage:[/red] model clear <agent_id>"
+            agent_id = args[1]
+            existed = clear_override(agent_id)
+            return (
+                f"[green]Cleared override for {agent_id}[/green]" if existed
+                else f"[yellow]No override existed for {agent_id}[/yellow]"
+            )
+
+        # Default: show current overrides + LLM agents
+        overrides = list_overrides()
+        cfgs = {c.instance_id: c for c in get_agent_configs() if c.llm_provider}
+        lines = [
+            "[bold]Per-agent LLM model selection[/bold]",
+            f"Configured overrides: {len(overrides)}",
+            "",
+            "[bold]LLM agents[/bold] (agent_id | role | default | OVERRIDE):",
+        ]
+        for aid, c in sorted(cfgs.items()):
+            ov = overrides.get(aid)
+            ov_str = (f"[green]-> {ov['provider']}/{ov['model']}[/green]"
+                      if ov else "[dim]none[/dim]")
+            lines.append(
+                f"  {aid:30s} {c.role:22s} {c.llm_provider:8s} {ov_str}"
+            )
+        lines.append("")
+        lines.append(
+            "[dim]Subcommands: list [provider], agents, set <agent> <provider> "
+            "<model>, clear <agent>[/dim]"
+        )
+        return "\n".join(lines)
 
     async def _cmd_quit(self, args: list[str]) -> str:
         self._should_quit = True

@@ -53,3 +53,8 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+
+# tooling artifacts
+.claude/
+.superpowers/
+*.pid

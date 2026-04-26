@@ -75,7 +75,7 @@ class BacktestEngine:
         end_date: datetime,
         timeframe: str,
     ) -> pd.DataFrame:
-        """Load OHLCV bars from the database."""
+        """Load OHLCV bars. Prefers local DB; falls back to Alpaca live data."""
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
@@ -98,14 +98,35 @@ class BacktestEngine:
             )
             rows = result.fetchall()
 
-        if not rows:
-            logger.warning("backtest_no_data", symbol=symbol, start=str(start_date))
-            return pd.DataFrame()
+        if rows:
+            df = pd.DataFrame(
+                rows, columns=["timestamp", "open", "high", "low", "close", "volume"]
+            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            df.set_index("timestamp", inplace=True)
+            return df
 
-        df = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-        df.set_index("timestamp", inplace=True)
-        return df
+        # Fallback: fetch from Alpaca if configured (saves the user the step
+        # of pre-ingesting historical data just to run a backtest).
+        from app.data_layer import alpaca_quotes
+        if alpaca_quotes.is_configured():
+            lookback = max((end_date - start_date).days + 10, 30)
+            tf_map = {"1d": "1Day", "1h": "1Hour", "15m": "15Min", "5m": "5Min"}
+            alpaca_tf = tf_map.get(timeframe.lower(), "1Day")
+            df = await alpaca_quotes.get_bars(
+                symbol, timeframe=alpaca_tf, lookback_days=lookback
+            )
+            if df is not None and not df.empty:
+                start_utc = pd.Timestamp(start_date).tz_convert("UTC") \
+                    if pd.Timestamp(start_date).tzinfo else pd.Timestamp(start_date, tz="UTC")
+                end_utc = pd.Timestamp(end_date).tz_convert("UTC") \
+                    if pd.Timestamp(end_date).tzinfo else pd.Timestamp(end_date, tz="UTC")
+                df = df.loc[(df.index >= start_utc) & (df.index <= end_utc)]
+                if not df.empty:
+                    return df
+
+        logger.warning("backtest_no_data", symbol=symbol, start=str(start_date))
+        return pd.DataFrame()
 
     # ------------------------------------------------------------------
     # Main run loop
@@ -176,6 +197,11 @@ class BacktestEngine:
                     notional = fill.fill_price * abs(fill.quantity)
                     if fill.side == "BUY":
                         cost = notional + fill.commission
+                        if cost > cash:
+                            logger.debug(
+                                "backtest_buy_skipped_insufficient_cash",
+                                cost=cost, cash=cash,
+                            )
                         if cost <= cash:
                             # Update position
                             total_qty = position_qty + fill.quantity
@@ -196,16 +222,23 @@ class BacktestEngine:
                                 "pnl": 0.0,  # realized PnL computed on close
                             })
                     elif fill.side == "SELL":
-                        proceeds = notional - fill.commission
-                        pnl = (fill.fill_price - avg_entry) * abs(fill.quantity)
-                        position_qty -= abs(fill.quantity)
+                        # Only sell what we actually hold. Prevents phantom profit
+                        # from naked SELL when avg_entry is 0 (no prior position).
+                        sell_qty = min(abs(fill.quantity), position_qty)
+                        if sell_qty <= 0:
+                            # Nothing to sell — skip the trade entirely.
+                            pending_order = None
+                            continue
+                        proceeds = fill.fill_price * sell_qty - fill.commission
+                        pnl = (fill.fill_price - avg_entry) * sell_qty
+                        position_qty -= sell_qty
                         if position_qty <= 0:
                             position_qty = 0.0
                             avg_entry = 0.0
                         cash += proceeds
                         trades.append({
                             "side": "SELL",
-                            "quantity": fill.quantity,
+                            "quantity": sell_qty,
                             "price": fill.fill_price,
                             "commission": fill.commission,
                             "slippage": fill.slippage,

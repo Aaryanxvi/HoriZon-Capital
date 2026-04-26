@@ -2,11 +2,6 @@
 
 Exports backtest metrics, equity curves, trade lists, and journal entries
 to CSV format for external analysis and record-keeping.
-
-Research references
--------------------
-- de Prado 2018, "Advances in Financial Machine Learning" — emphasizes
-  reproducibility: all backtest results should be exportable for audit.
 """
 
 from __future__ import annotations

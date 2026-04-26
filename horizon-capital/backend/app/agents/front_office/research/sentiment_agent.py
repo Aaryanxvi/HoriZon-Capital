@@ -56,10 +56,23 @@ class SentimentAgent:
             for symbol in self.symbols:
                 try:
                     sentiment, score = await self._analyze_symbol(symbol)
+                    # Persist to KV store so the sentiment REPL command can read it
+                    try:
+                        from app.core.kv_store import get_kv_store
+                        kv = get_kv_store()
+                        raw = symbol.split(".")[0] if "." in symbol else symbol
+                        await kv.hset(f"horizon:sentiment:{raw}", {
+                            "label": sentiment,
+                            "score": str(round(score, 4)),
+                            "timestamp": datetime.now(UTC).isoformat(),
+                        })
+                    except Exception:
+                        pass
                     await self.bus.publish(AgentMessage(
-                        type=MessageType.SENTIMENT_UPDATE,
-                        source="sentiment_agent",
-                        data={
+                        sender_id="sentiment_agent",
+                        channel="horizon.sentiment.update",
+                        message_type=MessageType.SENTIMENT_UPDATE,
+                        payload={
                             "symbol": symbol,
                             "sentiment": sentiment,
                             "score": score,

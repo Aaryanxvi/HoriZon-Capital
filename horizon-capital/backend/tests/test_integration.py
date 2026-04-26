@@ -34,93 +34,8 @@ def event_loop():
 # =====================================================================
 
 
-class TestCircuitBreaker:
-    """Circuit breaker opens, rejects, and recovers correctly."""
-
-    @pytest.mark.asyncio
-    async def test_closed_on_success(self):
-        from app.core.resilience import CircuitBreaker, CircuitState
-
-        cb = CircuitBreaker("test", failure_threshold=3)
-
-        async def ok():
-            return 42
-
-        result = await cb.call(ok)
-        assert result == 42
-        assert cb.state == CircuitState.CLOSED
-
-    @pytest.mark.asyncio
-    async def test_opens_after_threshold(self):
-        from app.core.resilience import CircuitBreaker, CircuitOpenError, CircuitState
-
-        cb = CircuitBreaker("test", failure_threshold=3, recovery_timeout=100)
-
-        async def fail():
-            raise ConnectionError("down")
-
-        for _ in range(3):
-            with pytest.raises(ConnectionError):
-                await cb.call(fail)
-
-        assert cb.state == CircuitState.OPEN
-
-        # Further calls should be rejected immediately
-        with pytest.raises(CircuitOpenError):
-            await cb.call(fail)
-
-    @pytest.mark.asyncio
-    async def test_half_open_recovery(self):
-        from app.core.resilience import CircuitBreaker, CircuitState
-
-        cb = CircuitBreaker(
-            "test",
-            failure_threshold=2,
-            recovery_timeout=0.1,
-            half_open_max=1,
-        )
-
-        async def fail():
-            raise ConnectionError("down")
-
-        async def ok():
-            return "recovered"
-
-        # Trip the circuit
-        for _ in range(2):
-            with pytest.raises(ConnectionError):
-                await cb.call(fail)
-        assert cb._state == CircuitState.OPEN
-
-        # Wait for recovery timeout
-        await asyncio.sleep(0.2)
-        assert cb.state == CircuitState.HALF_OPEN
-
-        # Successful probe should close
-        result = await cb.call(ok)
-        assert result == "recovered"
-        # After one success with half_open_max=1, circuit should close
-        assert cb._state == CircuitState.CLOSED
-
-    @pytest.mark.asyncio
-    async def test_reset(self):
-        from app.core.resilience import CircuitBreaker, CircuitState
-
-        cb = CircuitBreaker("test", failure_threshold=1, recovery_timeout=100)
-
-        async def fail():
-            raise RuntimeError("err")
-
-        with pytest.raises(RuntimeError):
-            await cb.call(fail)
-        assert cb.state == CircuitState.OPEN
-
-        cb.reset()
-        assert cb.state == CircuitState.CLOSED
-
-
 class TestRetryWithBackoff:
-    """Retry helper retries and eventually succeeds or exhausts."""
+    """Retry decorator retries and eventually succeeds or exhausts."""
 
     @pytest.mark.asyncio
     async def test_succeeds_on_retry(self):
@@ -128,6 +43,7 @@ class TestRetryWithBackoff:
 
         call_count = 0
 
+        @retry_with_backoff(max_retries=3, base_delay=0.01)
         async def flaky():
             nonlocal call_count
             call_count += 1
@@ -135,9 +51,7 @@ class TestRetryWithBackoff:
                 raise ConnectionError("temp failure")
             return "ok"
 
-        result = await retry_with_backoff(
-            flaky, max_retries=3, base_delay=0.01
-        )
+        result = await flaky()
         assert result == "ok"
         assert call_count == 3
 
@@ -145,37 +59,12 @@ class TestRetryWithBackoff:
     async def test_exhausts_retries(self):
         from app.core.resilience import retry_with_backoff
 
+        @retry_with_backoff(max_retries=2, base_delay=0.01)
         async def always_fail():
             raise ValueError("permanent")
 
         with pytest.raises(ValueError, match="permanent"):
-            await retry_with_backoff(
-                always_fail, max_retries=2, base_delay=0.01
-            )
-
-
-class TestTimeout:
-    """Timeout wrapper cancels slow operations."""
-
-    @pytest.mark.asyncio
-    async def test_completes_within_timeout(self):
-        from app.core.resilience import with_timeout
-
-        async def fast():
-            return "done"
-
-        result = await with_timeout(fast(), timeout_seconds=1.0)
-        assert result == "done"
-
-    @pytest.mark.asyncio
-    async def test_raises_on_timeout(self):
-        from app.core.resilience import with_timeout
-
-        async def slow():
-            await asyncio.sleep(10)
-
-        with pytest.raises(asyncio.TimeoutError):
-            await with_timeout(slow(), timeout_seconds=0.05)
+            await always_fail()
 
 
 # =====================================================================
@@ -451,23 +340,25 @@ class TestPerformanceService:
     def test_win_rate(self):
         svc = self._make_service()
         trades = [
-            {"side": "SELL", "fill_price": 110, "filled_qty": 10, "commission": 5},
-            {"side": "SELL", "fill_price": 90, "filled_qty": 10, "commission": 5},
-            {"side": "SELL", "fill_price": 120, "filled_qty": 10, "commission": 5},
             {"side": "BUY", "fill_price": 100, "filled_qty": 10, "commission": 5},
+            {"side": "SELL", "fill_price": 110, "filled_qty": 10, "commission": 5},  # win
+            {"side": "BUY", "fill_price": 100, "filled_qty": 10, "commission": 5},
+            {"side": "SELL", "fill_price": 90, "filled_qty": 10, "commission": 5},   # loss
         ]
         wr = svc._win_rate(trades)
-        # 3 SELL trades, all with fill_price * qty - commission > 0 => 100%
-        assert wr == 1.0
+        # 1 winner out of 2 round-trips
+        assert wr == 0.5
 
     def test_profit_factor(self):
         svc = self._make_service()
         trades = [
+            {"side": "BUY", "fill_price": 80, "filled_qty": 10, "commission": 5},
             {"side": "SELL", "fill_price": 110, "filled_qty": 10, "commission": 5},  # profit
-            {"side": "SELL", "fill_price": 0.1, "filled_qty": 10, "commission": 5},  # loss
+            {"side": "BUY", "fill_price": 100, "filled_qty": 10, "commission": 5},
+            {"side": "SELL", "fill_price": 90, "filled_qty": 10, "commission": 5},   # loss
         ]
         pf = svc._profit_factor(trades)
-        assert pf > 1  # Profitable trades outweigh
+        assert pf > 1  # Profitable trade ($295) outweighs loss ($105)
 
     def test_compute_alpha(self):
         svc = self._make_service()
@@ -654,14 +545,6 @@ class TestCommandHandler:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_symbols(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("symbols")
-        assert "RELIANCE.NSE" in result
-        assert "AAPL.NASDAQ" in result
-
-    @pytest.mark.asyncio
     async def test_config(self):
         from app.tui.commands import CommandHandler
         cmd = CommandHandler()
@@ -690,45 +573,6 @@ class TestCommandHandler:
         assert not cmd.should_quit
         await cmd.handle("quit")
         assert cmd.should_quit
-
-    @pytest.mark.asyncio
-    async def test_mode_display(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("mode")
-        assert "PAPER_TRADING" in result
-
-    @pytest.mark.asyncio
-    async def test_mode_change(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("mode HUMAN_APPROVAL")
-        assert "HUMAN_APPROVAL" in result
-        # Reset
-        await cmd.handle("mode PAPER_TRADING")
-
-    @pytest.mark.asyncio
-    async def test_mode_invalid(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("mode INVALID_MODE")
-        assert "Invalid mode" in result
-
-    @pytest.mark.asyncio
-    async def test_risk_tolerance(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("risk-tolerance 15.0")
-        assert "15.0" in result
-        # Reset
-        await cmd.handle("risk-tolerance 10.0")
-
-    @pytest.mark.asyncio
-    async def test_risk_tolerance_invalid(self):
-        from app.tui.commands import CommandHandler
-        cmd = CommandHandler()
-        result = await cmd.handle("risk-tolerance abc")
-        assert "Invalid" in result
 
     @pytest.mark.asyncio
     async def test_performance_invalid_period(self):
@@ -1365,132 +1209,6 @@ class TestCoinGeckoFeedIntegration:
         mock_client.get.assert_not_called()
 
 
-class TestPolygonFeedIntegration:
-    """Polygon.io feed correctly uses API key and makes real HTTP calls."""
-
-    def test_disabled_without_api_key(self):
-        """Feed is disabled when polygon_api_key is empty."""
-        from app.data_layer.polygon_feed import PolygonFeed
-        feed = PolygonFeed()
-        # Default settings have empty polygon_api_key
-        assert feed._enabled is False
-
-    @pytest.mark.asyncio
-    async def test_connect_skips_when_disabled(self):
-        """connect() returns without setting _is_connected when no key."""
-        from app.data_layer.polygon_feed import PolygonFeed
-        feed = PolygonFeed()
-        await feed.connect()
-        assert feed.is_connected is False
-
-    @pytest.mark.asyncio
-    async def test_get_ohlcv_sends_api_key(self):
-        """Verify API key is included as query param in requests."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        from app.data_layer.polygon_feed import PolygonFeed
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [
-                {
-                    "t": 1711900000000,
-                    "o": 170.0,
-                    "h": 175.0,
-                    "l": 169.0,
-                    "c": 174.5,
-                    "v": 50000000,
-                }
-            ]
-        }
-
-        mock_client_instance = AsyncMock()
-        mock_client_instance.get = AsyncMock(return_value=mock_response)
-        mock_client_instance.__aenter__ = AsyncMock(
-            return_value=mock_client_instance
-        )
-        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
-
-        # The feed reads settings.polygon_api_key at call time.
-        # Patch settings to provide a key.
-        feed = PolygonFeed()
-        with patch(
-            "app.data_layer.polygon_feed.settings"
-        ) as mock_settings:
-            mock_settings.polygon_api_key = "test-polygon-key-12345"
-
-            with patch(
-                "app.data_layer.polygon_feed.httpx.AsyncClient",
-                return_value=mock_client_instance,
-            ):
-                bars = await feed.get_ohlcv("AAPL", "2026-03-01", "2026-03-31")
-
-        # Verify API key was included in the request params
-        call_args = mock_client_instance.get.call_args
-        params = call_args.kwargs.get("params", {})
-        assert params.get("apiKey") == "test-polygon-key-12345"
-
-        assert len(bars) == 1
-        assert bars[0].close == 174.5
-        assert bars[0].symbol == "AAPL"
-
-
-class TestForexFeedIntegration:
-    """Forex feed uses yfinance for real USD/INR rates."""
-
-    def test_fetch_sync_calls_yfinance(self):
-        """Verify _fetch_sync calls yfinance with USDINR=X ticker."""
-        from unittest.mock import MagicMock, patch
-
-        import pandas as pd
-
-        from app.data_layer.forex_feed import ForexFeed
-
-        idx = pd.DatetimeIndex([pd.Timestamp("2026-03-31 15:30")])
-        mock_df = pd.DataFrame({"Close": [83.45]}, index=idx)
-
-        mock_ticker = MagicMock()
-        mock_ticker.history.return_value = mock_df
-
-        with patch("app.data_layer.forex_feed.yf.Ticker", return_value=mock_ticker) as mk:
-            rate = ForexFeed._fetch_sync()
-            mk.assert_called_once_with("USDINR=X")
-
-        assert rate == 83.45
-
-    def test_fetch_sync_empty_df_uses_fast_info(self):
-        """When history is empty, falls back to fast_info.last_price."""
-        from unittest.mock import MagicMock, patch
-
-        import pandas as pd
-
-        from app.data_layer.forex_feed import ForexFeed
-
-        mock_ticker = MagicMock()
-        mock_ticker.history.return_value = pd.DataFrame()
-        mock_ticker.fast_info.last_price = 83.50
-
-        with patch("app.data_layer.forex_feed.yf.Ticker", return_value=mock_ticker):
-            rate = ForexFeed._fetch_sync()
-
-        assert rate == 83.50
-
-    def test_fetch_sync_exception_returns_none(self):
-        """When yfinance raises, returns None (graceful degradation)."""
-        from unittest.mock import patch
-
-        from app.data_layer.forex_feed import ForexFeed
-
-        with patch(
-            "app.data_layer.forex_feed.yf.Ticker",
-            side_effect=Exception("network error"),
-        ):
-            rate = ForexFeed._fetch_sync()
-
-        assert rate is None
-
-
 class TestLLMProviderRegistry:
     """LLM provider registry correctly registers/queries providers."""
 
@@ -1871,100 +1589,6 @@ class TestAlpacaBrokerIntegration:
         assert result is None
 
 
-class TestZerodhaBrokerIntegration:
-    """Zerodha broker uses Kite Connect API with proper auth."""
-
-    @pytest.mark.asyncio
-    async def test_mock_mode_uses_paper_broker(self):
-        """In mock mode, orders go to PaperBroker, not Kite API."""
-        from unittest.mock import AsyncMock, patch
-
-        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-
-        broker = ZerodhaBroker()
-
-        with patch(
-            "app.agents.front_office.trading.zerodha_broker.settings"
-        ) as mock_s:
-            mock_s.zerodha_mock_mode = True
-
-            # Mock the paper broker
-            mock_paper = AsyncMock()
-            mock_paper.execute = AsyncMock(return_value={
-                "order_id": "test",
-                "fill_price": 2450.0,
-                "filled_qty": 10,
-            })
-            broker._paper = mock_paper
-
-            result = await broker.execute({
-                "symbol": "RELIANCE.NSE",
-                "side": "BUY",
-                "quantity": 10,
-                "id": "test",
-            })
-
-        assert result is not None
-        assert result["broker"] == "ZERODHA_MOCK"
-
-    @pytest.mark.asyncio
-    async def test_live_mode_sends_kite_headers(self):
-        """In live mode, Kite Connect auth headers are sent."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-
-        broker = ZerodhaBroker()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"order_id": "kite-order-789"}
-        }
-
-        mock_client = AsyncMock()
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        # Mock the fill polling
-        mock_status_resp = MagicMock()
-        mock_status_resp.status_code = 200
-        mock_status_resp.json.return_value = {
-            "data": [{"status": "COMPLETE", "filled_quantity": 10, "average_price": 2450}]
-        }
-        mock_client.get = AsyncMock(return_value=mock_status_resp)
-
-        with patch(
-            "app.agents.front_office.trading.zerodha_broker.settings"
-        ) as mock_s:
-            mock_s.zerodha_mock_mode = False
-            mock_s.zerodha_api_key = "KITE_KEY_123"
-            mock_s.zerodha_api_secret = "KITE_SECRET_456"
-            mock_s.zerodha_access_token = "ACCESS_TOKEN_789"
-
-            with patch(
-                "app.agents.front_office.trading.zerodha_broker.httpx.AsyncClient",
-                return_value=mock_client,
-            ):
-                result = await broker.execute({
-                    "symbol": "RELIANCE.NSE",
-                    "side": "BUY",
-                    "quantity": 10,
-                    "order_type": "MARKET",
-                    "id": "test-order-1",
-                })
-
-        # Verify auth header format: "token {api_key}:{access_token}"
-        call_kwargs = mock_client.post.call_args.kwargs
-        headers = call_kwargs.get("headers", {})
-        assert headers["Authorization"] == "token KITE_KEY_123:ACCESS_TOKEN_789"
-        assert headers["X-Kite-Version"] == "3"
-
-        assert result is not None
-        assert result["broker"] == "ZERODHA"
-
-
 class TestAlpacaFeedIntegration:
     """Alpaca feed checks for API key and uses proper auth."""
 
@@ -2015,49 +1639,6 @@ class TestAlpacaFeedIntegration:
 
         assert headers["APCA-API-KEY-ID"] == "MY_KEY"
         assert headers["APCA-API-SECRET-KEY"] == "MY_SECRET"
-
-
-class TestZerodhaFeedIntegration:
-    """Zerodha feed handles mock/live modes correctly."""
-
-    @pytest.mark.asyncio
-    async def test_mock_mode_generates_ticks(self):
-        """In mock mode, feed generates random ticks (no real connection)."""
-        from unittest.mock import patch
-
-        from app.data_layer.zerodha_feed import ZerodhaFeed
-
-        feed = ZerodhaFeed()
-
-        with patch("app.data_layer.zerodha_feed.settings") as mock_s:
-            mock_s.zerodha_mock_mode = True
-            await feed.connect()
-
-        assert feed.is_connected is True
-
-        tick = feed._generate_mock_tick("RELIANCE")
-        assert tick.symbol == "RELIANCE"
-        assert tick.exchange == "NSE"
-        assert tick.currency == "INR"
-        assert tick.last_price > 0
-        await feed.disconnect()
-
-    @pytest.mark.asyncio
-    async def test_live_mode_needs_credentials(self):
-        """Live mode refuses to connect without api_key + access_token."""
-        from unittest.mock import patch
-
-        from app.data_layer.zerodha_feed import ZerodhaFeed
-
-        feed = ZerodhaFeed()
-
-        with patch("app.data_layer.zerodha_feed.settings") as mock_s:
-            mock_s.zerodha_mock_mode = False
-            mock_s.zerodha_api_key = ""
-            mock_s.zerodha_access_token = ""
-            await feed.connect()
-
-        assert feed.is_connected is False
 
 
 class TestNewsAPIIntegration:
@@ -2246,39 +1827,103 @@ class TestDataManagerFeedWiring:
     """DataManager correctly instantiates and wires all feeds."""
 
     def test_all_feeds_instantiated(self):
-        """DataManager creates instances of all feed types."""
+        """DataManager creates instances of Yahoo, Alpaca, and CoinGecko feeds."""
         from app.data_layer.alpaca_feed import AlpacaFeed
         from app.data_layer.crypto_feed import CryptoFeed
         from app.data_layer.data_manager import DataManager
-        from app.data_layer.forex_feed import ForexFeed
-        from app.data_layer.polygon_feed import PolygonFeed
         from app.data_layer.yahoo_feed import YahooFeed
-        from app.data_layer.zerodha_feed import ZerodhaFeed
 
         dm = DataManager()
         assert isinstance(dm.yahoo_feed, YahooFeed)
         assert isinstance(dm.alpaca_feed, AlpacaFeed)
-        assert isinstance(dm.zerodha_feed, ZerodhaFeed)
         assert isinstance(dm.crypto_feed, CryptoFeed)
-        assert isinstance(dm.forex_feed, ForexFeed)
-        assert isinstance(dm.polygon_feed, PolygonFeed)
 
-    def test_feeds_list_has_five_entries(self):
-        """Internal _feeds list contains exactly 5 feeds (all except forex)."""
+    def test_feeds_list_has_three_entries(self):
+        """Internal _feeds list contains exactly 3 feeds."""
         from app.data_layer.data_manager import DataManager
         dm = DataManager()
-        assert len(dm._feeds) == 5
+        assert len(dm._feeds) == 3
 
 
-class TestCircuitBreakerOnFeeds:
-    """Data ingestion worker wraps feeds with circuit breakers."""
+class TestDataIngestionWorker:
+    """DataIngestionWorker initializes correctly."""
 
-    def test_worker_has_circuit_breakers(self):
-        """DataIngestionWorker creates circuit breakers for all feed types."""
+    def test_worker_initializes(self):
+        """DataIngestionWorker can be created without errors."""
         from app.workers.data_ingestion_worker import DataIngestionWorker
         worker = DataIngestionWorker()
-        assert worker._yahoo_cb.name == "yahoo"
-        assert worker._crypto_cb.name == "coingecko"
-        assert worker._forex_cb.name == "forex"
-        assert worker._yahoo_cb.failure_threshold == 5
-        assert worker._forex_cb.failure_threshold == 3
+        assert worker.data_manager is not None
+        assert not worker._running
+
+
+# =====================================================================
+# 13. E2E Pipeline: KV price tick → debate → DEBATE_CONCLUSION
+# =====================================================================
+
+
+@pytest.mark.asyncio
+async def test_full_pipeline_single_provider():
+    """E2E: price tick in KV store → strategy signal → debate (1 provider) → portfolio order.
+
+    All external calls mocked. Verifies the full pipeline works end-to-end
+    with a single LLM provider configured.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.core.kv_store import MemoryKVStore
+    from app.core.memory_bus import MemoryBus
+    from app.core.messaging import AgentMessage, MessageType
+    from app.llm.provider_registry import ProviderRegistry
+
+    # Set up bus and KV store
+    bus = MemoryBus()
+    await bus.start_listening()
+    kv = MemoryKVStore()
+
+    # Seed price into KV store
+    await kv.set("horizon:price:AAPL", "155.00")
+    assert await kv.get("horizon:price:AAPL") == "155.00"
+
+    # Single mock LLM provider — all 4 roles will round-robin to this one
+    provider = MagicMock()
+    provider.provider_name = "claude"
+    provider.complete = AsyncMock(
+        return_value='{"argument": "Strong momentum", "vote": "FOR", "confidence": 0.85}'
+    )
+
+    registry = ProviderRegistry()
+    registry._providers["claude"] = provider
+
+    # Collect published messages
+    published: list[AgentMessage] = []
+
+    async def capture(msg: AgentMessage) -> None:
+        published.append(msg)
+
+    await bus.subscribe("horizon.*", capture)
+
+    # Run debate with single provider
+    from app.agents.debate.multi_model_debate import MultiModelDebateEngine
+
+    engine = MultiModelDebateEngine(registry=registry, bus=bus, max_rounds=2)
+
+    result = await engine.run_debate(
+        symbol="AAPL",
+        action="BUY",
+        signal_data={"strength": 0.9, "strategy_name": "momentum"},
+    )
+
+    await asyncio.sleep(0.1)
+
+    # Two rounds × 4 roles = 8 arguments
+    assert result.rounds == 2
+    assert len(result.arguments) == 8
+    # All arguments should come from the single "claude" provider
+    assert all(a.provider == "claude" for a in result.arguments)
+    # Decision: all 8 votes FOR with confidence 0.85 → well above thresholds
+    assert result.decision == "APPROVED"
+    assert result.consensus_score > MultiModelDebateEngine.APPROVAL_THRESHOLD
+    # DEBATE_CONCLUSION must have been published to the bus
+    assert any(m.message_type == MessageType.DEBATE_CONCLUSION for m in published)
+
+    await bus.stop()

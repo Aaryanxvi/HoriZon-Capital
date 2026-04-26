@@ -1,19 +1,9 @@
 """Multi-model debate engine with perspective rotation.
 
 Extends the base debate engine to use multiple LLM providers (Claude, GPT,
-Gemini) in a structured multi-round debate with perspective rotation.
-
-Research references
--------------------
-- Du et al. ICML 2024, "Improving Factuality and Reasoning in Language Models
-  through Multiagent Debate" — each agent proposes, then reads other agents'
-  responses and refines; factual accuracy improves over 2-3 rounds.
-- Estornell et al. NeurIPS 2024, "Hypothesis Testing the Circuit Hypothesis"
-  — perspective rotation intervention: forcing models to argue from assigned
-  viewpoints (even contrary ones) reduces groupthink and improves calibration.
-- Liang et al. 2023, "Encouraging Divergent Thinking in Large Language Models
-  through Multi-Agent Debate" — diversity of model architectures (GPT vs Claude
-  vs Gemini) produces more calibrated confidence scores than single-model debate.
+Gemini) in a structured multi-round debate. Each provider is assigned a
+distinct debater role (bull, bear, risk, neutral) to reduce groupthink
+and produce more balanced trade decisions.
 """
 
 from __future__ import annotations
@@ -25,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 from app.llm.base_provider import BaseLLMProvider
@@ -42,7 +33,7 @@ def _get_debate_engine():
     return DEBATER_ROLES, DebateArgument, DebateResult, _build_user_prompt
 
 
-# Duplicate core constants/classes here so module can import without anthropic
+# Debater role definitions (mirrors debate_engine.py for lazy-import compatibility)
 DEBATER_ROLES: dict[str, str] = {
     "STRATEGY": (
         "You are an aggressive growth-focused trader. Analyze the technical "
@@ -118,11 +109,11 @@ logger = get_logger("debate.multi_model")
 
 
 # ------------------------------------------------------------------
-# Perspective rotation matrix (Estornell et al. NeurIPS 2024)
+# Perspective rotation matrix
 # ------------------------------------------------------------------
 # In round 2, each debater argues from a DIFFERENT perspective than
 # round 1. This forces models to consider opposing viewpoints and
-# reduces confirmation bias / groupthink.
+# reduces confirmation bias.
 
 ROTATION_MATRIX: dict[str, str] = {
     "STRATEGY": "RISK",       # Bull argues bear case
@@ -162,9 +153,8 @@ async def _call_provider(
 ) -> dict[str, Any]:
     """Call any LLM provider and parse the structured response.
 
-    Du et al. ICML 2024: Each agent produces a JSON response with
-    {argument, vote, confidence}. The structured format enables
-    automated aggregation across heterogeneous models.
+    Each agent produces a JSON response with {argument, vote, confidence}.
+    The structured format enables automated aggregation across providers.
     """
     messages = [{"role": "user", "content": user_prompt}]
 
@@ -223,18 +213,18 @@ def _parse_debate_response(raw: str) -> dict[str, Any]:
 class MultiModelDebateEngine:
     """Orchestrates multi-model, multi-round debates with perspective rotation.
 
-    Du et al. ICML 2024 protocol:
-    1. Round 1: Each debater (role) argues from their assigned perspective.
-       Different LLM providers are assigned to different roles for diversity.
-    2. Round 2 (perspective rotation, Estornell et al. 2024): Each debater
-       argues from the OPPOSITE perspective, having seen round 1 arguments.
-       This forces genuine consideration of counterarguments.
-    3. Final vote: All arguments from both rounds are aggregated.
-       Confidence-weighted consensus determines the decision.
+    Round 1: Each debater (role) argues from their assigned perspective.
+    Different LLM providers are assigned to different roles for diversity.
+
+    Round 2 (perspective rotation): Each debater argues from the OPPOSITE
+    perspective, having seen round 1 arguments. This forces genuine
+    consideration of counterarguments and reduces groupthink.
+
+    Final vote: All arguments from both rounds are aggregated.
+    Confidence-weighted consensus determines the decision.
 
     Approval requires:
-    - consensus_score > 0.55 (slightly lower than single-round since
-      rotation naturally produces more balanced scores)
+    - consensus_score > 0.55
     - At least 60% of total votes are FOR
     """
 
@@ -251,15 +241,29 @@ class MultiModelDebateEngine:
         self.bus = bus
         self.max_rounds = max_rounds
 
+    # Role-to-config-field mapping for pinning lookups
+    _ROLE_PIN_FIELDS: dict[str, str] = {
+        "STRATEGY": "debate_role_strategy",
+        "RISK": "debate_role_risk",
+        "SENTIMENT": "debate_role_sentiment",
+        "PORTFOLIO": "debate_role_portfolio",
+    }
+
     def _assign_providers(
         self,
         allowed_providers: list[str] | None = None,
     ) -> dict[str, BaseLLMProvider]:
         """Assign available LLM providers to debater roles.
 
-        Liang et al. 2023: Architectural diversity (different model
-        families) improves calibration. We distribute available
-        providers across roles round-robin.
+        Supports two assignment modes:
+
+        1. **Pinned** -- When ``settings.debate_role_<role>`` is set to a
+           specific provider name (e.g. ``"claude"``), that role always uses
+           the named provider.  If the pinned provider is not available, falls
+           back to round-robin.
+        2. **Auto (round-robin)** -- Distributes available providers across
+           unpinned roles so different model families argue different
+           perspectives.  With a single provider, all roles get that provider.
 
         Parameters
         ----------
@@ -282,11 +286,31 @@ class MultiModelDebateEngine:
         providers: dict[str, BaseLLMProvider] = {}
         roles = list(DEBATER_ROLES.keys())
 
-        for i, role in enumerate(roles):
-            provider_name = available[i % len(available)]
+        # First pass: honour pinned roles from config
+        rr_index = 0
+        for role in roles:
+            pin_field = self._ROLE_PIN_FIELDS.get(role, "")
+            pinned_name = getattr(settings, pin_field, "auto") if pin_field else "auto"
+
+            if pinned_name and pinned_name != "auto":
+                pinned_provider = self.registry.get_provider(pinned_name)
+                if pinned_provider is not None:
+                    providers[role] = pinned_provider
+                    continue
+                # Pinned provider unavailable -- fall through to round-robin
+                logger.warning(
+                    "pinned_provider_unavailable",
+                    role=role,
+                    pinned=pinned_name,
+                    available=available,
+                )
+
+            # Round-robin assignment
+            provider_name = available[rr_index % len(available)]
             provider = self.registry.get_provider(provider_name)
             if provider is not None:
                 providers[role] = provider
+            rr_index += 1
 
         return providers
 
@@ -300,11 +324,7 @@ class MultiModelDebateEngine:
         risk_metrics: dict[str, Any] | None = None,
         allowed_providers: list[str] | None = None,
     ) -> MultiModelDebateResult:
-        """Execute a multi-model, multi-round debate.
-
-        Du et al. ICML 2024 multi-round protocol with Estornell et al.
-        NeurIPS 2024 perspective rotation.
-        """
+        """Execute a multi-model, multi-round debate."""
         session_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
@@ -351,12 +371,11 @@ class MultiModelDebateEngine:
         round_arguments[1] = r1_args
 
         # ------------------------------------------------------------------
-        # Round 2: Perspective rotation (Estornell et al. NeurIPS 2024)
+        # Round 2: Perspective rotation
         # Each debater sees round 1 arguments and argues from the
-        # OPPOSITE perspective. This reduces groupthink and forces
-        # genuine consideration of counterarguments.
+        # OPPOSITE perspective. This reduces groupthink.
         # ------------------------------------------------------------------
-        if self.max_rounds >= 2 and len(provider_map) >= 2:
+        if self.max_rounds >= 2:
             # Build rotated roles
             rotated_roles: dict[str, str] = {}
             for role in DEBATER_ROLES:
@@ -376,7 +395,7 @@ class MultiModelDebateEngine:
             round_arguments[2] = r2_args
 
         # ------------------------------------------------------------------
-        # Aggregate votes (Du et al. 2024: confidence-weighted consensus)
+        # Aggregate votes (confidence-weighted consensus)
         # ------------------------------------------------------------------
         for_votes = [a for a in all_arguments if a.vote == "FOR"]
         against_votes = [a for a in all_arguments if a.vote == "AGAINST"]
@@ -466,9 +485,8 @@ class MultiModelDebateEngine:
     ) -> list[MultiModelArgument]:
         """Run a single debate round with all debaters in parallel.
 
-        Du et al. ICML 2024: In rounds > 1, each agent sees the previous
-        round's arguments appended to the user prompt. This enables
-        genuine deliberation rather than independent generation.
+        In rounds > 1, each agent sees the previous round's arguments
+        appended to the user prompt, enabling genuine deliberation.
         """
         # Build round prompt
         round_prompt = user_prompt

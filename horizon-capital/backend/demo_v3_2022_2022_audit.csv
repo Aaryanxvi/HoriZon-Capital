@@ -1,0 +1,1363 @@
+date,agent,symbol,signal,strength,reason,nav
+2022-01-03,regime,SPY,2,1.0,regime=STRONG,100000.0
+2022-01-03,tsmom_short,SPY,1,0.1825598051501337,long=+23.3% short=+10.7% vol=14%,100000.0
+2022-01-03,tsmom_short,QQQ,1,0.18988311014001924,long=+23.3% short=+12.5% vol=18%,100000.0
+2022-01-03,tsmom_short,AAPL,1,0.2624555358024779,long=+24.3% short=+29.2% vol=24%,100000.0
+2022-01-03,tsmom_short,MSFT,1,0.3614369739887775,long=+49.5% short=+16.1% vol=22%,100000.0
+2022-01-03,tsmom_short,NVDA,1,0.9642333998136395,long=+129.2% short=+47.3% vol=57%,100000.0
+2022-01-03,tsmom_short,GOOGL,1,0.4056662042221988,long=+63.2% short=+6.6% vol=24%,100000.0
+2022-01-03,tsmom_short,AMZN,1,0.0551640430353404,long=+5.3% short=+5.8% vol=25%,100000.0
+2022-01-03,tsmom_short,META,1,0.08612927311856175,long=+13.2% short=+1.7% vol=31%,100000.0
+2022-01-03,tsmom_short,TSLA,1,0.4432297324533223,long=+38.1% short=+53.7% vol=68%,100000.0
+2022-01-03,tsmom_short,JPM,1,0.15279580138883836,long=+28.2% short=-4.1% vol=20%,100000.0
+2022-01-03,tsmom_short,AVGO,1,0.35042806058975295,long=+33.4% short=+37.5% vol=29%,100000.0
+2022-01-03,tsmom_short,XLE,1,0.2832315660069421,long=+43.7% short=+5.3% vol=26%,100000.0
+2022-01-03,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +68.4% → 10% sleeve,100000.0
+2022-01-03,vol_target,PORTFOLIO,1,0.71,port_vol~33.8% target=20% scale=0.71,100000.0
+2022-01-04,regime,SPY,2,1.0,regime=STRONG,98188.26
+2022-01-04,tsmom_short,SPY,1,0.18489265546478842,long=+24.0% short=+10.2% vol=14%,98188.26
+2022-01-04,tsmom_short,QQQ,1,0.19761638000977907,long=+26.0% short=+10.4% vol=18%,98188.26
+2022-01-04,tsmom_short,AAPL,1,0.2952733423477824,long=+31.4% short=+26.7% vol=24%,98188.26
+2022-01-04,tsmom_short,MSFT,1,0.3796343609291825,long=+55.0% short=+12.5% vol=22%,98188.26
+2022-01-04,tsmom_short,NVDA,1,0.9959966390521563,long=+138.3% short=+41.5% vol=57%,98188.26
+2022-01-04,tsmom_short,GOOGL,1,0.41695916561863156,long=+66.2% short=+5.0% vol=24%,98188.26
+2022-01-04,tsmom_short,AMZN,1,0.0660931390859766,long=+9.2% short=+2.7% vol=26%,98188.26
+2022-01-04,tsmom_short,META,1,0.1277896340200199,long=+20.7% short=+0.9% vol=31%,98188.26
+2022-01-04,tsmom_short,TSLA,1,0.3882849434700091,long=+33.5% short=+46.9% vol=68%,98188.26
+2022-01-04,tsmom_short,JPM,1,0.1406640654002154,long=+23.9% short=-0.7% vol=21%,98188.26
+2022-01-04,tsmom_short,AVGO,1,0.3677702237351087,long=+35.9% short=+38.1% vol=29%,98188.26
+2022-01-04,tsmom_short,XLE,1,0.28936759784039445,long=+41.5% short=+10.1% vol=26%,98188.26
+2022-01-04,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +79.8% → 10% sleeve,98188.26
+2022-01-04,vol_target,PORTFOLIO,1,0.723,port_vol~33.2% target=20% scale=0.72,98188.26
+2022-01-05,regime,SPY,2,1.0,regime=STRONG,93734.1
+2022-01-05,tsmom_short,SPY,1,0.1769962019053997,long=+24.7% short=+7.2% vol=14%,93734.1
+2022-01-05,tsmom_short,QQQ,1,0.18453494459913966,long=+26.7% short=+6.0% vol=19%,93734.1
+2022-01-05,tsmom_short,AAPL,1,0.2783550338629205,long=+31.6% short=+22.3% vol=25%,93734.1
+2022-01-05,tsmom_short,MSFT,1,0.35828343205615415,long=+54.7% short=+7.5% vol=24%,93734.1
+2022-01-05,tsmom_short,NVDA,1,0.9833056909709524,long=+143.2% short=+31.0% vol=59%,93734.1
+2022-01-05,tsmom_short,GOOGL,1,0.39182893906465177,long=+66.0% short=-1.0% vol=25%,93734.1
+2022-01-05,tsmom_short,AMZN,1,0.06667016472817822,long=+11.4% short=-0.5% vol=26%,93734.1
+2022-01-05,tsmom_short,META,1,0.11458327156772644,long=+20.1% short=-1.5% vol=32%,93734.1
+2022-01-05,tsmom_short,TSLA,1,0.3217483306697253,long=+28.9% short=+37.1% vol=70%,93734.1
+2022-01-05,tsmom_short,JPM,1,0.11814241003757801,long=+21.8% short=-3.1% vol=21%,93734.1
+2022-01-05,tsmom_short,AVGO,1,0.3414937267477893,long=+36.2% short=+31.0% vol=30%,93734.1
+2022-01-05,tsmom_short,XLE,1,0.2932259316919688,long=+42.7% short=+9.2% vol=26%,93734.1
+2022-01-05,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +82.8% → 10% sleeve,93734.1
+2022-01-05,vol_target,PORTFOLIO,1,0.915,port_vol~26.2% target=20% scale=0.92,93734.1
+2022-01-06,regime,SPY,2,1.0,regime=STRONG,94017.47
+2022-01-06,tsmom_short,SPY,1,0.17510627256450154,long=+24.4% short=+7.2% vol=14%,94017.47
+2022-01-06,tsmom_short,QQQ,1,0.18006596916396056,long=+25.7% short=+6.5% vol=19%,94017.47
+2022-01-06,tsmom_short,AAPL,1,0.28257927420390117,long=+33.4% short=+20.5% vol=25%,94017.47
+2022-01-06,tsmom_short,MSFT,1,0.3494016972945513,long=+53.8% short=+6.6% vol=24%,94017.47
+2022-01-06,tsmom_short,NVDA,1,0.9806743165601729,long=+139.9% short=+35.3% vol=59%,94017.47
+2022-01-06,tsmom_short,GOOGL,1,0.3832706500615047,long=+64.9% short=-1.5% vol=25%,94017.47
+2022-01-06,tsmom_short,AMZN,1,0.06132006970645148,long=+10.7% short=-0.7% vol=26%,94017.47
+2022-01-06,tsmom_short,META,1,0.14416989214017123,long=+23.5% short=+0.7% vol=32%,94017.47
+2022-01-06,tsmom_short,TSLA,1,0.27100370186713046,long=+21.5% short=+35.5% vol=70%,94017.47
+2022-01-06,tsmom_short,JPM,1,0.1128033343286956,long=+20.3% short=-2.2% vol=21%,94017.47
+2022-01-06,tsmom_short,AVGO,1,0.33109317200536414,long=+35.1% short=+30.1% vol=30%,94017.47
+2022-01-06,tsmom_short,XLE,1,0.2905092297950508,long=+42.9% short=+8.3% vol=26%,94017.47
+2022-01-06,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +78.4% → 10% sleeve,94017.47
+2022-01-06,vol_target,PORTFOLIO,1,0.914,port_vol~26.2% target=20% scale=0.91,94017.47
+2022-01-07,regime,SPY,2,1.0,regime=STRONG,92926.46
+2022-01-07,tsmom_short,SPY,1,0.1765180382715898,long=+24.4% short=+7.6% vol=14%,92926.46
+2022-01-07,tsmom_short,QQQ,1,0.1785061077457288,long=+25.7% short=+6.1% vol=20%,92926.46
+2022-01-07,tsmom_short,AAPL,1,0.29997800985212025,long=+36.2% short=+20.7% vol=25%,92926.46
+2022-01-07,tsmom_short,MSFT,1,0.3543541601773017,long=+54.4% short=+6.9% vol=24%,92926.46
+2022-01-07,tsmom_short,NVDA,1,0.8709008900888606,long=+124.0% short=+31.7% vol=59%,92926.46
+2022-01-07,tsmom_short,GOOGL,1,0.4032900470806888,long=+68.1% short=-1.4% vol=25%,92926.46
+2022-01-07,tsmom_short,AMZN,1,0.07172294733740607,long=+11.9% short=+0.1% vol=26%,92926.46
+2022-01-07,tsmom_short,META,1,0.17827970069881116,long=+28.4% short=+1.9% vol=32%,92926.46
+2022-01-07,tsmom_short,TSLA,1,0.26117073736648544,long=+23.7% short=+29.7% vol=70%,92926.46
+2022-01-07,tsmom_short,JPM,1,0.11345432772601532,long=+18.3% short=+0.9% vol=21%,92926.46
+2022-01-07,tsmom_short,AVGO,1,0.3097159442821018,long=+33.9% short=+26.6% vol=31%,92926.46
+2022-01-07,tsmom_short,XLE,1,0.2783638049031514,long=+39.6% short=+10.2% vol=26%,92926.46
+2022-01-07,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +78.6% → 10% sleeve,92926.46
+2022-01-07,vol_target,PORTFOLIO,1,0.92,port_vol~26.1% target=20% scale=0.92,92926.46
+2022-01-10,regime,SPY,2,1.0,regime=STRONG,93504.43
+2022-01-10,tsmom_short,SPY,1,0.18390794142556305,long=+25.5% short=+7.7% vol=14%,93504.43
+2022-01-10,tsmom_short,QQQ,1,0.1896824348687392,long=+27.2% short=+6.6% vol=19%,93504.43
+2022-01-10,tsmom_short,AAPL,1,0.32853279935802493,long=+40.2% short=+21.9% vol=25%,93504.43
+2022-01-10,tsmom_short,MSFT,1,0.3942509949780222,long=+60.7% short=+7.5% vol=23%,93504.43
+2022-01-10,tsmom_short,NVDA,1,0.8751011456829815,long=+124.1% short=+32.6% vol=59%,93504.43
+2022-01-10,tsmom_short,GOOGL,1,0.4287190296624462,long=+70.4% short=+1.6% vol=25%,93504.43
+2022-01-10,tsmom_short,AMZN,1,0.060008507516127234,long=+10.4% short=-0.5% vol=26%,93504.43
+2022-01-10,tsmom_short,META,1,0.19327706001601402,long=+31.3% short=+1.3% vol=32%,93504.43
+2022-01-10,tsmom_short,TSLA,1,0.24368090422587768,long=+19.7% short=+31.3% vol=70%,93504.43
+2022-01-10,tsmom_short,JPM,1,0.10319640003775873,long=+16.0% short=+1.8% vol=21%,93504.43
+2022-01-10,tsmom_short,AVGO,1,0.37818386301584433,long=+43.8% short=+28.8% vol=30%,93504.43
+2022-01-10,tsmom_short,XLE,1,0.2543172582793052,long=+35.8% short=+9.8% vol=26%,93504.43
+2022-01-10,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +85.0% → 10% sleeve,93504.43
+2022-01-10,vol_target,PORTFOLIO,1,0.949,port_vol~25.3% target=20% scale=0.95,93504.43
+2022-01-11,regime,SPY,2,1.0,regime=STRONG,94542.91
+2022-01-11,tsmom_short,SPY,1,0.1775993777971262,long=+24.1% short=+8.3% vol=14%,94542.91
+2022-01-11,tsmom_short,QQQ,1,0.17657284942443752,long=+24.6% short=+7.3% vol=19%,94542.91
+2022-01-11,tsmom_short,AAPL,1,0.30828240046775507,long=+35.1% short=+24.4% vol=25%,94542.91
+2022-01-11,tsmom_short,MSFT,1,0.375167562755933,long=+58.2% short=+6.5% vol=23%,94542.91
+2022-01-11,tsmom_short,NVDA,1,0.7812101937313725,long=+108.3% short=+32.9% vol=59%,94542.91
+2022-01-11,tsmom_short,GOOGL,1,0.40778964207260127,long=+66.9% short=+1.6% vol=25%,94542.91
+2022-01-11,tsmom_short,AMZN,1,0.045525595895820496,long=+7.1% short=+0.7% vol=25%,94542.91
+2022-01-11,tsmom_short,META,1,0.2096596596015245,long=+32.9% short=+3.0% vol=32%,94542.91
+2022-01-11,tsmom_short,TSLA,1,0.20358045256046609,long=+13.1% short=+31.2% vol=70%,94542.91
+2022-01-11,tsmom_short,JPM,1,0.10573630712772995,long=+14.5% short=+4.7% vol=20%,94542.91
+2022-01-11,tsmom_short,AVGO,1,0.36209618192649895,long=+41.0% short=+29.1% vol=30%,94542.91
+2022-01-11,tsmom_short,XLE,1,0.25325570944897474,long=+33.1% short=+13.6% vol=27%,94542.91
+2022-01-11,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +73.6% → 10% sleeve,94542.91
+2022-01-11,vol_target,PORTFOLIO,1,0.939,port_vol~25.6% target=20% scale=0.94,94542.91
+2022-01-12,regime,SPY,2,1.0,regime=STRONG,95573.26
+2022-01-12,tsmom_short,SPY,1,0.16906088438812342,long=+23.6% short=+6.8% vol=14%,95573.26
+2022-01-12,tsmom_short,QQQ,1,0.1667230821177167,long=+23.9% short=+5.8% vol=19%,95573.26
+2022-01-12,tsmom_short,AAPL,1,0.3055156206159228,long=+36.1% short=+22.3% vol=25%,95573.26
+2022-01-12,tsmom_short,MSFT,1,0.3538412806232466,long=+55.4% short=+5.3% vol=23%,95573.26
+2022-01-12,tsmom_short,NVDA,1,0.804227876196961,long=+114.9% short=+28.8% vol=59%,95573.26
+2022-01-12,tsmom_short,GOOGL,1,0.3984604257446922,long=+66.3% short=+0.2% vol=25%,95573.26
+2022-01-12,tsmom_short,AMZN,1,0.049317377928633756,long=+8.1% short=+0.1% vol=25%,95573.26
+2022-01-12,tsmom_short,META,1,0.22095188819380954,long=+35.9% short=+1.4% vol=32%,95573.26
+2022-01-12,tsmom_short,TSLA,1,0.22132613091396042,long=+13.4% short=+35.2% vol=70%,95573.26
+2022-01-12,tsmom_short,JPM,1,0.10299224785877356,long=+14.7% short=+3.7% vol=20%,95573.26
+2022-01-12,tsmom_short,AVGO,1,0.33821724723340907,long=+39.2% short=+25.8% vol=30%,95573.26
+2022-01-12,tsmom_short,XLE,1,0.22242031306804882,long=+28.7% short=+12.5% vol=27%,95573.26
+2022-01-12,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +71.1% → 10% sleeve,95573.26
+2022-01-12,vol_target,PORTFOLIO,1,0.932,port_vol~25.8% target=20% scale=0.93,95573.26
+2022-01-13,regime,SPY,2,1.0,regime=STRONG,91774.76
+2022-01-13,tsmom_short,SPY,1,0.17711347993750354,long=+26.5% short=+4.6% vol=14%,91774.76
+2022-01-13,tsmom_short,QQQ,1,0.17657872595310523,long=+27.8% short=+2.5% vol=20%,91774.76
+2022-01-13,tsmom_short,AAPL,1,0.3275960523197756,long=+41.9% short=+19.1% vol=25%,91774.76
+2022-01-13,tsmom_short,MSFT,1,0.3536516983706493,long=+58.7% short=+0.4% vol=25%,91774.76
+2022-01-13,tsmom_short,NVDA,1,0.9086918284161654,long=+137.1% short=+21.6% vol=60%,91774.76
+2022-01-13,tsmom_short,GOOGL,1,0.4093063032801943,long=+69.5% short=-2.0% vol=25%,91774.76
+2022-01-13,tsmom_short,AMZN,1,0.04830168218557007,long=+11.7% short=-5.4% vol=26%,91774.76
+2022-01-13,tsmom_short,META,1,0.21766594895769412,long=+35.9% short=+0.5% vol=32%,91774.76
+2022-01-13,tsmom_short,TSLA,1,0.1982677677362871,long=+18.1% short=+22.4% vol=72%,91774.76
+2022-01-13,tsmom_short,JPM,1,0.10199083006528806,long=+15.9% short=+1.6% vol=20%,91774.76
+2022-01-13,tsmom_short,AVGO,1,0.3587246111700533,long=+46.8% short=+19.4% vol=32%,91774.76
+2022-01-13,tsmom_short,XLE,1,0.24530698375294824,long=+33.3% short=+11.4% vol=27%,91774.76
+2022-01-13,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +86.9% → 10% sleeve,91774.76
+2022-01-13,vol_target,PORTFOLIO,1,0.835,port_vol~28.7% target=20% scale=0.84,91774.76
+2022-01-14,regime,SPY,2,1.0,regime=STRONG,92318.33
+2022-01-14,tsmom_short,SPY,1,0.16349679708894296,long=+24.4% short=+4.3% vol=14%,92318.33
+2022-01-14,tsmom_short,QQQ,1,0.1445696219975305,long=+22.7% short=+2.1% vol=20%,92318.33
+2022-01-14,tsmom_short,AAPL,1,0.28660138475608676,long=+35.6% short=+18.3% vol=25%,92318.33
+2022-01-14,tsmom_short,MSFT,1,0.31274139812988067,long=+51.4% short=+1.1% vol=25%,92318.33
+2022-01-14,tsmom_short,NVDA,1,0.793791707191693,long=+118.1% short=+21.3% vol=60%,92318.33
+2022-01-14,tsmom_short,GOOGL,1,0.36210941294920895,long=+61.9% short=-2.3% vol=25%,92318.33
+2022-01-14,tsmom_short,AMZN,1,0.025673469287664567,long=+8.2% short=-5.9% vol=26%,92318.33
+2022-01-14,tsmom_short,META,1,0.16548691547145736,long=+28.3% short=-1.0% vol=32%,92318.33
+2022-01-14,tsmom_short,TSLA,1,0.14103700499211305,long=+9.8% short=+20.6% vol=72%,92318.33
+2022-01-14,tsmom_short,JPM,1,0.0911058719039605,long=+18.3% short=-4.6% vol=23%,92318.33
+2022-01-14,tsmom_short,AVGO,1,0.3065837235707136,long=+38.3% short=+19.2% vol=32%,92318.33
+2022-01-14,tsmom_short,XLE,1,0.24465180763084043,long=+31.5% short=+13.9% vol=27%,92318.33
+2022-01-14,leverage_kicker,TQQQ,1,1.0,STRONG regime + TQQQ momo +65.5% → 10% sleeve,92318.33
+2022-01-14,vol_target,PORTFOLIO,1,0.88,port_vol~27.3% target=20% scale=0.88,92318.33
+2022-01-18,regime,SPY,1,1.0,regime=ON,89609.43
+2022-01-18,tsmom_short,SPY,1,0.13494954368630796,long=+21.4% short=+1.7% vol=15%,89609.43
+2022-01-18,tsmom_short,QQQ,1,0.11108724745744061,long=+19.3% short=-1.2% vol=21%,89609.43
+2022-01-18,tsmom_short,AAPL,1,0.23976758802868853,long=+30.4% short=+14.3% vol=26%,89609.43
+2022-01-18,tsmom_short,MSFT,1,0.2667430621297471,long=+45.5% short=-1.6% vol=26%,89609.43
+2022-01-18,tsmom_short,NVDA,1,0.713994100981057,long=+108.2% short=+16.2% vol=60%,89609.43
+2022-01-18,tsmom_short,GOOGL,1,0.2843784311084188,long=+50.8% short=-5.1% vol=25%,89609.43
+2022-01-18,tsmom_short,AMZN,-1,0.005686679932153705,long=+4.2% short=-7.7% vol=26%,89609.43
+2022-01-18,tsmom_short,META,1,0.1230488949473029,long=+24.8% short=-6.4% vol=33%,89609.43
+2022-01-18,tsmom_short,TSLA,1,0.13487527682088024,long=+9.7% short=+19.2% vol=72%,89609.43
+2022-01-18,tsmom_short,JPM,1,0.06514196709107731,long=+17.3% short=-9.7% vol=25%,89609.43
+2022-01-18,tsmom_short,AVGO,1,0.29965125970530443,long=+40.7% short=+13.9% vol=32%,89609.43
+2022-01-18,tsmom_short,XLE,1,0.22247224644316466,long=+28.4% short=+13.1% vol=27%,89609.43
+2022-01-18,vol_target,PORTFOLIO,1,0.648,port_vol~30.9% target=20% scale=0.65,89609.43
+2022-01-19,regime,SPY,1,1.0,regime=ON,88799.07
+2022-01-19,tsmom_short,SPY,1,0.12075253510619283,long=+20.0% short=+0.2% vol=15%,88799.07
+2022-01-19,tsmom_short,QQQ,1,0.09468730252515167,long=+17.2% short=-2.1% vol=21%,88799.07
+2022-01-19,tsmom_short,AAPL,1,0.19485191215340458,long=+24.8% short=+11.5% vol=26%,88799.07
+2022-01-19,tsmom_short,MSFT,1,0.2557721951552644,long=+43.4% short=-1.1% vol=26%,88799.07
+2022-01-19,tsmom_short,NVDA,1,0.6540503580472459,long=+100.1% short=+13.4% vol=61%,88799.07
+2022-01-19,tsmom_short,GOOGL,1,0.2831136230599064,long=+50.3% short=-4.7% vol=25%,88799.07
+2022-01-19,tsmom_short,AMZN,-1,0.027583687467797796,long=+1.0% short=-8.5% vol=25%,88799.07
+2022-01-19,tsmom_short,META,1,0.09074330849754046,long=+19.3% short=-6.2% vol=31%,88799.07
+2022-01-19,tsmom_short,TSLA,1,0.09900899146431513,long=+6.5% short=+15.0% vol=72%,88799.07
+2022-01-19,tsmom_short,JPM,1,0.04801271633871023,long=+16.2% short=-12.3% vol=25%,88799.07
+2022-01-19,tsmom_short,AVGO,1,0.2939360912065544,long=+41.4% short=+11.4% vol=33%,88799.07
+2022-01-19,tsmom_short,XLE,1,0.2326588252891003,long=+31.2% short=+11.4% vol=27%,88799.07
+2022-01-19,vol_target,PORTFOLIO,1,0.651,port_vol~30.7% target=20% scale=0.65,88799.07
+2022-01-20,regime,SPY,1,1.0,regime=ON,87365.1
+2022-01-20,tsmom_short,SPY,1,0.13067257641588514,long=+22.6% short=-1.2% vol=15%,87365.1
+2022-01-20,tsmom_short,QQQ,1,0.10507438372325896,long=+20.2% short=-4.0% vol=21%,87365.1
+2022-01-20,tsmom_short,AAPL,1,0.19180670161394325,long=+25.2% short=+10.2% vol=26%,87365.1
+2022-01-20,tsmom_short,MSFT,1,0.2653086716080689,long=+46.1% short=-2.8% vol=26%,87365.1
+2022-01-20,tsmom_short,NVDA,1,0.6990610310581674,long=+112.2% short=+6.4% vol=61%,87365.1
+2022-01-20,tsmom_short,GOOGL,1,0.285520018218266,long=+51.6% short=-6.0% vol=25%,87365.1
+2022-01-20,tsmom_short,AMZN,-1,0.025611740369068315,long=+3.5% short=-11.7% vol=26%,87365.1
+2022-01-20,tsmom_short,META,1,0.10086732136571305,long=+21.7% short=-7.4% vol=31%,87365.1
+2022-01-20,tsmom_short,TSLA,1,0.11087934698649343,long=+10.9% short=+11.4% vol=67%,87365.1
+2022-01-20,tsmom_short,JPM,1,0.06300427333771824,long=+18.7% short=-12.4% vol=25%,87365.1
+2022-01-20,tsmom_short,AVGO,1,0.2874249665220912,long=+43.1% short=+7.2% vol=33%,87365.1
+2022-01-20,tsmom_short,XLE,1,0.2635328482639947,long=+35.6% short=+12.4% vol=27%,87365.1
+2022-01-20,vol_target,PORTFOLIO,1,0.645,port_vol~31.0% target=20% scale=0.65,87365.1
+2022-01-21,regime,SPY,0,1.0,regime=OFF,85898.65
+2022-01-21,defense_tsmom,TLT,-1,0.010015327990102914,12-1 ret -1.0%,85898.65
+2022-01-21,defense_tsmom,GLD,-1,0.03137033391630294,12-1 ret -3.1%,85898.65
+2022-01-24,regime,SPY,1,1.0,regime=ON,84345.57
+2022-01-24,tsmom_short,SPY,1,0.13308428163632252,long=+24.3% short=-3.1% vol=15%,84345.57
+2022-01-24,tsmom_short,QQQ,1,0.1026703242690142,long=+21.4% short=-6.4% vol=21%,84345.57
+2022-01-24,tsmom_short,AAPL,1,0.17892930007744512,long=+23.9% short=+8.9% vol=27%,84345.57
+2022-01-24,tsmom_short,MSFT,1,0.2570307416713902,long=+45.3% short=-3.6% vol=24%,84345.57
+2022-01-24,tsmom_short,NVDA,1,0.7284447029727492,long=+120.8% short=+0.9% vol=60%,84345.57
+2022-01-24,tsmom_short,GOOGL,1,0.30469461562862016,long=+54.0% short=-4.8% vol=23%,84345.57
+2022-01-24,tsmom_short,AMZN,-1,0.03455968575275432,long=+2.9% short=-12.9% vol=29%,84345.57
+2022-01-24,tsmom_short,META,1,0.08883550513575185,long=+18.9% short=-6.1% vol=32%,84345.57
+2022-01-24,tsmom_short,TSLA,1,0.0879307903472174,long=+20.8% short=-9.3% vol=68%,84345.57
+2022-01-24,tsmom_short,JPM,1,0.0710682122410708,long=+21.6% short=-14.7% vol=25%,84345.57
+2022-01-24,tsmom_short,AVGO,1,0.30303286218212466,long=+47.6% short=+4.4% vol=33%,84345.57
+2022-01-24,tsmom_short,XLE,1,0.27933590525383706,long=+41.0% short=+8.3% vol=27%,84345.57
+2022-01-24,vol_target,PORTFOLIO,1,0.68,port_vol~29.4% target=20% scale=0.68,84345.57
+2022-01-25,regime,SPY,0,1.0,regime=OFF,84023.34
+2022-01-25,defense_tsmom,TLT,-1,0.016867007150440882,12-1 ret -1.7%,84023.34
+2022-01-25,defense_tsmom,GLD,-1,0.0182588052241097,12-1 ret -1.8%,84023.34
+2022-01-26,regime,SPY,0,1.0,regime=OFF,86018.89
+2022-01-26,defense_tsmom,TLT,-1,0.015319564331397181,12-1 ret -1.5%,86018.89
+2022-01-26,defense_tsmom,GLD,-1,0.02339583887820856,12-1 ret -2.3%,86018.89
+2022-01-27,regime,SPY,0,1.0,regime=OFF,86018.89
+2022-01-27,defense_tsmom,TLT,-1,0.020181934841305597,12-1 ret -2.0%,86018.89
+2022-01-27,defense_tsmom,GLD,-1,0.02328952122267622,12-1 ret -2.3%,86018.89
+2022-01-28,regime,SPY,1,1.0,regime=ON,86018.89
+2022-01-28,tsmom_short,SPY,1,0.15577177500706196,long=+28.2% short=-3.4% vol=16%,86018.89
+2022-01-28,tsmom_short,QQQ,1,0.11353249327351903,long=+24.8% short=-8.8% vol=23%,86018.89
+2022-01-28,tsmom_short,AAPL,1,0.2574749849045373,long=+33.7% short=+13.9% vol=29%,86018.89
+2022-01-28,tsmom_short,MSFT,1,0.22916358312318694,long=+42.8% short=-6.9% vol=26%,86018.89
+2022-01-28,tsmom_short,NVDA,1,0.699609957227567,long=+123.7% short=-10.7% vol=61%,86018.89
+2022-01-28,tsmom_short,GOOGL,1,0.28704791104762994,long=+54.5% short=-9.9% vol=24%,86018.89
+2022-01-28,tsmom_short,AMZN,-1,0.053072370393241905,long=+0.9% short=-14.6% vol=29%,86018.89
+2022-01-28,tsmom_short,META,1,0.16155686289589033,long=+31.4% short=-6.8% vol=32%,86018.89
+2022-01-28,tsmom_short,TSLA,1,0.06859737605495367,long=+27.5% short=-24.0% vol=69%,86018.89
+2022-01-28,tsmom_short,JPM,1,0.09389259752756549,long=+24.4% short=-13.2% vol=25%,86018.89
+2022-01-28,tsmom_short,AVGO,1,0.3044415414550507,long=+46.7% short=+6.0% vol=35%,86018.89
+2022-01-28,tsmom_short,XLE,1,0.3406872131432916,long=+46.3% short=+15.7% vol=27%,86018.89
+2022-01-28,vol_target,PORTFOLIO,1,0.624,port_vol~32.1% target=20% scale=0.62,86018.89
+2022-01-31,regime,SPY,1,1.0,regime=ON,87749.09
+2022-01-31,tsmom_short,SPY,1,0.14941267087283086,long=+26.1% short=-1.9% vol=17%,87749.09
+2022-01-31,tsmom_short,QQQ,1,0.10730226919487876,long=+22.0% short=-6.2% vol=24%,87749.09
+2022-01-31,tsmom_short,AAPL,1,0.2641428666231069,long=+32.4% short=+17.5% vol=30%,87749.09
+2022-01-31,tsmom_short,MSFT,1,0.2279399096428778,long=+41.6% short=-5.4% vol=26%,87749.09
+2022-01-31,tsmom_short,NVDA,1,0.6820981476119141,long=+117.1% short=-5.2% vol=63%,87749.09
+2022-01-31,tsmom_short,GOOGL,1,0.28290074712606256,long=+51.0% short=-5.7% vol=24%,87749.09
+2022-01-31,tsmom_short,AMZN,-1,0.047481976644519,long=-1.4% short=-9.8% vol=30%,87749.09
+2022-01-31,tsmom_short,META,1,0.1353485289509702,long=+25.9% short=-5.1% vol=33%,87749.09
+2022-01-31,tsmom_short,TSLA,1,0.03650482380694142,long=+21.1% short=-22.5% vol=72%,87749.09
+2022-01-31,tsmom_short,JPM,1,0.07590202625917933,long=+20.6% short=-12.0% vol=25%,87749.09
+2022-01-31,tsmom_short,AVGO,1,0.3087102521128688,long=+43.7% short=+11.7% vol=37%,87749.09
+2022-01-31,tsmom_short,XLE,1,0.32762650644039565,long=+45.1% short=+14.2% vol=27%,87749.09
+2022-01-31,vol_target,PORTFOLIO,1,0.611,port_vol~32.8% target=20% scale=0.61,87749.09
+2022-02-01,regime,SPY,1,1.0,regime=ON,88875.29
+2022-02-01,tsmom_short,SPY,1,0.15425775324775978,long=+26.8% short=-1.6% vol=17%,88875.29
+2022-02-01,tsmom_short,QQQ,1,0.11827293059232613,long=+23.7% short=-5.9% vol=24%,88875.29
+2022-02-01,tsmom_short,AAPL,1,0.2866055396572007,long=+36.7% short=+16.6% vol=30%,88875.29
+2022-02-01,tsmom_short,MSFT,1,0.2048880484791629,long=+38.9% short=-7.1% vol=26%,88875.29
+2022-02-01,tsmom_short,NVDA,1,0.7101945957725831,long=+122.8% short=-6.7% vol=58%,88875.29
+2022-02-01,tsmom_short,GOOGL,1,0.22364848419805455,long=+40.8% short=-5.4% vol=24%,88875.29
+2022-02-01,tsmom_short,AMZN,-1,0.017572166930726732,long=+2.9% short=-8.7% vol=30%,88875.29
+2022-02-01,tsmom_short,META,1,0.15069222501198884,long=+27.0% short=-2.8% vol=33%,88875.29
+2022-02-01,tsmom_short,TSLA,1,0.1600890157572014,long=+40.4% short=-20.5% vol=72%,88875.29
+2022-02-01,tsmom_short,JPM,1,0.08748105364174708,long=+21.8% short=-10.8% vol=25%,88875.29
+2022-02-01,tsmom_short,AVGO,1,0.32522336463605445,long=+46.8% short=+11.1% vol=37%,88875.29
+2022-02-01,tsmom_short,XLE,1,0.3386154661158709,long=+43.5% short=+19.4% vol=28%,88875.29
+2022-02-01,vol_target,PORTFOLIO,1,0.622,port_vol~32.2% target=20% scale=0.62,88875.29
+2022-02-02,regime,SPY,1,1.0,regime=ON,89579.12
+2022-02-02,tsmom_short,SPY,1,0.14686984584773347,long=+25.3% short=-1.2% vol=17%,89579.12
+2022-02-02,tsmom_short,QQQ,1,0.0991612825732271,long=+20.6% short=-6.2% vol=24%,89579.12
+2022-02-02,tsmom_short,AAPL,1,0.25458351134743623,long=+31.6% short=+16.2% vol=30%,89579.12
+2022-02-02,tsmom_short,MSFT,1,0.19861900606777563,long=+37.1% short=-6.0% vol=26%,89579.12
+2022-02-02,tsmom_short,NVDA,1,0.6669069814323305,long=+114.5% short=-5.1% vol=58%,89579.12
+2022-02-02,tsmom_short,GOOGL,1,0.24759685086774205,long=+40.6% short=+1.0% vol=29%,89579.12
+2022-02-02,tsmom_short,AMZN,-1,0.0404404152102841,long=+0.6% short=-11.0% vol=30%,89579.12
+2022-02-02,tsmom_short,META,1,0.14729709890533071,long=+26.3% short=-2.6% vol=33%,89579.12
+2022-02-02,tsmom_short,TSLA,1,0.10992453834838939,long=+35.2% short=-25.4% vol=72%,89579.12
+2022-02-02,tsmom_short,JPM,1,0.09514015811487683,long=+23.6% short=-11.5% vol=25%,89579.12
+2022-02-02,tsmom_short,AVGO,1,0.32862495236736056,long=+46.8% short=+12.0% vol=37%,89579.12
+2022-02-02,tsmom_short,XLE,1,0.3642418623327886,long=+46.8% short=+20.8% vol=28%,89579.12
+2022-02-02,vol_target,PORTFOLIO,1,0.627,port_vol~31.9% target=20% scale=0.63,89579.12
+2022-02-03,regime,SPY,1,1.0,regime=ON,87922.64
+2022-02-03,tsmom_short,SPY,1,0.11844746224845024,long=+22.4% short=-4.0% vol=17%,87922.64
+2022-02-03,tsmom_short,QQQ,1,0.05477760233370973,long=+16.5% short=-11.1% vol=25%,87922.64
+2022-02-03,tsmom_short,AAPL,1,0.22979933210448045,long=+28.5% short=+14.7% vol=30%,87922.64
+2022-02-03,tsmom_short,MSFT,1,0.1491525093302854,long=+31.7% short=-10.3% vol=27%,87922.64
+2022-02-03,tsmom_short,NVDA,1,0.5411726318200608,long=+103.3% short=-19.6% vol=58%,87922.64
+2022-02-03,tsmom_short,GOOGL,1,0.17752766934821737,long=+31.9% short=-3.5% vol=30%,87922.64
+2022-02-03,tsmom_short,AMZN,-1,0.0921756727826243,long=-1.9% short=-20.1% vol=33%,87922.64
+2022-02-03,tsmom_short,META,1,0.008657192054838572,long=+20.9% short=-29.2% vol=63%,87922.64
+2022-02-03,tsmom_short,TSLA,1,0.05589772654765428,long=+27.7% short=-27.5% vol=72%,87922.64
+2022-02-03,tsmom_short,JPM,1,0.08475578249406909,long=+21.5% short=-11.1% vol=25%,87922.64
+2022-02-03,tsmom_short,AVGO,1,0.27867061633922247,long=+42.1% short=+6.6% vol=37%,87922.64
+2022-02-03,tsmom_short,XLE,1,0.3513900659180868,long=+45.6% short=+19.5% vol=28%,87922.64
+2022-02-03,vol_target,PORTFOLIO,1,0.617,port_vol~32.4% target=20% scale=0.62,87922.64
+2022-02-04,regime,SPY,1,1.0,regime=ON,88758.0
+2022-02-04,tsmom_short,SPY,1,0.11296751571546478,long=+21.4% short=-3.9% vol=17%,88758.0
+2022-02-04,tsmom_short,QQQ,1,0.05377860587183002,long=+15.7% short=-10.1% vol=25%,88758.0
+2022-02-04,tsmom_short,AAPL,1,0.21369294545075074,long=+26.2% short=+14.1% vol=30%,88758.0
+2022-02-04,tsmom_short,MSFT,1,0.1480324662426329,long=+30.5% short=-8.8% vol=27%,88758.0
+2022-02-04,tsmom_short,NVDA,1,0.4989514684934479,long=+95.3% short=-18.3% vol=59%,88758.0
+2022-02-04,tsmom_short,GOOGL,1,0.17803570603005375,long=+32.2% short=-3.7% vol=30%,88758.0
+2022-02-04,tsmom_short,AMZN,-1,0.05207297018805999,long=-1.7% short=-10.4% vol=44%,88758.0
+2022-02-04,tsmom_short,META,1,0.026283724086156313,long=+24.7% short=-30.5% vol=63%,88758.0
+2022-02-04,tsmom_short,TSLA,1,0.042081802816969716,long=+23.3% short=-24.4% vol=68%,88758.0
+2022-02-04,tsmom_short,JPM,1,0.09089436573656612,long=+20.9% short=-8.7% vol=26%,88758.0
+2022-02-04,tsmom_short,AVGO,1,0.2576544277480639,long=+38.8% short=+6.3% vol=38%,88758.0
+2022-02-04,tsmom_short,XLE,1,0.33624266168405004,long=+42.8% short=+19.8% vol=28%,88758.0
+2022-02-04,vol_target,PORTFOLIO,1,0.611,port_vol~32.8% target=20% scale=0.61,88758.0
+2022-02-07,regime,SPY,1,1.0,regime=ON,89282.29
+2022-02-07,tsmom_short,SPY,1,0.10901005955341647,long=+21.0% short=-4.3% vol=17%,89282.29
+2022-02-07,tsmom_short,QQQ,1,0.043994722744284676,long=+14.4% short=-10.7% vol=25%,89282.29
+2022-02-07,tsmom_short,AAPL,1,0.22006263003881996,long=+27.2% short=+14.3% vol=30%,89282.29
+2022-02-07,tsmom_short,MSFT,1,0.1373121001355768,long=+29.9% short=-10.5% vol=28%,89282.29
+2022-02-07,tsmom_short,NVDA,1,0.46831787691712656,long=+91.2% short=-19.7% vol=58%,89282.29
+2022-02-07,tsmom_short,GOOGL,1,0.16585481272538496,long=+32.0% short=-6.6% vol=30%,89282.29
+2022-02-07,tsmom_short,AMZN,-1,0.04765317136640167,long=-1.6% short=-9.5% vol=43%,89282.29
+2022-02-07,tsmom_short,META,1,0.004494367641627722,long=+23.1% short=-33.6% vol=64%,89282.29
+2022-02-07,tsmom_short,TSLA,1,0.03745869162887648,long=+20.9% short=-22.0% vol=67%,89282.29
+2022-02-07,tsmom_short,JPM,1,0.10005534522389613,long=+22.6% short=-8.9% vol=26%,89282.29
+2022-02-07,tsmom_short,AVGO,1,0.22915011073727684,long=+34.3% short=+5.8% vol=37%,89282.29
+2022-02-07,tsmom_short,XLE,1,0.35905187992409027,long=+46.4% short=+20.2% vol=28%,89282.29
+2022-02-07,vol_target,PORTFOLIO,1,0.629,port_vol~31.8% target=20% scale=0.63,89282.29
+2022-02-08,regime,SPY,1,1.0,regime=ON,89244.37
+2022-02-08,tsmom_short,SPY,1,0.1128526709531518,long=+20.9% short=-3.2% vol=18%,89244.37
+2022-02-08,tsmom_short,QQQ,1,0.0525348770597284,long=+14.8% short=-9.0% vol=25%,89244.37
+2022-02-08,tsmom_short,AAPL,1,0.2309432311839802,long=+27.8% short=+16.1% vol=30%,89244.37
+2022-02-08,tsmom_short,MSFT,1,0.1463484609456162,long=+30.5% short=-9.2% vol=28%,89244.37
+2022-02-08,tsmom_short,NVDA,1,0.44211219768856624,long=+85.7% short=-18.1% vol=58%,89244.37
+2022-02-08,tsmom_short,GOOGL,1,0.17196182742442945,long=+32.9% short=-6.4% vol=30%,89244.37
+2022-02-08,tsmom_short,AMZN,-1,0.0492995916028464,long=-1.7% short=-9.7% vol=44%,89244.37
+2022-02-08,tsmom_short,META,-1,0.013358427806807585,long=+20.7% short=-34.3% vol=64%,89244.37
+2022-02-08,tsmom_short,TSLA,1,0.1491694309294893,long=+31.5% short=-9.9% vol=67%,89244.37
+2022-02-08,tsmom_short,JPM,1,0.11002450580340191,long=+22.7% short=-6.5% vol=26%,89244.37
+2022-02-08,tsmom_short,AVGO,1,0.24960326796587434,long=+36.1% short=+8.3% vol=38%,89244.37
+2022-02-08,tsmom_short,XLE,1,0.3276335722915301,long=+43.2% short=+17.2% vol=28%,89244.37
+2022-02-08,vol_target,PORTFOLIO,1,0.622,port_vol~32.1% target=20% scale=0.62,89244.37
+2022-02-09,regime,SPY,1,1.0,regime=ON,90748.53
+2022-02-09,tsmom_short,SPY,1,0.12713614429944453,long=+21.8% short=-1.0% vol=18%,90748.53
+2022-02-09,tsmom_short,QQQ,1,0.07230885667559439,long=+15.9% short=-5.7% vol=25%,90748.53
+2022-02-09,tsmom_short,AAPL,1,0.2583077127061387,long=+30.2% short=+19.3% vol=30%,90748.53
+2022-02-09,tsmom_short,MSFT,1,0.15646848344054304,long=+29.9% short=-5.7% vol=28%,90748.53
+2022-02-09,tsmom_short,NVDA,1,0.4579915868510234,long=+82.6% short=-9.3% vol=60%,90748.53
+2022-02-09,tsmom_short,GOOGL,1,0.1909986222463516,long=+33.8% short=-2.9% vol=30%,90748.53
+2022-02-09,tsmom_short,AMZN,-1,0.021370561671375334,long=+1.4% short=-7.4% vol=43%,90748.53
+2022-02-09,tsmom_short,META,1,0.025210406318724773,long=+23.7% short=-29.2% vol=64%,90748.53
+2022-02-09,tsmom_short,TSLA,1,0.13591186218090828,long=+31.1% short=-12.7% vol=67%,90748.53
+2022-02-09,tsmom_short,JPM,1,0.11475308856884894,long=+23.1% short=-6.0% vol=26%,90748.53
+2022-02-09,tsmom_short,AVGO,1,0.25180456625482805,long=+33.9% short=+12.1% vol=38%,90748.53
+2022-02-09,tsmom_short,XLE,1,0.3875134016594533,long=+50.4% short=+21.4% vol=28%,90748.53
+2022-02-09,vol_target,PORTFOLIO,1,0.668,port_vol~29.9% target=20% scale=0.67,90748.53
+2022-02-10,regime,SPY,1,1.0,regime=ON,89441.2
+2022-02-10,tsmom_short,SPY,1,0.11826671075231239,long=+21.6% short=-2.8% vol=18%,89441.2
+2022-02-10,tsmom_short,QQQ,1,0.06163318418221398,long=+15.7% short=-8.1% vol=26%,89441.2
+2022-02-10,tsmom_short,AAPL,1,0.2478205692450526,long=+30.3% short=+16.5% vol=30%,89441.2
+2022-02-10,tsmom_short,MSFT,1,0.1505098064000125,long=+31.0% short=-8.9% vol=28%,89441.2
+2022-02-10,tsmom_short,NVDA,1,0.463784123178803,long=+87.3% short=-15.0% vol=60%,89441.2
+2022-02-10,tsmom_short,GOOGL,1,0.19048058697912482,long=+35.0% short=-4.9% vol=30%,89441.2
+2022-02-10,tsmom_short,AMZN,-1,0.02884711056762833,long=+0.8% short=-8.4% vol=43%,89441.2
+2022-02-10,tsmom_short,META,1,0.017563731409632646,long=+23.2% short=-30.4% vol=64%,89441.2
+2022-02-10,tsmom_short,TSLA,1,0.15349048220855355,long=+35.5% short=-14.9% vol=67%,89441.2
+2022-02-10,tsmom_short,JPM,1,0.1069900411507254,long=+22.1% short=-6.4% vol=26%,89441.2
+2022-02-10,tsmom_short,AVGO,1,0.21880616386218393,long=+31.7% short=+7.2% vol=38%,89441.2
+2022-02-10,tsmom_short,XLE,1,0.37120313584089215,long=+48.4% short=+20.1% vol=28%,89441.2
+2022-02-10,vol_target,PORTFOLIO,1,0.657,port_vol~30.4% target=20% scale=0.66,89441.2
+2022-02-11,regime,SPY,0,1.0,regime=OFF,88776.01
+2022-02-11,defense_tsmom,TLT,1,0.01011799433333099,12-1 ret +1.0%,88776.01
+2022-02-11,defense_tsmom,GLD,1,0.011412256932096486,12-1 ret +1.1%,88776.01
+2022-02-11,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",88776.01
+2022-02-14,regime,SPY,0,1.0,regime=OFF,88527.61
+2022-02-14,defense_tsmom,TLT,-1,0.011422343295955472,12-1 ret -1.1%,88527.61
+2022-02-14,defense_tsmom,GLD,1,0.02008054049853939,12-1 ret +2.0%,88527.61
+2022-02-14,alloc,DEFENSE,1,1.0,OFF regime: long GLD,88527.61
+2022-02-15,regime,SPY,1,1.0,regime=ON,87981.61
+2022-02-15,tsmom_short,SPY,1,0.09192028607272808,long=+18.4% short=-4.6% vol=19%,87981.61
+2022-02-15,tsmom_short,QQQ,1,0.03084346991265171,long=+12.0% short=-10.3% vol=27%,87981.61
+2022-02-15,tsmom_short,AAPL,1,0.2474123961986514,long=+31.5% short=+14.6% vol=30%,87981.61
+2022-02-15,tsmom_short,MSFT,1,0.1040320268516794,long=+24.9% short=-11.3% vol=29%,87981.61
+2022-02-15,tsmom_short,NVDA,1,0.3999187241066399,long=+74.8% short=-12.3% vol=62%,87981.61
+2022-02-15,tsmom_short,GOOGL,1,0.14450922284678785,long=+29.2% short=-7.6% vol=31%,87981.61
+2022-02-15,tsmom_short,AMZN,-1,0.07339367190469025,long=-4.5% short=-11.6% vol=43%,87981.61
+2022-02-15,tsmom_short,META,-1,0.033643030254321846,long=+18.1% short=-35.6% vol=65%,87981.61
+2022-02-15,tsmom_short,TSLA,1,0.13509616010660666,long=+30.9% short=-12.5% vol=68%,87981.61
+2022-02-15,tsmom_short,JPM,1,0.014802885847647263,long=+6.4% short=-5.9% vol=27%,87981.61
+2022-02-15,tsmom_short,AVGO,1,0.16529020495630936,long=+23.1% short=+6.7% vol=40%,87981.61
+2022-02-15,tsmom_short,XLE,1,0.3698563089311864,long=+49.3% short=+18.6% vol=29%,87981.61
+2022-02-15,vol_target,PORTFOLIO,1,0.658,port_vol~30.4% target=20% scale=0.66,87981.61
+2022-02-16,regime,SPY,1,1.0,regime=ON,88261.14
+2022-02-16,tsmom_short,SPY,1,0.08714586846775604,long=+17.4% short=-4.3% vol=19%,88261.14
+2022-02-16,tsmom_short,QQQ,1,0.026093823766693086,long=+11.2% short=-10.3% vol=27%,88261.14
+2022-02-16,tsmom_short,AAPL,1,0.22180874089365354,long=+28.6% short=+12.6% vol=30%,88261.14
+2022-02-16,tsmom_short,MSFT,1,0.11385120854248809,long=+26.6% short=-11.5% vol=29%,88261.14
+2022-02-16,tsmom_short,NVDA,1,0.3709489567029344,long=+68.1% short=-9.4% vol=61%,88261.14
+2022-02-16,tsmom_short,GOOGL,1,0.14837713165623612,long=+29.4% short=-7.0% vol=31%,88261.14
+2022-02-16,tsmom_short,AMZN,-1,0.06649503993132046,long=-3.8% short=-10.9% vol=43%,88261.14
+2022-02-16,tsmom_short,META,-1,0.01270594694899252,long=+22.2% short=-36.5% vol=65%,88261.14
+2022-02-16,tsmom_short,TSLA,1,0.10377706884745269,long=+27.4% short=-15.2% vol=68%,88261.14
+2022-02-16,tsmom_short,JPM,-1,0.002665235727533237,long=+3.0% short=-5.2% vol=27%,88261.14
+2022-02-16,tsmom_short,AVGO,1,0.13318212643303165,long=+18.5% short=+5.5% vol=40%,88261.14
+2022-02-16,tsmom_short,XLE,1,0.3599945185958538,long=+45.7% short=+21.4% vol=28%,88261.14
+2022-02-16,vol_target,PORTFOLIO,1,0.678,port_vol~29.5% target=20% scale=0.68,88261.14
+2022-02-17,regime,SPY,0,1.0,regime=OFF,86808.33
+2022-02-17,defense_tsmom,TLT,1,0.012536886150379506,12-1 ret +1.3%,86808.33
+2022-02-17,defense_tsmom,GLD,1,0.012624620724426584,12-1 ret +1.3%,86808.33
+2022-02-17,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86808.33
+2022-02-18,regime,SPY,0,1.0,regime=OFF,86679.91
+2022-02-18,defense_tsmom,TLT,1,0.027555818344450304,12-1 ret +2.8%,86679.91
+2022-02-18,defense_tsmom,GLD,1,0.011648541139905199,12-1 ret +1.2%,86679.91
+2022-02-18,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86679.91
+2022-02-22,regime,SPY,0,1.0,regime=OFF,86827.07
+2022-02-22,defense_tsmom,TLT,1,0.025843211880349104,12-1 ret +2.6%,86827.07
+2022-02-22,defense_tsmom,GLD,1,0.01792898685974482,12-1 ret +1.8%,86827.07
+2022-02-22,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86827.07
+2022-02-23,regime,SPY,0,1.0,regime=OFF,86627.8
+2022-02-23,defense_tsmom,TLT,1,0.0411898234358523,12-1 ret +4.1%,86627.8
+2022-02-23,defense_tsmom,GLD,1,0.04076706192406862,12-1 ret +4.1%,86627.8
+2022-02-23,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86627.8
+2022-02-24,regime,SPY,0,1.0,regime=OFF,86386.43
+2022-02-24,defense_tsmom,TLT,-1,0.004317931533423877,12-1 ret -0.4%,86386.43
+2022-02-24,defense_tsmom,GLD,1,0.04931707464274196,12-1 ret +4.9%,86386.43
+2022-02-24,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86386.43
+2022-02-25,regime,SPY,0,1.0,regime=OFF,86273.45
+2022-02-25,defense_tsmom,TLT,1,0.027537065912275338,12-1 ret +2.8%,86273.45
+2022-02-25,defense_tsmom,GLD,1,0.037578204482700314,12-1 ret +3.8%,86273.45
+2022-02-25,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86273.45
+2022-02-28,regime,SPY,0,1.0,regime=OFF,87030.28
+2022-02-28,defense_tsmom,TLT,1,0.027823244452877774,12-1 ret +2.8%,87030.28
+2022-02-28,defense_tsmom,GLD,1,0.028877546552881696,12-1 ret +2.9%,87030.28
+2022-02-28,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",87030.28
+2022-03-01,regime,SPY,0,1.0,regime=OFF,88055.36
+2022-03-01,defense_tsmom,TLT,1,0.03371990104286332,12-1 ret +3.4%,88055.36
+2022-03-01,defense_tsmom,GLD,1,0.0465072932871966,12-1 ret +4.7%,88055.36
+2022-03-01,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",88055.36
+2022-03-02,regime,SPY,0,1.0,regime=OFF,86684.06
+2022-03-02,defense_tsmom,TLT,1,0.03697777116446814,12-1 ret +3.7%,86684.06
+2022-03-02,defense_tsmom,GLD,1,0.05778422302164141,12-1 ret +5.8%,86684.06
+2022-03-02,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86684.06
+2022-03-03,regime,SPY,0,1.0,regime=OFF,87172.51
+2022-03-03,defense_tsmom,TLT,1,0.03846687906916982,12-1 ret +3.8%,87172.51
+2022-03-03,defense_tsmom,GLD,1,0.06095260139150875,12-1 ret +6.1%,87172.51
+2022-03-03,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",87172.51
+2022-03-04,regime,SPY,0,1.0,regime=OFF,88194.96
+2022-03-04,defense_tsmom,TLT,1,0.038434256984063254,12-1 ret +3.8%,88194.96
+2022-03-04,defense_tsmom,GLD,1,0.07054416294901836,12-1 ret +7.1%,88194.96
+2022-03-04,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",88194.96
+2022-03-07,regime,SPY,0,1.0,regime=OFF,88523.97
+2022-03-07,defense_tsmom,TLT,1,0.009141157818156522,12-1 ret +0.9%,88523.97
+2022-03-07,defense_tsmom,GLD,1,0.04986324580369061,12-1 ret +5.0%,88523.97
+2022-03-07,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",88523.97
+2022-03-08,regime,SPY,0,1.0,regime=OFF,89223.92
+2022-03-08,defense_tsmom,TLT,1,0.007775346870348639,12-1 ret +0.8%,89223.92
+2022-03-08,defense_tsmom,GLD,1,0.05227017664742722,12-1 ret +5.2%,89223.92
+2022-03-08,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",89223.92
+2022-03-09,regime,SPY,0,1.0,regime=OFF,87918.05
+2022-03-09,defense_tsmom,TLT,1,0.008310525698975486,12-1 ret +0.8%,87918.05
+2022-03-09,defense_tsmom,GLD,1,0.056401686288865535,12-1 ret +5.6%,87918.05
+2022-03-09,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",87918.05
+2022-03-10,regime,SPY,0,1.0,regime=OFF,87654.06
+2022-03-10,defense_tsmom,TLT,1,0.03211104427525779,12-1 ret +3.2%,87654.06
+2022-03-10,defense_tsmom,GLD,1,0.06018949092867903,12-1 ret +6.0%,87654.06
+2022-03-10,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",87654.06
+2022-03-11,regime,SPY,0,1.0,regime=OFF,87536.39
+2022-03-11,defense_tsmom,TLT,1,0.00977085888737387,12-1 ret +1.0%,87536.39
+2022-03-11,defense_tsmom,GLD,1,0.05154131176105526,12-1 ret +5.2%,87536.39
+2022-03-11,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",87536.39
+2022-03-14,regime,SPY,0,1.0,regime=OFF,86505.23
+2022-03-14,defense_tsmom,TLT,1,0.028878038537639122,12-1 ret +2.9%,86505.23
+2022-03-14,defense_tsmom,GLD,1,0.07058818000765055,12-1 ret +7.1%,86505.23
+2022-03-14,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86505.23
+2022-03-15,regime,SPY,0,1.0,regime=OFF,85938.45
+2022-03-15,defense_tsmom,TLT,1,0.023738800544578012,12-1 ret +2.4%,85938.45
+2022-03-15,defense_tsmom,GLD,1,0.06868088412698606,12-1 ret +6.9%,85938.45
+2022-03-15,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",85938.45
+2022-03-16,regime,SPY,0,1.0,regime=OFF,86348.04
+2022-03-16,defense_tsmom,TLT,1,0.022470248756727155,12-1 ret +2.2%,86348.04
+2022-03-16,defense_tsmom,GLD,1,0.0647145941834126,12-1 ret +6.5%,86348.04
+2022-03-16,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86348.04
+2022-03-17,regime,SPY,0,1.0,regime=OFF,86297.63
+2022-03-17,defense_tsmom,TLT,1,0.02219449917397503,12-1 ret +2.2%,86297.63
+2022-03-17,defense_tsmom,GLD,1,0.07118350114043648,12-1 ret +7.1%,86297.63
+2022-03-17,alloc,DEFENSE,1,1.0,"OFF regime: long TLT,GLD",86297.63
+2022-03-18,regime,SPY,1,1.0,regime=ON,86355.55
+2022-03-18,tsmom_short,SPY,1,0.06250765515532893,long=+12.4% short=-3.0% vol=21%,86355.55
+2022-03-18,tsmom_short,QQQ,1,0.01859040891478972,long=+8.8% short=-8.6% vol=31%,86355.55
+2022-03-18,tsmom_short,AAPL,1,0.20983528773236246,long=+37.7% short=-4.1% vol=30%,86355.55
+2022-03-18,tsmom_short,MSFT,1,0.1170941043210425,long=+24.2% short=-7.0% vol=33%,86355.55
+2022-03-18,tsmom_short,NVDA,1,0.496374829333759,long=+86.0% short=-4.8% vol=63%,86355.55
+2022-03-18,tsmom_short,GOOGL,1,0.16741171650675718,long=+30.5% short=-4.0% vol=35%,86355.55
+2022-03-18,tsmom_short,AMZN,-1,0.024063113321284944,long=-0.6% short=-5.2% vol=49%,86355.55
+2022-03-18,tsmom_short,META,-1,0.3160052214020048,long=-29.2% short=-35.1% vol=69%,86355.55
+2022-03-18,tsmom_short,TSLA,1,0.17313296487269733,long=+30.8% short=-2.9% vol=71%,86355.55
+2022-03-18,tsmom_short,JPM,-1,0.024166232221696265,long=+2.7% short=-10.1% vol=32%,86355.55
+2022-03-18,tsmom_short,AVGO,1,0.13379916646581227,long=+24.5% short=-3.3% vol=38%,86355.55
+2022-03-18,tsmom_short,XLE,1,0.42716900605095975,long=+46.1% short=+37.6% vol=28%,86355.55
+2022-03-18,vol_target,PORTFOLIO,1,0.645,port_vol~31.0% target=20% scale=0.64,86355.55
+2022-03-21,regime,SPY,1,1.0,regime=ON,86750.52
+2022-03-21,tsmom_short,SPY,1,0.06751075101932912,long=+12.6% short=-2.0% vol=21%,86750.52
+2022-03-21,tsmom_short,QQQ,1,0.01652827347330299,long=+8.0% short=-7.9% vol=31%,86750.52
+2022-03-21,tsmom_short,AAPL,1,0.21422880709917777,long=+37.3% short=-2.5% vol=30%,86750.52
+2022-03-21,tsmom_short,MSFT,1,0.10790886515574441,long=+22.2% short=-6.3% vol=33%,86750.52
+2022-03-21,tsmom_short,NVDA,1,0.4716877338269181,long=+81.0% short=-3.5% vol=63%,86750.52
+2022-03-21,tsmom_short,GOOGL,1,0.15102518847109653,long=+27.8% short=-3.9% vol=35%,86750.52
+2022-03-21,tsmom_short,AMZN,-1,0.029721746298851236,long=-2.7% short=-3.3% vol=49%,86750.52
+2022-03-21,tsmom_short,META,-1,0.31445122905411743,long=-29.1% short=-35.0% vol=69%,86750.52
+2022-03-21,tsmom_short,TSLA,1,0.1859630976903714,long=+29.4% short=+2.4% vol=69%,86750.52
+2022-03-21,tsmom_short,JPM,-1,0.009610909089178433,long=+4.2% short=-8.7% vol=32%,86750.52
+2022-03-21,tsmom_short,AVGO,1,0.14396730128950747,long=+27.7% short=-5.6% vol=37%,86750.52
+2022-03-21,tsmom_short,XLE,1,0.4641038900642279,long=+47.4% short=+45.0% vol=29%,86750.52
+2022-03-21,vol_target,PORTFOLIO,1,0.648,port_vol~30.9% target=20% scale=0.65,86750.52
+2022-03-22,regime,SPY,1,1.0,regime=ON,86700.88
+2022-03-22,tsmom_short,SPY,1,0.061342809220062744,long=+12.0% short=-2.6% vol=21%,86700.88
+2022-03-22,tsmom_short,QQQ,1,0.02004315757895147,long=+8.8% short=-8.2% vol=31%,86700.88
+2022-03-22,tsmom_short,AAPL,1,0.2167192006854176,long=+37.6% short=-2.3% vol=30%,86700.88
+2022-03-22,tsmom_short,MSFT,1,0.11151860732152817,long=+23.2% short=-6.9% vol=33%,86700.88
+2022-03-22,tsmom_short,NVDA,1,0.47557418577288424,long=+85.1% short=-8.8% vol=63%,86700.88
+2022-03-22,tsmom_short,GOOGL,1,0.156366019245248,long=+27.7% short=-2.5% vol=35%,86700.88
+2022-03-22,tsmom_short,AMZN,-1,0.02913037766732879,long=-2.7% short=-3.2% vol=49%,86700.88
+2022-03-22,tsmom_short,META,-1,0.31095014674340654,long=-28.4% short=-35.2% vol=69%,86700.88
+2022-03-22,tsmom_short,TSLA,1,0.20570704071326806,long=+30.3% short=+5.9% vol=70%,86700.88
+2022-03-22,tsmom_short,JPM,-1,0.012899536672152084,long=+3.2% short=-8.1% vol=33%,86700.88
+2022-03-22,tsmom_short,AVGO,1,0.15511058447925286,long=+29.0% short=-4.8% vol=37%,86700.88
+2022-03-22,tsmom_short,XLE,1,0.4083118726082048,long=+41.4% short=+39.9% vol=29%,86700.88
+2022-03-22,vol_target,PORTFOLIO,1,0.635,port_vol~31.5% target=20% scale=0.64,86700.88
+2022-03-23,regime,SPY,1,1.0,regime=ON,86845.72
+2022-03-23,tsmom_short,SPY,1,0.03691118430960559,long=+9.4% short=-4.8% vol=21%,86845.72
+2022-03-23,tsmom_short,QQQ,-1,0.005208287264022511,long=+6.2% short=-10.6% vol=31%,86845.72
+2022-03-23,tsmom_short,AAPL,1,0.18929552715394474,long=+33.5% short=-3.0% vol=30%,86845.72
+2022-03-23,tsmom_short,MSFT,1,0.0899461292233889,long=+21.6% short=-9.9% vol=33%,86845.72
+2022-03-23,tsmom_short,NVDA,1,0.4209415415897554,long=+78.7% short=-12.8% vol=63%,86845.72
+2022-03-23,tsmom_short,GOOGL,1,0.13106504292284452,long=+25.6% short=-5.6% vol=35%,86845.72
+2022-03-23,tsmom_short,AMZN,-1,0.04733105311553458,long=-4.9% short=-4.5% vol=49%,86845.72
+2022-03-23,tsmom_short,META,-1,0.31444062853014076,long=-28.8% short=-35.4% vol=68%,86845.72
+2022-03-23,tsmom_short,TSLA,1,0.11198159057486105,long=+19.3% short=-1.0% vol=70%,86845.72
+2022-03-23,tsmom_short,JPM,-1,0.042266592343615426,long=-0.2% short=-10.3% vol=33%,86845.72
+2022-03-23,tsmom_short,AVGO,1,0.11883049534647858,long=+25.1% short=-7.9% vol=38%,86845.72
+2022-03-23,tsmom_short,XLE,1,0.41991885405773255,long=+42.4% short=+41.4% vol=29%,86845.72
+2022-03-23,vol_target,PORTFOLIO,1,0.65,port_vol~30.8% target=20% scale=0.65,86845.72
+2022-03-24,regime,SPY,1,1.0,regime=ON,88552.44
+2022-03-24,tsmom_short,SPY,1,0.03957224246711284,long=+9.2% short=-4.0% vol=21%,88552.44
+2022-03-24,tsmom_short,QQQ,1,0.011684131284867241,long=+8.1% short=-9.3% vol=31%,88552.44
+2022-03-24,tsmom_short,AAPL,1,0.2058536432715974,long=+35.1% short=-1.1% vol=30%,88552.44
+2022-03-24,tsmom_short,MSFT,1,0.1177180128126063,long=+25.6% short=-9.0% vol=33%,88552.44
+2022-03-24,tsmom_short,NVDA,1,0.4903271435728525,long=+85.1% short=-5.0% vol=66%,88552.44
+2022-03-24,tsmom_short,GOOGL,1,0.17187077133517378,long=+31.1% short=-3.6% vol=36%,88552.44
+2022-03-24,tsmom_short,AMZN,-1,0.022236620226304175,long=-0.8% short=-4.3% vol=49%,88552.44
+2022-03-24,tsmom_short,META,-1,0.297904240555131,long=-26.6% short=-34.5% vol=69%,88552.44
+2022-03-24,tsmom_short,TSLA,1,0.15665569642311317,long=+29.4% short=-5.0% vol=70%,88552.44
+2022-03-24,tsmom_short,JPM,-1,0.0674220780267529,long=-4.6% short=-10.0% vol=33%,88552.44
+2022-03-24,tsmom_short,AVGO,1,0.11706572979084316,long=+22.9% short=-5.1% vol=39%,88552.44
+2022-03-24,tsmom_short,XLE,1,0.3938119641710843,long=+37.8% short=+41.7% vol=29%,88552.44
+2022-03-24,vol_target,PORTFOLIO,1,0.621,port_vol~32.2% target=20% scale=0.62,88552.44
+2022-03-25,regime,SPY,1,1.0,regime=ON,88930.87
+2022-03-25,tsmom_short,SPY,1,0.05086308838033772,long=+11.7% short=-4.9% vol=21%,88930.87
+2022-03-25,tsmom_short,QQQ,1,0.015734782825551283,long=+9.8% short=-10.8% vol=31%,88930.87
+2022-03-25,tsmom_short,AAPL,1,0.20770461086605163,long=+36.6% short=-3.0% vol=30%,88930.87
+2022-03-25,tsmom_short,MSFT,1,0.11993949831378775,long=+27.4% short=-11.1% vol=33%,88930.87
+2022-03-25,tsmom_short,NVDA,1,0.47799769142873105,long=+86.7% short=-10.5% vol=66%,88930.87
+2022-03-25,tsmom_short,GOOGL,1,0.1718418324297168,long=+31.4% short=-4.2% vol=36%,88930.87
+2022-03-25,tsmom_short,AMZN,-1,0.01153463227799086,long=+0.0% short=-2.9% vol=49%,88930.87
+2022-03-25,tsmom_short,META,-1,0.3094460561611402,long=-27.6% short=-35.9% vol=69%,88930.87
+2022-03-25,tsmom_short,TSLA,1,0.1644536781106837,long=+32.5% short=-7.6% vol=70%,88930.87
+2022-03-25,tsmom_short,JPM,-1,0.043542072531469696,long=-0.8% short=-9.7% vol=33%,88930.87
+2022-03-25,tsmom_short,AVGO,1,0.13827895489532083,long=+27.1% short=-6.1% vol=39%,88930.87
+2022-03-25,tsmom_short,XLE,1,0.42588395479370755,long=+43.2% short=+41.7% vol=29%,88930.87
+2022-03-25,vol_target,PORTFOLIO,1,0.629,port_vol~31.8% target=20% scale=0.63,88930.87
+2022-03-28,regime,SPY,1,1.0,regime=ON,88579.45
+2022-03-28,tsmom_short,SPY,1,0.05394729472262272,long=+11.7% short=-4.1% vol=21%,88579.45
+2022-03-28,tsmom_short,QQQ,1,0.028247346796217147,long=+10.7% short=-9.0% vol=31%,88579.45
+2022-03-28,tsmom_short,AAPL,1,0.22346629756320843,long=+38.5% short=-1.9% vol=30%,88579.45
+2022-03-28,tsmom_short,MSFT,1,0.1444745889377403,long=+29.9% short=-8.8% vol=33%,88579.45
+2022-03-28,tsmom_short,NVDA,1,0.5095965405483415,long=+89.5% short=-6.9% vol=66%,88579.45
+2022-03-28,tsmom_short,GOOGL,1,0.17767554617591633,long=+32.0% short=-3.6% vol=36%,88579.45
+2022-03-28,tsmom_short,AMZN,-1,0.00077913835926881,long=+0.5% short=-1.0% vol=49%,88579.45
+2022-03-28,tsmom_short,META,-1,0.3020328892823022,long=-26.7% short=-35.4% vol=69%,88579.45
+2022-03-28,tsmom_short,TSLA,1,0.22288973216431943,long=+36.9% short=+0.3% vol=72%,88579.45
+2022-03-28,tsmom_short,JPM,-1,0.07877225933816273,long=-6.0% short=-10.7% vol=33%,88579.45
+2022-03-28,tsmom_short,AVGO,1,0.17041196740257633,long=+31.6% short=-4.8% vol=39%,88579.45
+2022-03-28,tsmom_short,XLE,1,0.4411045983892423,long=+48.0% short=+38.3% vol=30%,88579.45
+2022-03-28,vol_target,PORTFOLIO,1,0.623,port_vol~32.1% target=20% scale=0.62,88579.45
+2022-03-29,regime,SPY,1,1.0,regime=ON,88984.19
+2022-03-29,tsmom_short,SPY,1,0.04532229249325089,long=+9.6% short=-3.0% vol=22%,88984.19
+2022-03-29,tsmom_short,QQQ,1,0.014532672506616356,long=+7.4% short=-7.4% vol=32%,88984.19
+2022-03-29,tsmom_short,AAPL,1,0.2059738153689569,long=+34.4% short=-0.1% vol=31%,88984.19
+2022-03-29,tsmom_short,MSFT,1,0.1264359115131698,long=+26.1% short=-7.6% vol=33%,88984.19
+2022-03-29,tsmom_short,NVDA,1,0.43797414041249205,long=+76.0% short=-4.5% vol=66%,88984.19
+2022-03-29,tsmom_short,GOOGL,1,0.16866878758800505,long=+30.0% short=-2.8% vol=36%,88984.19
+2022-03-29,tsmom_short,AMZN,-1,0.013545257392695399,long=-2.3% short=+0.1% vol=49%,88984.19
+2022-03-29,tsmom_short,META,-1,0.31735637726462246,long=-30.9% short=-33.0% vol=69%,88984.19
+2022-03-29,tsmom_short,TSLA,1,0.18138893885510554,long=+29.4% short=+1.2% vol=72%,88984.19
+2022-03-29,tsmom_short,JPM,-1,0.09106063011386491,long=-8.2% short=-10.4% vol=33%,88984.19
+2022-03-29,tsmom_short,AVGO,1,0.13784100829926016,long=+25.6% short=-4.0% vol=39%,88984.19
+2022-03-29,tsmom_short,XLE,1,0.4583768202430375,long=+50.5% short=+38.8% vol=30%,88984.19
+2022-03-29,vol_target,PORTFOLIO,1,0.636,port_vol~31.4% target=20% scale=0.64,88984.19
+2022-03-30,regime,SPY,1,1.0,regime=ON,88767.55
+2022-03-30,tsmom_short,SPY,1,0.04893722164784128,long=+10.4% short=-3.4% vol=22%,88767.55
+2022-03-30,tsmom_short,QQQ,1,0.011372134226444841,long=+7.4% short=-8.2% vol=32%,88767.55
+2022-03-30,tsmom_short,AAPL,1,0.21686009658219776,long=+36.2% short=-0.1% vol=30%,88767.55
+2022-03-30,tsmom_short,MSFT,1,0.12000339169757314,long=+24.9% short=-7.3% vol=33%,88767.55
+2022-03-30,tsmom_short,NVDA,1,0.4273125903387031,long=+75.5% short=-6.4% vol=67%,88767.55
+2022-03-30,tsmom_short,GOOGL,1,0.1465669184847099,long=+26.4% short=-2.9% vol=36%,88767.55
+2022-03-30,tsmom_short,AMZN,-1,0.028326553538810965,long=-3.8% short=-1.4% vol=49%,88767.55
+2022-03-30,tsmom_short,META,-1,0.31724765589694764,long=-30.3% short=-33.8% vol=69%,88767.55
+2022-03-30,tsmom_short,TSLA,1,0.20662297669722152,long=+33.0% short=+2.2% vol=66%,88767.55
+2022-03-30,tsmom_short,JPM,-1,0.08649608068117759,long=-7.2% short=-10.8% vol=33%,88767.55
+2022-03-30,tsmom_short,AVGO,1,0.13661025903144683,long=+25.7% short=-4.5% vol=39%,88767.55
+2022-03-30,tsmom_short,XLE,1,0.4659775903259685,long=+50.1% short=+41.3% vol=29%,88767.55
+2022-03-30,vol_target,PORTFOLIO,1,0.648,port_vol~30.8% target=20% scale=0.65,88767.55
+2022-03-31,regime,SPY,1,1.0,regime=ON,87924.81
+2022-03-31,tsmom_short,SPY,1,0.03132533222740427,long=+8.3% short=-4.6% vol=22%,87924.81
+2022-03-31,tsmom_short,QQQ,-1,0.012530876600779367,long=+3.8% short=-8.8% vol=32%,87924.81
+2022-03-31,tsmom_short,AAPL,1,0.19074207892373665,long=+32.8% short=-1.5% vol=30%,87924.81
+2022-03-31,tsmom_short,MSFT,1,0.08611094496050417,long=+19.8% short=-8.1% vol=33%,87924.81
+2022-03-31,tsmom_short,NVDA,1,0.38909563964855415,long=+69.7% short=-7.2% vol=66%,87924.81
+2022-03-31,tsmom_short,GOOGL,1,0.10814668706090454,long=+20.7% short=-4.0% vol=36%,87924.81
+2022-03-31,tsmom_short,AMZN,-1,0.05889916427536544,long=-8.3% short=-2.2% vol=49%,87924.81
+2022-03-31,tsmom_short,META,-1,0.3413298060104253,long=-34.3% short=-33.9% vol=69%,87924.81
+2022-03-31,tsmom_short,TSLA,1,0.13658902053028293,long=+21.5% short=+2.0% vol=66%,87924.81
+2022-03-31,tsmom_short,JPM,-1,0.10379796891418336,long=-8.4% short=-13.4% vol=32%,87924.81
+2022-03-31,tsmom_short,AVGO,1,0.10720337432626216,long=+21.0% short=-4.7% vol=39%,87924.81
+2022-03-31,tsmom_short,XLE,1,0.481451671363897,long=+54.2% short=+39.0% vol=29%,87924.81
+2022-03-31,vol_target,PORTFOLIO,1,0.662,port_vol~30.2% target=20% scale=0.66,87924.81
+2022-04-01,regime,SPY,1,1.0,regime=ON,87929.31
+2022-04-01,tsmom_short,SPY,1,0.025305637113591278,long=+7.5% short=-4.9% vol=22%,87929.31
+2022-04-01,tsmom_short,QQQ,-1,0.02529368630776907,long=+2.3% short=-9.8% vol=31%,87929.31
+2022-04-01,tsmom_short,AAPL,1,0.16388329335179738,long=+30.1% short=-4.1% vol=30%,87929.31
+2022-04-01,tsmom_short,MSFT,1,0.07788270055012507,long=+17.9% short=-7.4% vol=32%,87929.31
+2022-04-01,tsmom_short,NVDA,1,0.34827632133268893,long=+65.6% short=-11.3% vol=66%,87929.31
+2022-04-01,tsmom_short,GOOGL,1,0.10311896055807498,long=+19.4% short=-3.3% vol=35%,87929.31
+2022-04-01,tsmom_short,AMZN,-1,0.07394807226037024,long=-9.6% short=-4.0% vol=49%,87929.31
+2022-04-01,tsmom_short,META,-1,0.3423883077680657,long=-34.7% short=-33.6% vol=69%,87929.31
+2022-04-01,tsmom_short,TSLA,1,0.08883668604051811,long=+21.2% short=-9.6% vol=65%,87929.31
+2022-04-01,tsmom_short,JPM,-1,0.1251701335345315,long=-10.3% short=-15.8% vol=32%,87929.31
+2022-04-01,tsmom_short,AVGO,1,0.13571457634132328,long=+25.8% short=-4.8% vol=38%,87929.31
+2022-04-01,tsmom_short,XLE,1,0.4983351693789422,long=+59.1% short=+36.0% vol=29%,87929.31
+2022-04-01,vol_target,PORTFOLIO,1,0.677,port_vol~29.5% target=20% scale=0.68,87929.31
+2022-04-04,regime,SPY,1,1.0,regime=ON,88519.47
+2022-04-04,tsmom_short,SPY,1,0.008959068821381776,long=+4.2% short=-4.0% vol=22%,88519.47
+2022-04-04,tsmom_short,QQQ,-1,0.037095368427823655,long=-1.7% short=-6.7% vol=31%,88519.47
+2022-04-04,tsmom_short,AAPL,1,0.14944564738728475,long=+25.3% short=-0.6% vol=30%,88519.47
+2022-04-04,tsmom_short,MSFT,1,0.05882886275930628,long=+12.5% short=-4.1% vol=33%,88519.47
+2022-04-04,tsmom_short,NVDA,1,0.2801406125465682,long=+51.1% short=-6.6% vol=66%,88519.47
+2022-04-04,tsmom_short,GOOGL,1,0.07336521548562656,long=+12.9% short=-1.0% vol=35%,88519.47
+2022-04-04,tsmom_short,AMZN,-1,0.09506093180374922,long=-16.2% short=+0.5% vol=49%,88519.47
+2022-04-04,tsmom_short,META,-1,0.3627340084108983,long=-40.1% short=-30.5% vol=69%,88519.47
+2022-04-04,tsmom_short,TSLA,1,0.11803728717541452,long=+19.9% short=-0.4% vol=66%,88519.47
+2022-04-04,tsmom_short,JPM,-1,0.16479040549255997,long=-15.1% short=-18.5% vol=32%,88519.47
+2022-04-04,tsmom_short,AVGO,1,0.10619940461085349,long=+20.9% short=-4.7% vol=38%,88519.47
+2022-04-04,tsmom_short,XLE,1,0.49156090431819877,long=+60.9% short=+31.6% vol=29%,88519.47
+2022-04-04,vol_target,PORTFOLIO,1,0.699,port_vol~28.6% target=20% scale=0.70,88519.47
+2022-04-05,regime,SPY,1,1.0,regime=ON,87123.18
+2022-04-05,tsmom_short,SPY,1,0.0038593476436997714,long=+2.9% short=-3.4% vol=22%,87123.18
+2022-04-05,tsmom_short,QQQ,-1,0.042621831000019844,long=-3.2% short=-5.9% vol=32%,87123.18
+2022-04-05,tsmom_short,AAPL,1,0.12977635669767318,long=+21.5% short=+0.2% vol=30%,87123.18
+2022-04-05,tsmom_short,MSFT,1,0.05272643223218429,long=+9.8% short=-1.5% vol=33%,87123.18
+2022-04-05,tsmom_short,NVDA,1,0.27806411931876873,long=+50.4% short=-6.0% vol=66%,87123.18
+2022-04-05,tsmom_short,GOOGL,1,0.08593669599737064,long=+13.0% short=+2.0% vol=35%,87123.18
+2022-04-05,tsmom_short,AMZN,-1,0.10603187547552557,long=-17.5% short=-0.2% vol=50%,87123.18
+2022-04-05,tsmom_short,META,-1,0.3491780774262677,long=-39.2% short=-28.5% vol=69%,87123.18
+2022-04-05,tsmom_short,TSLA,1,0.12452364952312522,long=+20.6% short=+0.3% vol=66%,87123.18
+2022-04-05,tsmom_short,JPM,-1,0.16679166321483652,long=-15.8% short=-18.0% vol=32%,87123.18
+2022-04-05,tsmom_short,AVGO,1,0.11188079790694033,long=+21.2% short=-3.8% vol=38%,87123.18
+2022-04-05,tsmom_short,XLE,1,0.5115017574283269,long=+65.6% short=+29.5% vol=29%,87123.18
+2022-04-05,vol_target,PORTFOLIO,1,0.693,port_vol~28.9% target=20% scale=0.69,87123.18
+2022-04-06,regime,SPY,1,1.0,regime=ON,86563.95
+2022-04-06,tsmom_short,SPY,1,0.012334554370317323,long=+4.9% short=-4.3% vol=22%,86563.95
+2022-04-06,tsmom_short,QQQ,-1,0.03324163319689283,long=-0.3% short=-7.9% vol=32%,86563.95
+2022-04-06,tsmom_short,AAPL,1,0.13959575097659763,long=+23.2% short=+0.0% vol=31%,86563.95
+2022-04-06,tsmom_short,MSFT,1,0.06454295863881772,long=+13.7% short=-4.4% vol=33%,86563.95
+2022-04-06,tsmom_short,NVDA,1,0.3061145574676414,long=+59.9% short=-13.4% vol=67%,86563.95
+2022-04-06,tsmom_short,GOOGL,1,0.10161268418083298,long=+17.5% short=-0.9% vol=36%,86563.95
+2022-04-06,tsmom_short,AMZN,-1,0.11539543532324967,long=-17.4% short=-2.8% vol=50%,86563.95
+2022-04-06,tsmom_short,META,-1,0.35016734582679676,long=-36.5% short=-32.8% vol=70%,86563.95
+2022-04-06,tsmom_short,TSLA,1,0.1541351455800993,long=+26.9% short=-1.8% vol=66%,86563.95
+2022-04-06,tsmom_short,JPM,-1,0.15840670374653415,long=-13.1% short=-20.0% vol=32%,86563.95
+2022-04-06,tsmom_short,AVGO,1,0.1350350166832879,long=+25.7% short=-4.9% vol=38%,86563.95
+2022-04-06,tsmom_short,XLE,1,0.47923491038734717,long=+61.6% short=+27.5% vol=29%,86563.95
+2022-04-06,vol_target,PORTFOLIO,1,0.609,port_vol~32.8% target=20% scale=0.61,86563.95
+2022-04-07,regime,SPY,1,1.0,regime=ON,86958.88
+2022-04-07,tsmom_short,SPY,1,0.012720497799964054,long=+4.4% short=-3.4% vol=22%,86958.88
+2022-04-07,tsmom_short,QQQ,-1,0.03419261666986484,long=-1.3% short=-6.7% vol=32%,86958.88
+2022-04-07,tsmom_short,AAPL,1,0.1294652173583511,long=+21.5% short=+0.1% vol=30%,86958.88
+2022-04-07,tsmom_short,MSFT,1,0.05969668586058698,long=+12.5% short=-3.8% vol=33%,86958.88
+2022-04-07,tsmom_short,NVDA,1,0.2499362524412213,long=+49.1% short=-11.1% vol=67%,86958.88
+2022-04-07,tsmom_short,GOOGL,1,0.10468896282679027,long=+18.0% short=-0.8% vol=35%,86958.88
+2022-04-07,tsmom_short,AMZN,-1,0.09039673478453462,long=-13.1% short=-2.9% vol=50%,86958.88
+2022-04-07,tsmom_short,META,-1,0.3552573158275239,long=-37.3% short=-32.8% vol=70%,86958.88
+2022-04-07,tsmom_short,TSLA,1,0.12831793763934105,long=+19.4% short=+3.0% vol=66%,86958.88
+2022-04-07,tsmom_short,JPM,-1,0.16759584987766035,long=-13.9% short=-21.0% vol=32%,86958.88
+2022-04-07,tsmom_short,AVGO,1,0.13714824729509237,long=+24.2% short=-1.9% vol=38%,86958.88
+2022-04-07,tsmom_short,XLE,1,0.516519171494825,long=+67.8% short=+27.4% vol=28%,86958.88
+2022-04-07,vol_target,PORTFOLIO,1,0.687,port_vol~29.1% target=20% scale=0.69,86958.88
+2022-04-08,regime,SPY,1,1.0,regime=ON,87457.93
+2022-04-08,tsmom_short,SPY,1,0.00237559212431453,long=+2.8% short=-3.6% vol=22%,87457.93
+2022-04-08,tsmom_short,QQQ,-1,0.05863488708204809,long=-4.4% short=-8.0% vol=32%,87457.93
+2022-04-08,tsmom_short,AAPL,1,0.09033450467119285,long=+15.8% short=-1.1% vol=30%,87457.93
+2022-04-08,tsmom_short,MSFT,1,0.034148644403612594,long=+9.2% short=-5.3% vol=34%,87457.93
+2022-04-08,tsmom_short,NVDA,1,0.18384212249410675,long=+41.0% short=-15.6% vol=68%,87457.93
+2022-04-08,tsmom_short,GOOGL,1,0.07575701661367303,long=+15.2% short=-3.9% vol=36%,87457.93
+2022-04-08,tsmom_short,AMZN,-1,0.10378622003307839,long=-14.4% short=-4.4% vol=50%,87457.93
+2022-04-08,tsmom_short,META,-1,0.36552630817041604,long=-39.4% short=-32.2% vol=70%,87457.93
+2022-04-08,tsmom_short,TSLA,1,0.013661844611159804,long=+4.3% short=-3.1% vol=66%,87457.93
+2022-04-08,tsmom_short,JPM,-1,0.16765630046072494,long=-14.9% short=-19.6% vol=32%,87457.93
+2022-04-08,tsmom_short,AVGO,1,0.11100309083689074,long=+21.7% short=-4.9% vol=39%,87457.93
+2022-04-08,tsmom_short,XLE,1,0.5230662754976706,long=+66.3% short=+31.3% vol=29%,87457.93
+2022-04-08,vol_target,PORTFOLIO,1,0.706,port_vol~28.3% target=20% scale=0.71,87457.93
+2022-04-11,regime,SPY,0,1.0,regime=OFF,85565.1
+2022-04-11,defense_tsmom,TLT,-1,0.03175274575762191,12-1 ret -3.2%,85565.1
+2022-04-11,defense_tsmom,GLD,1,0.12032941054675639,12-1 ret +12.0%,85565.1
+2022-04-11,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85565.1
+2022-04-12,regime,SPY,0,1.0,regime=OFF,86700.85
+2022-04-12,defense_tsmom,TLT,-1,0.04935112958727017,12-1 ret -4.9%,86700.85
+2022-04-12,defense_tsmom,GLD,1,0.08188686293519847,12-1 ret +8.2%,86700.85
+2022-04-12,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86700.85
+2022-04-13,regime,SPY,0,1.0,regime=OFF,86908.35
+2022-04-13,defense_tsmom,TLT,-1,0.03251348144914259,12-1 ret -3.3%,86908.35
+2022-04-13,defense_tsmom,GLD,1,0.08211594771340151,12-1 ret +8.2%,86908.35
+2022-04-13,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86908.35
+2022-04-14,regime,SPY,0,1.0,regime=OFF,86764.51
+2022-04-14,defense_tsmom,TLT,-1,0.03695828956785764,12-1 ret -3.7%,86764.51
+2022-04-14,defense_tsmom,GLD,1,0.09042136388684563,12-1 ret +9.0%,86764.51
+2022-04-14,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86764.51
+2022-04-18,regime,SPY,0,1.0,regime=OFF,86898.92
+2022-04-18,defense_tsmom,TLT,-1,0.029669219583681055,12-1 ret -3.0%,86898.92
+2022-04-18,defense_tsmom,GLD,1,0.07700629296747434,12-1 ret +7.7%,86898.92
+2022-04-18,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86898.92
+2022-04-19,regime,SPY,0,1.0,regime=OFF,86241.02
+2022-04-19,defense_tsmom,TLT,-1,0.05403782169098143,12-1 ret -5.4%,86241.02
+2022-04-19,defense_tsmom,GLD,1,0.07458510035060817,12-1 ret +7.5%,86241.02
+2022-04-19,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86241.02
+2022-04-20,regime,SPY,0,1.0,regime=OFF,86450.89
+2022-04-20,defense_tsmom,TLT,-1,0.07021471025540671,12-1 ret -7.0%,86450.89
+2022-04-20,defense_tsmom,GLD,1,0.07375483608356635,12-1 ret +7.4%,86450.89
+2022-04-20,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86450.89
+2022-04-21,regime,SPY,0,1.0,regime=OFF,86297.61
+2022-04-21,defense_tsmom,TLT,-1,0.04759974003892742,12-1 ret -4.8%,86297.61
+2022-04-21,defense_tsmom,GLD,1,0.0926081984816404,12-1 ret +9.3%,86297.61
+2022-04-21,alloc,DEFENSE,1,1.0,OFF regime: long GLD,86297.61
+2022-04-22,regime,SPY,0,1.0,regime=OFF,85880.23
+2022-04-22,defense_tsmom,TLT,-1,0.05370888993101388,12-1 ret -5.4%,85880.23
+2022-04-22,defense_tsmom,GLD,1,0.09763850936516888,12-1 ret +9.8%,85880.23
+2022-04-22,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85880.23
+2022-04-25,regime,SPY,0,1.0,regime=OFF,85115.44
+2022-04-25,defense_tsmom,TLT,-1,0.058624386675897956,12-1 ret -5.9%,85115.44
+2022-04-25,defense_tsmom,GLD,1,0.095901976261681,12-1 ret +9.6%,85115.44
+2022-04-25,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85115.44
+2022-04-26,regime,SPY,0,1.0,regime=OFF,85180.32
+2022-04-26,defense_tsmom,TLT,-1,0.051191824681543305,12-1 ret -5.1%,85180.32
+2022-04-26,defense_tsmom,GLD,1,0.07279368300225239,12-1 ret +7.3%,85180.32
+2022-04-26,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85180.32
+2022-04-27,regime,SPY,0,1.0,regime=OFF,84858.33
+2022-04-27,defense_tsmom,TLT,-1,0.04119282746022142,12-1 ret -4.1%,84858.33
+2022-04-27,defense_tsmom,GLD,1,0.07772830028914772,12-1 ret +7.8%,84858.33
+2022-04-27,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84858.33
+2022-04-28,regime,SPY,0,1.0,regime=OFF,85086.61
+2022-04-28,defense_tsmom,TLT,-1,0.03594278111834736,12-1 ret -3.6%,85086.61
+2022-04-28,defense_tsmom,GLD,1,0.09006397343427014,12-1 ret +9.0%,85086.61
+2022-04-28,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85086.61
+2022-04-29,regime,SPY,0,1.0,regime=OFF,85081.8
+2022-04-29,defense_tsmom,TLT,-1,0.034180364163949324,12-1 ret -3.4%,85081.8
+2022-04-29,defense_tsmom,GLD,1,0.0765150856605389,12-1 ret +7.7%,85081.8
+2022-04-29,alloc,DEFENSE,1,1.0,OFF regime: long GLD,85081.8
+2022-05-02,regime,SPY,0,1.0,regime=OFF,84293.57
+2022-05-02,defense_tsmom,TLT,-1,0.03703866026289051,12-1 ret -3.7%,84293.57
+2022-05-02,defense_tsmom,GLD,1,0.07756031952772317,12-1 ret +7.8%,84293.57
+2022-05-02,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84293.57
+2022-05-03,regime,SPY,0,1.0,regime=OFF,84405.24
+2022-05-03,defense_tsmom,TLT,-1,0.04530526985082387,12-1 ret -4.5%,84405.24
+2022-05-03,defense_tsmom,GLD,1,0.0783164375567803,12-1 ret +7.8%,84405.24
+2022-05-03,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84405.24
+2022-05-04,regime,SPY,0,1.0,regime=OFF,84820.35
+2022-05-04,defense_tsmom,TLT,-1,0.06840804732185285,12-1 ret -6.8%,84820.35
+2022-05-04,defense_tsmom,GLD,1,0.05398099533317566,12-1 ret +5.4%,84820.35
+2022-05-04,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84820.35
+2022-05-05,regime,SPY,0,1.0,regime=OFF,84664.12
+2022-05-05,defense_tsmom,TLT,-1,0.07136886000016503,12-1 ret -7.1%,84664.12
+2022-05-05,defense_tsmom,GLD,1,0.04703075643365304,12-1 ret +4.7%,84664.12
+2022-05-05,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84664.12
+2022-05-06,regime,SPY,0,1.0,regime=OFF,84733.73
+2022-05-06,defense_tsmom,TLT,-1,0.0689348848274119,12-1 ret -6.9%,84733.73
+2022-05-06,defense_tsmom,GLD,1,0.047818230773070305,12-1 ret +4.8%,84733.73
+2022-05-06,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84733.73
+2022-05-09,regime,SPY,0,1.0,regime=OFF,84124.0
+2022-05-09,defense_tsmom,TLT,-1,0.07377701269767648,12-1 ret -7.4%,84124.0
+2022-05-09,defense_tsmom,GLD,1,0.054200080539884926,12-1 ret +5.4%,84124.0
+2022-05-09,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84124.0
+2022-05-10,regime,SPY,0,1.0,regime=OFF,83767.21
+2022-05-10,defense_tsmom,TLT,-1,0.07875406185039682,12-1 ret -7.9%,83767.21
+2022-05-10,defense_tsmom,GLD,1,0.07005810570044677,12-1 ret +7.0%,83767.21
+2022-05-10,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83767.21
+2022-05-11,regime,SPY,0,1.0,regime=OFF,84106.92
+2022-05-11,defense_tsmom,TLT,-1,0.0814485762234383,12-1 ret -8.1%,84106.92
+2022-05-11,defense_tsmom,GLD,1,0.07386197060126386,12-1 ret +7.4%,84106.92
+2022-05-11,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84106.92
+2022-05-12,regime,SPY,0,1.0,regime=OFF,83463.9
+2022-05-12,defense_tsmom,TLT,-1,0.08810864754563658,12-1 ret -8.8%,83463.9
+2022-05-12,defense_tsmom,GLD,1,0.06925699974517142,12-1 ret +6.9%,83463.9
+2022-05-12,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83463.9
+2022-05-13,regime,SPY,0,1.0,regime=OFF,83130.74
+2022-05-13,defense_tsmom,TLT,-1,0.10449278327273519,12-1 ret -10.4%,83130.74
+2022-05-13,defense_tsmom,GLD,1,0.05346305953661668,12-1 ret +5.3%,83130.74
+2022-05-13,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83130.74
+2022-05-16,regime,SPY,0,1.0,regime=OFF,83527.78
+2022-05-16,defense_tsmom,TLT,-1,0.10665659332798091,12-1 ret -10.7%,83527.78
+2022-05-16,defense_tsmom,GLD,1,0.054673261490446566,12-1 ret +5.5%,83527.78
+2022-05-16,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83527.78
+2022-05-17,regime,SPY,0,1.0,regime=OFF,83263.91
+2022-05-17,defense_tsmom,TLT,-1,0.11119906168663897,12-1 ret -11.1%,83263.91
+2022-05-17,defense_tsmom,GLD,1,0.03802239965098875,12-1 ret +3.8%,83263.91
+2022-05-17,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83263.91
+2022-05-18,regime,SPY,0,1.0,regime=OFF,83286.1
+2022-05-18,defense_tsmom,TLT,-1,0.10071082375738283,12-1 ret -10.1%,83286.1
+2022-05-18,defense_tsmom,GLD,1,0.038360989670660435,12-1 ret +3.8%,83286.1
+2022-05-18,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83286.1
+2022-05-19,regime,SPY,0,1.0,regime=OFF,83900.15
+2022-05-19,defense_tsmom,TLT,-1,0.11021691336315166,12-1 ret -11.0%,83900.15
+2022-05-19,defense_tsmom,GLD,1,0.034196799034615456,12-1 ret +3.4%,83900.15
+2022-05-19,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83900.15
+2022-05-20,regime,SPY,0,1.0,regime=OFF,83928.84
+2022-05-20,defense_tsmom,TLT,-1,0.11908104826043817,12-1 ret -11.9%,83928.84
+2022-05-20,defense_tsmom,GLD,1,0.02234186019990527,12-1 ret +2.2%,83928.84
+2022-05-20,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83928.84
+2022-05-23,regime,SPY,0,1.0,regime=OFF,84124.17
+2022-05-23,defense_tsmom,TLT,-1,0.11843710122811123,12-1 ret -11.8%,84124.17
+2022-05-23,defense_tsmom,GLD,-1,0.0050575662372511505,12-1 ret -0.5%,84124.17
+2022-05-24,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-05-24,defense_tsmom,TLT,-1,0.10802732280421376,12-1 ret -10.8%,84267.73
+2022-05-24,defense_tsmom,GLD,-1,0.0018013514215781646,12-1 ret -0.2%,84267.73
+2022-05-25,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-05-25,defense_tsmom,TLT,-1,0.11591152601653018,12-1 ret -11.6%,84267.73
+2022-05-25,defense_tsmom,GLD,-1,0.009735022907931316,12-1 ret -1.0%,84267.73
+2022-05-26,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-05-26,defense_tsmom,TLT,-1,0.11318737244467957,12-1 ret -11.3%,84267.73
+2022-05-26,defense_tsmom,GLD,-1,0.008128782191613022,12-1 ret -0.8%,84267.73
+2022-05-27,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-05-27,defense_tsmom,TLT,-1,0.12449601117939722,12-1 ret -12.4%,84267.73
+2022-05-27,defense_tsmom,GLD,-1,0.005564869411693465,12-1 ret -0.6%,84267.73
+2022-05-31,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-05-31,defense_tsmom,TLT,-1,0.1416589468268822,12-1 ret -14.2%,84267.73
+2022-05-31,defense_tsmom,GLD,-1,0.02875202364382469,12-1 ret -2.9%,84267.73
+2022-06-01,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-01,defense_tsmom,TLT,-1,0.13261658567933798,12-1 ret -13.3%,84267.73
+2022-06-01,defense_tsmom,GLD,-1,0.006732515010018287,12-1 ret -0.7%,84267.73
+2022-06-02,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-02,defense_tsmom,TLT,-1,0.13961975145085231,12-1 ret -14.0%,84267.73
+2022-06-02,defense_tsmom,GLD,-1,0.007676679737179508,12-1 ret -0.8%,84267.73
+2022-06-03,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-03,defense_tsmom,TLT,-1,0.16061275628838925,12-1 ret -16.1%,84267.73
+2022-06-03,defense_tsmom,GLD,-1,0.015404454430719416,12-1 ret -1.5%,84267.73
+2022-06-06,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-06,defense_tsmom,TLT,-1,0.17875163907808467,12-1 ret -17.9%,84267.73
+2022-06-06,defense_tsmom,GLD,-1,0.010715142549026559,12-1 ret -1.1%,84267.73
+2022-06-07,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-07,defense_tsmom,TLT,-1,0.17877773511009412,12-1 ret -17.9%,84267.73
+2022-06-07,defense_tsmom,GLD,-1,0.02316640831565226,12-1 ret -2.3%,84267.73
+2022-06-08,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-08,defense_tsmom,TLT,-1,0.17627122373990528,12-1 ret -17.6%,84267.73
+2022-06-08,defense_tsmom,GLD,-1,0.03555759608920356,12-1 ret -3.6%,84267.73
+2022-06-09,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-09,defense_tsmom,TLT,-1,0.15903898417867762,12-1 ret -15.9%,84267.73
+2022-06-09,defense_tsmom,GLD,-1,0.01661544371044699,12-1 ret -1.7%,84267.73
+2022-06-10,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-10,defense_tsmom,TLT,-1,0.15412919144917714,12-1 ret -15.4%,84267.73
+2022-06-10,defense_tsmom,GLD,-1,0.025985967434351446,12-1 ret -2.6%,84267.73
+2022-06-13,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-13,defense_tsmom,TLT,-1,0.1656273106727993,12-1 ret -16.6%,84267.73
+2022-06-13,defense_tsmom,GLD,-1,0.030221256382631685,12-1 ret -3.0%,84267.73
+2022-06-14,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-14,defense_tsmom,TLT,-1,0.16578101231691247,12-1 ret -16.6%,84267.73
+2022-06-14,defense_tsmom,GLD,-1,0.00414941681570092,12-1 ret -0.4%,84267.73
+2022-06-15,regime,SPY,0,1.0,regime=OFF,84267.73
+2022-06-15,defense_tsmom,TLT,-1,0.18801784069004385,12-1 ret -18.8%,84267.73
+2022-06-15,defense_tsmom,GLD,1,0.02098278926421634,12-1 ret +2.1%,84267.73
+2022-06-15,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84267.73
+2022-06-16,regime,SPY,0,1.0,regime=OFF,84781.27
+2022-06-16,defense_tsmom,TLT,-1,0.18601646698089216,12-1 ret -18.6%,84781.27
+2022-06-16,defense_tsmom,GLD,1,0.02722370516313851,12-1 ret +2.7%,84781.27
+2022-06-16,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84781.27
+2022-06-17,regime,SPY,0,1.0,regime=OFF,84430.48
+2022-06-17,defense_tsmom,TLT,-1,0.17017267216506735,12-1 ret -17.0%,84430.48
+2022-06-17,defense_tsmom,GLD,1,0.029709534618349756,12-1 ret +3.0%,84430.48
+2022-06-17,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84430.48
+2022-06-21,regime,SPY,0,1.0,regime=OFF,84272.38
+2022-06-21,defense_tsmom,TLT,-1,0.1627991122034834,12-1 ret -16.3%,84272.38
+2022-06-21,defense_tsmom,GLD,1,0.03476690995065789,12-1 ret +3.5%,84272.38
+2022-06-21,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84272.38
+2022-06-22,regime,SPY,0,1.0,regime=OFF,84440.36
+2022-06-22,defense_tsmom,TLT,-1,0.17444835777521245,12-1 ret -17.4%,84440.36
+2022-06-22,defense_tsmom,GLD,1,0.04026725933540047,12-1 ret +4.0%,84440.36
+2022-06-22,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84440.36
+2022-06-23,regime,SPY,0,1.0,regime=OFF,84180.98
+2022-06-23,defense_tsmom,TLT,-1,0.15950718587852597,12-1 ret -16.0%,84180.98
+2022-06-23,defense_tsmom,GLD,1,0.04872327104192519,12-1 ret +4.9%,84180.98
+2022-06-23,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84180.98
+2022-06-24,regime,SPY,0,1.0,regime=OFF,84138.98
+2022-06-24,defense_tsmom,TLT,-1,0.1473302172730682,12-1 ret -14.7%,84138.98
+2022-06-24,defense_tsmom,GLD,1,0.03895795447405218,12-1 ret +3.9%,84138.98
+2022-06-24,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84138.98
+2022-06-27,regime,SPY,0,1.0,regime=OFF,84092.05
+2022-06-27,defense_tsmom,TLT,-1,0.1598265880607504,12-1 ret -16.0%,84092.05
+2022-06-27,defense_tsmom,GLD,1,0.03709924725567595,12-1 ret +3.7%,84092.05
+2022-06-27,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84092.05
+2022-06-28,regime,SPY,0,1.0,regime=OFF,84022.88
+2022-06-28,defense_tsmom,TLT,-1,0.1591824564821489,12-1 ret -15.9%,84022.88
+2022-06-28,defense_tsmom,GLD,1,0.04865621660722407,12-1 ret +4.9%,84022.88
+2022-06-28,alloc,DEFENSE,1,1.0,OFF regime: long GLD,84022.88
+2022-06-29,regime,SPY,0,1.0,regime=OFF,83990.76
+2022-06-29,defense_tsmom,TLT,-1,0.18062531334739612,12-1 ret -18.1%,83990.76
+2022-06-29,defense_tsmom,GLD,1,0.03326688609792894,12-1 ret +3.3%,83990.76
+2022-06-29,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83990.76
+2022-06-30,regime,SPY,0,1.0,regime=OFF,83736.32
+2022-06-30,defense_tsmom,TLT,-1,0.18160672374585993,12-1 ret -18.2%,83736.32
+2022-06-30,defense_tsmom,GLD,1,0.03628158176907025,12-1 ret +3.6%,83736.32
+2022-06-30,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83736.32
+2022-07-01,regime,SPY,0,1.0,regime=OFF,83701.74
+2022-07-01,defense_tsmom,TLT,-1,0.18609560966964112,12-1 ret -18.6%,83701.74
+2022-07-01,defense_tsmom,GLD,1,0.0422022422184414,12-1 ret +4.2%,83701.74
+2022-07-01,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83701.74
+2022-07-05,regime,SPY,0,1.0,regime=OFF,82819.83
+2022-07-05,defense_tsmom,TLT,-1,0.1972539896415407,12-1 ret -19.7%,82819.83
+2022-07-05,defense_tsmom,GLD,1,0.026528710703080584,12-1 ret +2.7%,82819.83
+2022-07-05,alloc,DEFENSE,1,1.0,OFF regime: long GLD,82819.83
+2022-07-06,regime,SPY,0,1.0,regime=OFF,82164.7
+2022-07-06,defense_tsmom,TLT,-1,0.21897922093924618,12-1 ret -21.9%,82164.7
+2022-07-06,defense_tsmom,GLD,1,0.01813233536967709,12-1 ret +1.8%,82164.7
+2022-07-06,alloc,DEFENSE,1,1.0,OFF regime: long GLD,82164.7
+2022-07-07,regime,SPY,0,1.0,regime=OFF,82187.35
+2022-07-07,defense_tsmom,TLT,-1,0.213624963300335,12-1 ret -21.4%,82187.35
+2022-07-07,defense_tsmom,GLD,1,0.025437347762698632,12-1 ret +2.5%,82187.35
+2022-07-07,alloc,DEFENSE,1,1.0,OFF regime: long GLD,82187.35
+2022-07-08,regime,SPY,0,1.0,regime=OFF,82204.97
+2022-07-08,defense_tsmom,TLT,-1,0.20947549898679813,12-1 ret -20.9%,82204.97
+2022-07-08,defense_tsmom,GLD,1,0.021097996121863624,12-1 ret +2.1%,82204.97
+2022-07-08,alloc,DEFENSE,1,1.0,OFF regime: long GLD,82204.97
+2022-07-11,regime,SPY,0,1.0,regime=OFF,81986.01
+2022-07-11,defense_tsmom,TLT,-1,0.20581284792422097,12-1 ret -20.6%,81986.01
+2022-07-11,defense_tsmom,GLD,1,0.01911240075466901,12-1 ret +1.9%,81986.01
+2022-07-11,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81986.01
+2022-07-12,regime,SPY,0,1.0,regime=OFF,81835.0
+2022-07-12,defense_tsmom,TLT,-1,0.20465173728725025,12-1 ret -20.5%,81835.0
+2022-07-12,defense_tsmom,GLD,1,0.0314383171436759,12-1 ret +3.1%,81835.0
+2022-07-12,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81835.0
+2022-07-13,regime,SPY,0,1.0,regime=OFF,82033.61
+2022-07-13,defense_tsmom,TLT,-1,0.23826347187153082,12-1 ret -23.8%,82033.61
+2022-07-13,defense_tsmom,GLD,-1,0.0064897138325692195,12-1 ret -0.6%,82033.61
+2022-07-14,regime,SPY,0,1.0,regime=OFF,81363.54
+2022-07-14,defense_tsmom,TLT,-1,0.25607704519517266,12-1 ret -25.6%,81363.54
+2022-07-14,defense_tsmom,GLD,-1,0.014613900116704265,12-1 ret -1.5%,81363.54
+2022-07-15,regime,SPY,0,1.0,regime=OFF,81363.54
+2022-07-15,defense_tsmom,TLT,-1,0.2407665928599623,12-1 ret -24.1%,81363.54
+2022-07-15,defense_tsmom,GLD,1,0.008027864830604118,12-1 ret +0.8%,81363.54
+2022-07-15,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81363.54
+2022-07-18,regime,SPY,0,1.0,regime=OFF,81117.54
+2022-07-18,defense_tsmom,TLT,-1,0.2511595192625219,12-1 ret -25.1%,81117.54
+2022-07-18,defense_tsmom,GLD,1,0.018159317374984493,12-1 ret +1.8%,81117.54
+2022-07-18,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81117.54
+2022-07-19,regime,SPY,0,1.0,regime=OFF,81214.1
+2022-07-19,defense_tsmom,TLT,-1,0.24143431467893947,12-1 ret -24.1%,81214.1
+2022-07-19,defense_tsmom,GLD,1,0.011098676956057587,12-1 ret +1.1%,81214.1
+2022-07-19,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81214.1
+2022-07-20,regime,SPY,0,1.0,regime=OFF,80832.9
+2022-07-20,defense_tsmom,TLT,-1,0.24472724573961793,12-1 ret -24.5%,80832.9
+2022-07-20,defense_tsmom,GLD,1,0.011080886684319098,12-1 ret +1.1%,80832.9
+2022-07-20,alloc,DEFENSE,1,1.0,OFF regime: long GLD,80832.9
+2022-07-21,regime,SPY,0,1.0,regime=OFF,81399.62
+2022-07-21,defense_tsmom,TLT,-1,0.2312239110184208,12-1 ret -23.1%,81399.62
+2022-07-21,defense_tsmom,GLD,1,0.013129110348236816,12-1 ret +1.3%,81399.62
+2022-07-21,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81399.62
+2022-07-22,regime,SPY,0,1.0,regime=OFF,81501.28
+2022-07-22,defense_tsmom,TLT,-1,0.21968888981844403,12-1 ret -22.0%,81501.28
+2022-07-22,defense_tsmom,GLD,1,0.010085411561846074,12-1 ret +1.0%,81501.28
+2022-07-22,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81501.28
+2022-07-25,regime,SPY,0,1.0,regime=OFF,81389.46
+2022-07-25,defense_tsmom,TLT,-1,0.22820400114642841,12-1 ret -22.8%,81389.46
+2022-07-25,defense_tsmom,GLD,1,0.011477120800135457,12-1 ret +1.1%,81389.46
+2022-07-25,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81389.46
+2022-07-26,regime,SPY,0,1.0,regime=OFF,81341.17
+2022-07-26,defense_tsmom,TLT,-1,0.24286653288546597,12-1 ret -24.3%,81341.17
+2022-07-26,defense_tsmom,GLD,1,0.0086677240199281,12-1 ret +0.9%,81341.17
+2022-07-26,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81341.17
+2022-07-27,regime,SPY,0,1.0,regime=OFF,81755.41
+2022-07-27,defense_tsmom,TLT,-1,0.23938920257867258,12-1 ret -23.9%,81755.41
+2022-07-27,defense_tsmom,GLD,1,0.0019493286321827694,12-1 ret +0.2%,81755.41
+2022-07-27,alloc,DEFENSE,1,1.0,OFF regime: long GLD,81755.41
+2022-07-28,regime,SPY,0,1.0,regime=OFF,82255.09
+2022-07-28,defense_tsmom,TLT,-1,0.22320886038911225,12-1 ret -22.3%,82255.09
+2022-07-28,defense_tsmom,GLD,-1,0.009814761311868989,12-1 ret -1.0%,82255.09
+2022-07-29,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-07-29,defense_tsmom,TLT,-1,0.22005582903106025,12-1 ret -22.0%,82305.62
+2022-07-29,defense_tsmom,GLD,-1,0.008008482815308459,12-1 ret -0.8%,82305.62
+2022-08-01,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-01,defense_tsmom,TLT,-1,0.21901443022830408,12-1 ret -21.9%,82305.62
+2022-08-01,defense_tsmom,GLD,-1,0.007605644015628181,12-1 ret -0.8%,82305.62
+2022-08-02,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-02,defense_tsmom,TLT,-1,0.2132960340459084,12-1 ret -21.3%,82305.62
+2022-08-02,defense_tsmom,GLD,-1,0.027966283199838814,12-1 ret -2.8%,82305.62
+2022-08-03,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-03,defense_tsmom,TLT,-1,0.22809259849088218,12-1 ret -22.8%,82305.62
+2022-08-03,defense_tsmom,GLD,-1,0.043591101532827414,12-1 ret -4.4%,82305.62
+2022-08-04,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-04,defense_tsmom,TLT,-1,0.23096598337749774,12-1 ret -23.1%,82305.62
+2022-08-04,defense_tsmom,GLD,-1,0.0392633238117261,12-1 ret -3.9%,82305.62
+2022-08-05,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-05,defense_tsmom,TLT,-1,0.22656626006040173,12-1 ret -22.7%,82305.62
+2022-08-05,defense_tsmom,GLD,-1,0.014212805797895002,12-1 ret -1.4%,82305.62
+2022-08-08,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-08,defense_tsmom,TLT,-1,0.21039715389846372,12-1 ret -21.0%,82305.62
+2022-08-08,defense_tsmom,GLD,-1,0.0017932756785358508,12-1 ret -0.2%,82305.62
+2022-08-09,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-09,defense_tsmom,TLT,-1,0.20201994449385563,12-1 ret -20.2%,82305.62
+2022-08-09,defense_tsmom,GLD,-1,0.005810733860296202,12-1 ret -0.6%,82305.62
+2022-08-10,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-10,defense_tsmom,TLT,-1,0.19237460055513378,12-1 ret -19.2%,82305.62
+2022-08-10,defense_tsmom,GLD,-1,0.014634109124904725,12-1 ret -1.5%,82305.62
+2022-08-11,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-11,defense_tsmom,TLT,-1,0.19764887519750576,12-1 ret -19.8%,82305.62
+2022-08-11,defense_tsmom,GLD,-1,0.028712458228784175,12-1 ret -2.9%,82305.62
+2022-08-12,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-12,defense_tsmom,TLT,-1,0.20568022033142994,12-1 ret -20.6%,82305.62
+2022-08-12,defense_tsmom,GLD,-1,0.04435365652914132,12-1 ret -4.4%,82305.62
+2022-08-15,regime,SPY,0,1.0,regime=OFF,82305.62
+2022-08-15,defense_tsmom,TLT,-1,0.215856044180679,12-1 ret -21.6%,82305.62
+2022-08-15,defense_tsmom,GLD,-1,0.04819996112759184,12-1 ret -4.8%,82305.62
+2022-08-16,regime,SPY,1,1.0,regime=ON,82305.62
+2022-08-16,tsmom_short,SPY,-1,0.039654059221764834,long=-10.4% short=+5.7% vol=23%,82305.62
+2022-08-16,tsmom_short,QQQ,-1,0.07295756874619277,long=-18.0% short=+8.7% vol=31%,82305.62
+2022-08-16,tsmom_short,AAPL,1,0.07018165395244683,long=+1.0% short=+16.1% vol=32%,82305.62
+2022-08-16,tsmom_short,MSFT,-1,0.024511046321708203,long=-10.7% short=+10.0% vol=32%,82305.62
+2022-08-16,tsmom_short,NVDA,-1,0.06014819025023792,long=-12.6% short=+3.9% vol=58%,82305.62
+2022-08-16,tsmom_short,GOOGL,-1,0.0823765009832251,long=-16.7% short=+4.5% vol=41%,82305.62
+2022-08-16,tsmom_short,AMZN,-1,0.06047579294997303,long=-27.1% short=+25.5% vol=49%,82305.62
+2022-08-16,tsmom_short,META,-1,0.3514677344787137,long=-51.0% short=-11.4% vol=56%,82305.62
+2022-08-16,tsmom_short,TSLA,1,0.14690777757573856,long=+10.6% short=+20.8% vol=66%,82305.62
+2022-08-16,tsmom_short,JPM,-1,0.14138144195243932,long=-25.0% short=+2.1% vol=30%,82305.62
+2022-08-16,tsmom_short,AVGO,1,0.022396031785258876,long=+9.4% short=-8.5% vol=33%,82305.62
+2022-08-16,tsmom_short,XLE,1,0.31618786650507114,long=+57.7% short=-7.5% vol=40%,82305.62
+2022-08-16,vol_target,PORTFOLIO,1,0.564,port_vol~35.5% target=20% scale=0.56,82305.62
+2022-08-17,regime,SPY,0,1.0,regime=OFF,82779.06
+2022-08-17,defense_tsmom,TLT,-1,0.2203430280145052,12-1 ret -22.0%,82779.06
+2022-08-17,defense_tsmom,GLD,-1,0.05421910524509669,12-1 ret -5.4%,82779.06
+2022-08-18,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-18,defense_tsmom,TLT,-1,0.21267246686140617,12-1 ret -21.3%,83117.1
+2022-08-18,defense_tsmom,GLD,-1,0.038052915879388804,12-1 ret -3.8%,83117.1
+2022-08-19,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-19,defense_tsmom,TLT,-1,0.19996863514671115,12-1 ret -20.0%,83117.1
+2022-08-19,defense_tsmom,GLD,-1,0.03617275878636697,12-1 ret -3.6%,83117.1
+2022-08-22,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-22,defense_tsmom,TLT,-1,0.2072702283871244,12-1 ret -20.7%,83117.1
+2022-08-22,defense_tsmom,GLD,-1,0.05037634217525606,12-1 ret -5.0%,83117.1
+2022-08-23,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-23,defense_tsmom,TLT,-1,0.20044481983533077,12-1 ret -20.0%,83117.1
+2022-08-23,defense_tsmom,GLD,-1,0.051052481007715256,12-1 ret -5.1%,83117.1
+2022-08-24,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-24,defense_tsmom,TLT,-1,0.1982772192242885,12-1 ret -19.8%,83117.1
+2022-08-24,defense_tsmom,GLD,-1,0.0346906956460974,12-1 ret -3.5%,83117.1
+2022-08-25,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-25,defense_tsmom,TLT,-1,0.19412577330886768,12-1 ret -19.4%,83117.1
+2022-08-25,defense_tsmom,GLD,-1,0.024035300431244855,12-1 ret -2.4%,83117.1
+2022-08-26,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-26,defense_tsmom,TLT,-1,0.2017472901696042,12-1 ret -20.2%,83117.1
+2022-08-26,defense_tsmom,GLD,-1,0.03578351401685487,12-1 ret -3.6%,83117.1
+2022-08-29,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-29,defense_tsmom,TLT,-1,0.18465062506387137,12-1 ret -18.5%,83117.1
+2022-08-29,defense_tsmom,GLD,-1,0.02550934259534738,12-1 ret -2.6%,83117.1
+2022-08-30,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-30,defense_tsmom,TLT,-1,0.19643281901650783,12-1 ret -19.6%,83117.1
+2022-08-30,defense_tsmom,GLD,-1,0.03323707530498694,12-1 ret -3.3%,83117.1
+2022-08-31,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-08-31,defense_tsmom,TLT,-1,0.18514635136957627,12-1 ret -18.5%,83117.1
+2022-08-31,defense_tsmom,GLD,-1,0.03093694811085488,12-1 ret -3.1%,83117.1
+2022-09-01,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-01,defense_tsmom,TLT,-1,0.18896006746275165,12-1 ret -18.9%,83117.1
+2022-09-01,defense_tsmom,GLD,-1,0.01228952337403065,12-1 ret -1.2%,83117.1
+2022-09-02,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-02,defense_tsmom,TLT,-1,0.20099883896990378,12-1 ret -20.1%,83117.1
+2022-09-02,defense_tsmom,GLD,-1,0.03373088012867835,12-1 ret -3.4%,83117.1
+2022-09-06,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-06,defense_tsmom,TLT,-1,0.18119475197293222,12-1 ret -18.1%,83117.1
+2022-09-06,defense_tsmom,GLD,-1,0.006081952367941787,12-1 ret -0.6%,83117.1
+2022-09-07,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-07,defense_tsmom,TLT,-1,0.18989110343589255,12-1 ret -19.0%,83117.1
+2022-09-07,defense_tsmom,GLD,-1,0.0005379660559654352,12-1 ret -0.1%,83117.1
+2022-09-08,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-08,defense_tsmom,TLT,-1,0.20480413869484318,12-1 ret -20.5%,83117.1
+2022-09-08,defense_tsmom,GLD,-1,0.007439147825275195,12-1 ret -0.7%,83117.1
+2022-09-09,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-09,defense_tsmom,TLT,-1,0.21643210565834312,12-1 ret -21.6%,83117.1
+2022-09-09,defense_tsmom,GLD,-1,0.00502450277958597,12-1 ret -0.5%,83117.1
+2022-09-12,regime,SPY,0,1.0,regime=OFF,83117.1
+2022-09-12,defense_tsmom,TLT,-1,0.213256508794388,12-1 ret -21.3%,83117.1
+2022-09-12,defense_tsmom,GLD,1,0.0007749470595357468,12-1 ret +0.1%,83117.1
+2022-09-12,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83117.1
+2022-09-13,regime,SPY,0,1.0,regime=OFF,83122.99
+2022-09-13,defense_tsmom,TLT,-1,0.22335346571625747,12-1 ret -22.3%,83122.99
+2022-09-13,defense_tsmom,GLD,-1,0.018421990732288073,12-1 ret -1.8%,83122.99
+2022-09-14,regime,SPY,0,1.0,regime=OFF,83147.22
+2022-09-14,defense_tsmom,TLT,-1,0.21737906927820214,12-1 ret -21.7%,83147.22
+2022-09-14,defense_tsmom,GLD,-1,0.014359790477362888,12-1 ret -1.4%,83147.22
+2022-09-15,regime,SPY,0,1.0,regime=OFF,83147.22
+2022-09-15,defense_tsmom,TLT,-1,0.2219827190809433,12-1 ret -22.2%,83147.22
+2022-09-15,defense_tsmom,GLD,1,0.0019509073132977421,12-1 ret +0.2%,83147.22
+2022-09-15,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83147.22
+2022-09-16,regime,SPY,0,1.0,regime=OFF,83451.94
+2022-09-16,defense_tsmom,TLT,-1,0.217068829865649,12-1 ret -21.7%,83451.94
+2022-09-16,defense_tsmom,GLD,1,0.0009158813737028003,12-1 ret +0.1%,83451.94
+2022-09-16,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83451.94
+2022-09-19,regime,SPY,0,1.0,regime=OFF,83484.2
+2022-09-19,defense_tsmom,TLT,-1,0.23911290680165087,12-1 ret -23.9%,83484.2
+2022-09-19,defense_tsmom,GLD,-1,0.013459446997957723,12-1 ret -1.3%,83484.2
+2022-09-20,regime,SPY,0,1.0,regime=OFF,83221.7
+2022-09-20,defense_tsmom,TLT,-1,0.24101698224852072,12-1 ret -24.1%,83221.7
+2022-09-20,defense_tsmom,GLD,-1,0.0264996029535003,12-1 ret -2.6%,83221.7
+2022-09-21,regime,SPY,0,1.0,regime=OFF,83221.7
+2022-09-21,defense_tsmom,TLT,-1,0.2496693979495791,12-1 ret -25.0%,83221.7
+2022-09-21,defense_tsmom,GLD,-1,0.01601979159604334,12-1 ret -1.6%,83221.7
+2022-09-22,regime,SPY,0,1.0,regime=OFF,83221.7
+2022-09-22,defense_tsmom,TLT,-1,0.23794059386873456,12-1 ret -23.8%,83221.7
+2022-09-22,defense_tsmom,GLD,-1,0.001590083270567707,12-1 ret -0.2%,83221.7
+2022-09-23,regime,SPY,0,1.0,regime=OFF,83221.7
+2022-09-23,defense_tsmom,TLT,-1,0.21969377350232092,12-1 ret -22.0%,83221.7
+2022-09-23,defense_tsmom,GLD,1,0.002755645681767448,12-1 ret +0.3%,83221.7
+2022-09-23,alloc,DEFENSE,1,1.0,OFF regime: long GLD,83221.7
+2022-09-26,regime,SPY,0,1.0,regime=OFF,82668.78
+2022-09-26,defense_tsmom,TLT,-1,0.2109117580013892,12-1 ret -21.1%,82668.78
+2022-09-26,defense_tsmom,GLD,-1,0.011488663467517866,12-1 ret -1.1%,82668.78
+2022-09-27,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-09-27,defense_tsmom,TLT,-1,0.20505725944696448,12-1 ret -20.5%,82933.39
+2022-09-27,defense_tsmom,GLD,-1,0.0011724926740394096,12-1 ret -0.1%,82933.39
+2022-09-28,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-09-28,defense_tsmom,TLT,-1,0.20446217286438328,12-1 ret -20.4%,82933.39
+2022-09-28,defense_tsmom,GLD,-1,0.005021155347178108,12-1 ret -0.5%,82933.39
+2022-09-29,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-09-29,defense_tsmom,TLT,-1,0.21195933123106767,12-1 ret -21.2%,82933.39
+2022-09-29,defense_tsmom,GLD,-1,0.030142472971910708,12-1 ret -3.0%,82933.39
+2022-09-30,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-09-30,defense_tsmom,TLT,-1,0.23284282329221476,12-1 ret -23.3%,82933.39
+2022-09-30,defense_tsmom,GLD,-1,0.04082873425009062,12-1 ret -4.1%,82933.39
+2022-10-03,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-03,defense_tsmom,TLT,-1,0.22653409258302165,12-1 ret -22.7%,82933.39
+2022-10-03,defense_tsmom,GLD,-1,0.0368892481918252,12-1 ret -3.7%,82933.39
+2022-10-04,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-04,defense_tsmom,TLT,-1,0.23833697860490466,12-1 ret -23.8%,82933.39
+2022-10-04,defense_tsmom,GLD,-1,0.0380338698956202,12-1 ret -3.8%,82933.39
+2022-10-05,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-05,defense_tsmom,TLT,-1,0.2306309854826725,12-1 ret -23.1%,82933.39
+2022-10-05,defense_tsmom,GLD,-1,0.03084285509022962,12-1 ret -3.1%,82933.39
+2022-10-06,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-06,defense_tsmom,TLT,-1,0.230475713785992,12-1 ret -23.0%,82933.39
+2022-10-06,defense_tsmom,GLD,-1,0.03155462852713092,12-1 ret -3.2%,82933.39
+2022-10-07,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-07,defense_tsmom,TLT,-1,0.22333047473027368,12-1 ret -22.3%,82933.39
+2022-10-07,defense_tsmom,GLD,-1,0.026852514875763463,12-1 ret -2.7%,82933.39
+2022-10-10,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-10,defense_tsmom,TLT,-1,0.22775319643251177,12-1 ret -22.8%,82933.39
+2022-10-10,defense_tsmom,GLD,-1,0.020070725493432213,12-1 ret -2.0%,82933.39
+2022-10-11,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-11,defense_tsmom,TLT,-1,0.23896938499327006,12-1 ret -23.9%,82933.39
+2022-10-11,defense_tsmom,GLD,-1,0.03716755884771588,12-1 ret -3.7%,82933.39
+2022-10-12,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-12,defense_tsmom,TLT,-1,0.24371004867583412,12-1 ret -24.4%,82933.39
+2022-10-12,defense_tsmom,GLD,-1,0.057640693795548065,12-1 ret -5.8%,82933.39
+2022-10-13,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-13,defense_tsmom,TLT,-1,0.24699768154577306,12-1 ret -24.7%,82933.39
+2022-10-13,defense_tsmom,GLD,-1,0.07750002543131511,12-1 ret -7.8%,82933.39
+2022-10-14,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-14,defense_tsmom,TLT,-1,0.24889841514178235,12-1 ret -24.9%,82933.39
+2022-10-14,defense_tsmom,GLD,-1,0.057400383403259064,12-1 ret -5.7%,82933.39
+2022-10-17,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-17,defense_tsmom,TLT,-1,0.25065802542557614,12-1 ret -25.1%,82933.39
+2022-10-17,defense_tsmom,GLD,-1,0.05432932060731314,12-1 ret -5.4%,82933.39
+2022-10-18,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-18,defense_tsmom,TLT,-1,0.247752051797254,12-1 ret -24.8%,82933.39
+2022-10-18,defense_tsmom,GLD,-1,0.06273792575088784,12-1 ret -6.3%,82933.39
+2022-10-19,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-19,defense_tsmom,TLT,-1,0.22995169981526714,12-1 ret -23.0%,82933.39
+2022-10-19,defense_tsmom,GLD,-1,0.06656681256227168,12-1 ret -6.7%,82933.39
+2022-10-20,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-20,defense_tsmom,TLT,-1,0.24873061742758315,12-1 ret -24.9%,82933.39
+2022-10-20,defense_tsmom,GLD,-1,0.06626688486811282,12-1 ret -6.6%,82933.39
+2022-10-21,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-21,defense_tsmom,TLT,-1,0.25387880318463446,12-1 ret -25.4%,82933.39
+2022-10-21,defense_tsmom,GLD,-1,0.08797764433297939,12-1 ret -8.8%,82933.39
+2022-10-24,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-24,defense_tsmom,TLT,-1,0.26701876050658385,12-1 ret -26.7%,82933.39
+2022-10-24,defense_tsmom,GLD,-1,0.10477711309804466,12-1 ret -10.5%,82933.39
+2022-10-25,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-25,defense_tsmom,TLT,-1,0.29217209857904974,12-1 ret -29.2%,82933.39
+2022-10-25,defense_tsmom,GLD,-1,0.09625477155677147,12-1 ret -9.6%,82933.39
+2022-10-26,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-26,defense_tsmom,TLT,-1,0.2815443269912044,12-1 ret -28.2%,82933.39
+2022-10-26,defense_tsmom,GLD,-1,0.0798833753618653,12-1 ret -8.0%,82933.39
+2022-10-27,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-27,defense_tsmom,TLT,-1,0.28283627266635886,12-1 ret -28.3%,82933.39
+2022-10-27,defense_tsmom,GLD,-1,0.07984292017342075,12-1 ret -8.0%,82933.39
+2022-10-28,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-28,defense_tsmom,TLT,-1,0.29425181189926,12-1 ret -29.4%,82933.39
+2022-10-28,defense_tsmom,GLD,-1,0.07188716571439245,12-1 ret -7.2%,82933.39
+2022-10-31,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-10-31,defense_tsmom,TLT,-1,0.27783848116061544,12-1 ret -27.8%,82933.39
+2022-10-31,defense_tsmom,GLD,-1,0.05426224549215833,12-1 ret -5.4%,82933.39
+2022-11-01,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-01,defense_tsmom,TLT,-1,0.2830381387251991,12-1 ret -28.3%,82933.39
+2022-11-01,defense_tsmom,GLD,-1,0.03864564831504305,12-1 ret -3.9%,82933.39
+2022-11-02,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-02,defense_tsmom,TLT,-1,0.2824782394731027,12-1 ret -28.2%,82933.39
+2022-11-02,defense_tsmom,GLD,-1,0.03595346902489833,12-1 ret -3.6%,82933.39
+2022-11-03,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-03,defense_tsmom,TLT,-1,0.29388819998815796,12-1 ret -29.4%,82933.39
+2022-11-03,defense_tsmom,GLD,-1,0.04783769344258863,12-1 ret -4.8%,82933.39
+2022-11-04,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-04,defense_tsmom,TLT,-1,0.3110465367710371,12-1 ret -31.1%,82933.39
+2022-11-04,defense_tsmom,GLD,-1,0.07041916929439958,12-1 ret -7.0%,82933.39
+2022-11-07,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-07,defense_tsmom,TLT,-1,0.3204828743981894,12-1 ret -32.0%,82933.39
+2022-11-07,defense_tsmom,GLD,-1,0.08782635076989075,12-1 ret -8.8%,82933.39
+2022-11-08,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-08,defense_tsmom,TLT,-1,0.32624662244713876,12-1 ret -32.6%,82933.39
+2022-11-08,defense_tsmom,GLD,-1,0.09416772874220948,12-1 ret -9.4%,82933.39
+2022-11-09,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-09,defense_tsmom,TLT,-1,0.310331424850491,12-1 ret -31.0%,82933.39
+2022-11-09,defense_tsmom,GLD,-1,0.09910475892698675,12-1 ret -9.9%,82933.39
+2022-11-10,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-10,defense_tsmom,TLT,-1,0.3159138603308685,12-1 ret -31.6%,82933.39
+2022-11-10,defense_tsmom,GLD,-1,0.1103261658269016,12-1 ret -11.0%,82933.39
+2022-11-11,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-11,defense_tsmom,TLT,-1,0.31856431355381926,12-1 ret -31.9%,82933.39
+2022-11-11,defense_tsmom,GLD,-1,0.12307252276463547,12-1 ret -12.3%,82933.39
+2022-11-14,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-14,defense_tsmom,TLT,-1,0.3132591956216217,12-1 ret -31.3%,82933.39
+2022-11-14,defense_tsmom,GLD,-1,0.11918702135599812,12-1 ret -11.9%,82933.39
+2022-11-15,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-15,defense_tsmom,TLT,-1,0.3098943298730227,12-1 ret -31.0%,82933.39
+2022-11-15,defense_tsmom,GLD,-1,0.11086050411714642,12-1 ret -11.1%,82933.39
+2022-11-16,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-16,defense_tsmom,TLT,-1,0.32778499930098576,12-1 ret -32.8%,82933.39
+2022-11-16,defense_tsmom,GLD,-1,0.13071631838735673,12-1 ret -13.1%,82933.39
+2022-11-17,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-17,defense_tsmom,TLT,-1,0.3417509003699752,12-1 ret -34.2%,82933.39
+2022-11-17,defense_tsmom,GLD,-1,0.12929748865986182,12-1 ret -12.9%,82933.39
+2022-11-18,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-18,defense_tsmom,TLT,-1,0.3603675144899719,12-1 ret -36.0%,82933.39
+2022-11-18,defense_tsmom,GLD,-1,0.10694633363415981,12-1 ret -10.7%,82933.39
+2022-11-21,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-21,defense_tsmom,TLT,-1,0.3581257420554399,12-1 ret -35.8%,82933.39
+2022-11-21,defense_tsmom,GLD,-1,0.08942758744482208,12-1 ret -8.9%,82933.39
+2022-11-22,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-22,defense_tsmom,TLT,-1,0.3297476208137977,12-1 ret -33.0%,82933.39
+2022-11-22,defense_tsmom,GLD,-1,0.07938784598401402,12-1 ret -7.9%,82933.39
+2022-11-23,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-23,defense_tsmom,TLT,-1,0.3308350137980585,12-1 ret -33.1%,82933.39
+2022-11-23,defense_tsmom,GLD,-1,0.07264241110787285,12-1 ret -7.3%,82933.39
+2022-11-25,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-25,defense_tsmom,TLT,-1,0.3404935335392188,12-1 ret -34.0%,82933.39
+2022-11-25,defense_tsmom,GLD,-1,0.07258016282503689,12-1 ret -7.3%,82933.39
+2022-11-28,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-28,defense_tsmom,TLT,-1,0.3397191939036413,12-1 ret -34.0%,82933.39
+2022-11-28,defense_tsmom,GLD,-1,0.08078257021680632,12-1 ret -8.1%,82933.39
+2022-11-29,regime,SPY,0,1.0,regime=OFF,82933.39
+2022-11-29,defense_tsmom,TLT,-1,0.3542429324017497,12-1 ret -35.4%,82933.39
+2022-11-29,defense_tsmom,GLD,-1,0.08211478149782855,12-1 ret -8.2%,82933.39
+2022-11-30,regime,SPY,1,1.0,regime=ON,82933.39
+2022-11-30,tsmom_short,SPY,-1,0.0670746938725875,long=-13.4% short=+3.3% vol=27%,82933.39
+2022-11-30,tsmom_short,QQQ,-1,0.17830651249735927,long=-28.5% short=-1.8% vol=34%,82933.39
+2022-11-30,tsmom_short,AAPL,-1,0.0736708399699439,long=-8.2% short=-6.1% vol=43%,82933.39
+2022-11-30,tsmom_short,MSFT,-1,0.1895115303895618,long=-30.4% short=-1.7% vol=42%,82933.39
+2022-11-30,tsmom_short,NVDA,-1,0.25536061211869504,long=-56.9% short=+21.5% vol=61%,82933.39
+2022-11-30,tsmom_short,GOOGL,-1,0.24705536596976532,long=-35.9% short=-8.0% vol=44%,82933.39
+2022-11-30,tsmom_short,AMZN,-1,0.36061284934806137,long=-43.8% short=-24.5% vol=52%,82933.39
+2022-11-30,tsmom_short,META,-1,0.530418152195627,long=-69.3% short=-28.6% vol=74%,82933.39
+2022-11-30,tsmom_short,TSLA,-1,0.3445084376678042,long=-37.6% short=-29.8% vol=62%,82933.39
+2022-11-30,tsmom_short,JPM,-1,0.010643371334878457,long=-16.3% short=+21.8% vol=32%,82933.39
+2022-11-30,tsmom_short,AVGO,-1,0.026937162003989525,long=-13.1% short=+12.9% vol=39%,82933.39
+2022-11-30,tsmom_short,XLE,1,0.5246934880056384,long=+75.9% short=+17.4% vol=36%,82933.39
+2022-11-30,vol_target,PORTFOLIO,1,0.552,port_vol~36.2% target=20% scale=0.55,82933.39
+2022-12-01,regime,SPY,1,1.0,regime=ON,82451.07
+2022-12-01,tsmom_short,SPY,-1,0.08367264672920736,long=-16.8% short=+4.3% vol=27%,82451.07
+2022-12-01,tsmom_short,QQQ,-1,0.18986274796951494,long=-31.4% short=-0.3% vol=34%,82451.07
+2022-12-01,tsmom_short,AAPL,-1,0.08504856655774005,long=-11.1% short=-4.7% vol=43%,82451.07
+2022-12-01,tsmom_short,MSFT,-1,0.19759905728094077,long=-32.8% short=-0.3% vol=42%,82451.07
+2022-12-01,tsmom_short,NVDA,-1,0.2504353626081199,long=-58.8% short=+25.6% vol=61%,82451.07
+2022-12-01,tsmom_short,GOOGL,-1,0.2604468163669984,long=-39.2% short=-6.4% vol=43%,82451.07
+2022-12-01,tsmom_short,AMZN,-1,0.3788199988559423,long=-46.4% short=-25.1% vol=51%,82451.07
+2022-12-01,tsmom_short,META,-1,0.524482502144198,long=-70.8% short=-24.9% vol=74%,82451.07
+2022-12-01,tsmom_short,TSLA,-1,0.3549993414782278,long=-40.5% short=-27.9% vol=61%,82451.07
+2022-12-01,tsmom_short,JPM,-1,0.028978673683715636,long=-18.8% short=+20.9% vol=32%,82451.07
+2022-12-01,tsmom_short,AVGO,-1,0.04567789399575574,long=-15.0% short=+11.0% vol=39%,82451.07
+2022-12-01,tsmom_short,XLE,1,0.4601993145999643,long=+66.8% short=+14.9% vol=36%,82451.07
+2022-12-01,vol_target,PORTFOLIO,1,0.553,port_vol~36.1% target=20% scale=0.55,82451.07
+2022-12-02,regime,SPY,1,1.0,regime=ON,82182.21
+2022-12-02,tsmom_short,SPY,-1,0.08337925730189877,long=-16.9% short=+4.6% vol=27%,82182.21
+2022-12-02,tsmom_short,QQQ,-1,0.1894764260864108,long=-31.6% short=+0.0% vol=34%,82182.21
+2022-12-02,tsmom_short,AAPL,-1,0.09975041612202405,long=-13.8% short=-4.2% vol=43%,82182.21
+2022-12-02,tsmom_short,MSFT,-1,0.19549362874443343,long=-33.2% short=+1.0% vol=42%,82182.21
+2022-12-02,tsmom_short,NVDA,-1,0.23585579609966228,long=-56.2% short=+25.4% vol=61%,82182.21
+2022-12-02,tsmom_short,GOOGL,-1,0.2713379829605342,long=-41.2% short=-6.0% vol=43%,82182.21
+2022-12-02,tsmom_short,AMZN,-1,0.3853094802293774,long=-47.3% short=-25.4% vol=52%,82182.21
+2022-12-02,tsmom_short,META,-1,0.5145758660103281,long=-71.0% short=-22.1% vol=74%,82182.21
+2022-12-02,tsmom_short,TSLA,-1,0.3341264138504573,long=-36.4% short=-29.0% vol=61%,82182.21
+2022-12-02,tsmom_short,JPM,-1,0.023046083332332865,long=-17.1% short=+19.9% vol=32%,82182.21
+2022-12-02,tsmom_short,AVGO,-1,0.07030650038789955,long=-18.0% short=+9.5% vol=40%,82182.21
+2022-12-02,tsmom_short,XLE,1,0.4883754812044291,long=+71.2% short=+15.2% vol=36%,82182.21
+2022-12-02,vol_target,PORTFOLIO,1,0.553,port_vol~36.2% target=20% scale=0.55,82182.21
+2022-12-05,regime,SPY,0,1.0,regime=OFF,80832.26
+2022-12-05,defense_tsmom,TLT,-1,0.3688183574611631,12-1 ret -36.9%,80832.26
+2022-12-05,defense_tsmom,GLD,-1,0.05865720086870997,12-1 ret -5.9%,80832.26
+2022-12-06,regime,SPY,0,1.0,regime=OFF,80542.06
+2022-12-06,defense_tsmom,TLT,-1,0.3700252639376964,12-1 ret -37.0%,80542.06
+2022-12-06,defense_tsmom,GLD,-1,0.06570344473045336,12-1 ret -6.6%,80542.06
+2022-12-07,regime,SPY,0,1.0,regime=OFF,80542.06
+2022-12-07,defense_tsmom,TLT,-1,0.3519353533309424,12-1 ret -35.2%,80542.06
+2022-12-07,defense_tsmom,GLD,-1,0.044637490836955125,12-1 ret -4.5%,80542.06
+2022-12-08,regime,SPY,0,1.0,regime=OFF,80542.06
+2022-12-08,defense_tsmom,TLT,-1,0.3534211761799747,12-1 ret -35.3%,80542.06
+2022-12-08,defense_tsmom,GLD,-1,0.04358578956780134,12-1 ret -4.4%,80542.06
+2022-12-09,regime,SPY,0,1.0,regime=OFF,80542.06
+2022-12-09,defense_tsmom,TLT,-1,0.3269204328243259,12-1 ret -32.7%,80542.06
+2022-12-09,defense_tsmom,GLD,-1,0.018609713467644506,12-1 ret -1.9%,80542.06
+2022-12-12,regime,SPY,0,1.0,regime=OFF,80542.06
+2022-12-12,defense_tsmom,TLT,-1,0.33915371880270795,12-1 ret -33.9%,80542.06
+2022-12-12,defense_tsmom,GLD,-1,0.014610793062312874,12-1 ret -1.5%,80542.06
+2022-12-13,regime,SPY,1,1.0,regime=ON,80542.06
+2022-12-13,tsmom_short,SPY,-1,0.06677805828815789,long=-13.4% short=+3.5% vol=26%,80542.06
+2022-12-13,tsmom_short,QQQ,-1,0.15872307352822523,long=-26.0% short=-0.7% vol=32%,80542.06
+2022-12-13,tsmom_short,AAPL,-1,0.1041760292209686,long=-14.4% short=-4.4% vol=41%,80542.06
+2022-12-13,tsmom_short,MSFT,-1,0.13572193122262613,long=-26.0% short=+5.0% vol=41%,80542.06
+2022-12-13,tsmom_short,NVDA,-1,0.09548148753649502,long=-42.5% short=+39.8% vol=60%,80542.06
+2022-12-13,tsmom_short,GOOGL,-1,0.229288986743136,long=-33.5% short=-7.1% vol=42%,80542.06
+2022-12-13,tsmom_short,AMZN,-1,0.35755259443125037,long=-41.8% short=-26.8% vol=50%,80542.06
+2022-12-13,tsmom_short,META,-1,0.4732903913438224,long=-65.8% short=-19.7% vol=73%,80542.06
+2022-12-13,tsmom_short,TSLA,-1,0.42946157654167805,long=-40.2% short=-47.0% vol=62%,80542.06
+2022-12-13,tsmom_short,JPM,-1,0.02007496654667218,long=-13.2% short=+14.8% vol=31%,80542.06
+2022-12-13,tsmom_short,AVGO,-1,0.02358293752628972,long=-14.0% short=+15.1% vol=39%,80542.06
+2022-12-13,tsmom_short,XLE,1,0.4898758143611376,long=+75.6% short=+9.0% vol=36%,80542.06
+2022-12-13,vol_target,PORTFOLIO,1,0.553,port_vol~36.2% target=20% scale=0.55,80542.06
+2022-12-14,regime,SPY,0,1.0,regime=OFF,79955.38
+2022-12-14,defense_tsmom,TLT,-1,0.3219835940126013,12-1 ret -32.2%,79955.38
+2022-12-14,defense_tsmom,GLD,-1,0.0039120910042845835,12-1 ret -0.4%,79955.38
+2022-12-15,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-15,defense_tsmom,TLT,-1,0.3074262902446537,12-1 ret -30.7%,79558.38
+2022-12-15,defense_tsmom,GLD,-1,0.018078071352985253,12-1 ret -1.8%,79558.38
+2022-12-16,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-16,defense_tsmom,TLT,-1,0.3224122934183821,12-1 ret -32.2%,79558.38
+2022-12-16,defense_tsmom,GLD,-1,0.023122793875133094,12-1 ret -2.3%,79558.38
+2022-12-19,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-19,defense_tsmom,TLT,-1,0.321992757700374,12-1 ret -32.2%,79558.38
+2022-12-19,defense_tsmom,GLD,-1,0.025734652857746877,12-1 ret -2.6%,79558.38
+2022-12-20,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-20,defense_tsmom,TLT,-1,0.3165326751124838,12-1 ret -31.7%,79558.38
+2022-12-20,defense_tsmom,GLD,-1,0.0307747530724734,12-1 ret -3.1%,79558.38
+2022-12-21,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-21,defense_tsmom,TLT,-1,0.3100254639016666,12-1 ret -31.0%,79558.38
+2022-12-21,defense_tsmom,GLD,-1,0.03867364111334586,12-1 ret -3.9%,79558.38
+2022-12-22,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-22,defense_tsmom,TLT,-1,0.2918461405746571,12-1 ret -29.2%,79558.38
+2022-12-22,defense_tsmom,GLD,-1,0.03485825499850184,12-1 ret -3.5%,79558.38
+2022-12-23,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-23,defense_tsmom,TLT,-1,0.29595345759195696,12-1 ret -29.6%,79558.38
+2022-12-23,defense_tsmom,GLD,-1,0.03631100002234268,12-1 ret -3.6%,79558.38
+2022-12-27,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-27,defense_tsmom,TLT,-1,0.29116031113292845,12-1 ret -29.1%,79558.38
+2022-12-27,defense_tsmom,GLD,-1,0.039788939386577495,12-1 ret -4.0%,79558.38
+2022-12-28,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-28,defense_tsmom,TLT,-1,0.29173451603302664,12-1 ret -29.2%,79558.38
+2022-12-28,defense_tsmom,GLD,-1,0.03475888687135897,12-1 ret -3.5%,79558.38
+2022-12-29,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-29,defense_tsmom,TLT,-1,0.29245938219326695,12-1 ret -29.2%,79558.38
+2022-12-29,defense_tsmom,GLD,-1,0.029387546545820892,12-1 ret -2.9%,79558.38
+2022-12-30,regime,SPY,0,1.0,regime=OFF,79558.38
+2022-12-30,defense_tsmom,TLT,-1,0.27128500460133836,12-1 ret -27.1%,79558.38
+2022-12-30,defense_tsmom,GLD,-1,0.018249942989289128,12-1 ret -1.8%,79558.38

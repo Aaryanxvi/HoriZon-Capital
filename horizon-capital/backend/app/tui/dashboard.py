@@ -11,6 +11,7 @@ Renders a live-updating 3-column Intelligence Hub TUI showing:
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -69,6 +70,7 @@ class TerminalDashboard:
         # Pixel agent office view
         from app.tui.pixel_agents import PixelAgentVisualizer
         self.pixel_agents = PixelAgentVisualizer()
+        self._sentiment: dict[str, dict[str, Any]] = {}
 
     # -- Data update methods (called by the orchestrator) ----------------
 
@@ -90,7 +92,11 @@ class TerminalDashboard:
         self._risk = data
 
     def update_portfolio(self, data: dict[str, Any]) -> None:
-        self._portfolio = data
+        # Normalize keys so dashboard/commands can use consistent names
+        self._portfolio["nav"] = data.get("total_value", data.get("nav", 0.0))
+        self._portfolio["cash"] = data.get("cash_usd", data.get("cash", 0.0))
+        if "positions" in data:
+            self._portfolio["positions"] = data["positions"]
 
     def update_watchlist(self, data: dict[str, Any]) -> None:
         """Update a symbol's price data in the watchlist."""
@@ -120,8 +126,17 @@ class TerminalDashboard:
     def complete_order(self, fill: dict[str, Any]) -> None:
         """Move a filled order from pending to trade history."""
         order_id = fill.get("order_id", "")
+        symbol = fill.get("symbol", "")
+        side = fill.get("side", "")
+        # Match by order_id first, then by symbol+side as fallback
         self._pending_orders = [
-            o for o in self._pending_orders if o.get("order_id") != order_id
+            o for o in self._pending_orders
+            if o.get("order_id") != order_id
+            and not (
+                o.get("symbol") == symbol
+                and o.get("side") == side
+                and not order_id
+            )
         ]
         self._trade_history.insert(0, fill)
         self._trade_history = self._trade_history[:20]
@@ -131,6 +146,16 @@ class TerminalDashboard:
         self._pending_orders = [
             o for o in self._pending_orders if o.get("order_id") != order_id
         ]
+
+    def update_sentiment(self, data: dict[str, Any]) -> None:
+        """Store latest sentiment for a symbol."""
+        symbol = data.get("symbol", "")
+        if symbol:
+            self._sentiment[symbol] = data
+
+    def update_cio_advisory(self, payload: dict[str, Any]) -> None:
+        """Store the latest CIO advisory for rendering."""
+        self._cio_advisory = payload
 
     # -- Layout builders -------------------------------------------------
 
@@ -259,6 +284,12 @@ class TerminalDashboard:
             price = data["price"]
             change_pct = data["change_pct"]
             history = data["history"]
+
+            # Guard against NaN/inf from missing prior price
+            if not isinstance(change_pct, (int, float)) or math.isnan(
+                change_pct
+            ) or math.isinf(change_pct):
+                change_pct = 0.0
 
             price_color = "green" if change_pct >= 0 else "red"
             arrow = "▲" if change_pct > 0 else "▼" if change_pct < 0 else " "
@@ -416,7 +447,7 @@ class TerminalDashboard:
             side = trade.get("side", "?")
             side_color = "green" if side == "BUY" else "red"
             symbol = trade.get("symbol", "?")
-            qty = trade.get("quantity", 0)
+            qty = trade.get("filled_qty", trade.get("quantity", 0))
             fill_price = trade.get("fill_price", 0.0)
             status = trade.get("status", "FILLED")
 
@@ -429,6 +460,58 @@ class TerminalDashboard:
             )
 
         return Panel(table, title="[bold]Trade History[/bold]", border_style="cyan")
+
+    def _build_sentiment_panel(self) -> Panel:
+        """Show per-symbol sentiment with colour coding."""
+        if not self._sentiment:
+            return Panel(
+                "[dim]Awaiting sentiment data...[/dim]",
+                title="[bold]Sentiment[/bold]",
+                border_style="yellow",
+            )
+
+        lines: list[str] = []
+        for symbol in sorted(self._sentiment.keys()):
+            data = self._sentiment[symbol]
+            label = data.get("sentiment", "neutral")
+            score = float(data.get("score", 0.0))
+            raw = symbol.split(".")[0] if "." in symbol else symbol
+            if label == "positive":
+                color = "green"
+                icon = "▲"
+            elif label == "negative":
+                color = "red"
+                icon = "▼"
+            else:
+                color = "dim white"
+                icon = "—"
+            lines.append(
+                f"  [{color}]{icon} {raw:<14}[/] [{color}]{label:8s}[/] {score:.2f}"
+            )
+
+        return Panel(
+            "\n".join(lines) if lines else "[dim]No data[/dim]",
+            title="[bold]Sentiment[/bold]",
+            border_style="yellow",
+        )
+
+    def _build_cio_panel(self) -> Panel:
+        """Render the latest CIO advisory as a Rich Panel."""
+        adv = getattr(self, "_cio_advisory", None)
+        if adv is None:
+            return Panel("[dim]No CIO advisory yet[/dim]", title="CIO View")
+
+        outlook_color = {"bullish": "green", "bearish": "red", "neutral": "yellow"}.get(
+            adv.get("outlook", "neutral"), "white"
+        )
+        text = Text()
+        text.append("Outlook: ", style="bold")
+        text.append(adv.get("outlook", "?").upper() + "\n", style=outlook_color)
+        text.append(adv.get("summary", ""), style="white")
+        flags = adv.get("risk_flags", [])
+        if flags:
+            text.append(f"\n⚠  {', '.join(flags[:2])}", style="yellow")
+        return Panel(text, title="[bold cyan]CIO View[/bold cyan]")
 
     def build_layout(self) -> Layout:
         """Compose the full 3-column Intelligence Hub layout."""
@@ -455,6 +538,8 @@ class TerminalDashboard:
         layout["right"].split_column(
             Layout(self._build_portfolio_panel(), name="portfolio"),
             Layout(self._build_risk_panel(), name="risk", size=10),
+            Layout(self._build_cio_panel(), name="cio_view", size=8),
+            Layout(self._build_sentiment_panel(), name="sentiment", size=9),
         )
 
         layout["orders"].split_row(
@@ -480,6 +565,55 @@ class TerminalDashboard:
             while self._running:
                 live.update(self.build_layout())
                 await asyncio.sleep(0.5)
+
+    async def run_interactive(self) -> None:
+        """Run live dashboard until user presses 'q' or Escape."""
+        import sys
+
+        self._running = True
+        if not self._start_time:
+            self._start_time = datetime.now(UTC)
+
+        # Platform-specific key detection
+        if sys.platform == "win32":
+            import msvcrt
+
+            def _key_pressed() -> str | None:
+                if msvcrt.kbhit():
+                    ch = msvcrt.getwch()
+                    return ch
+                return None
+        else:
+            import select
+            import termios
+            import tty
+
+            _old_settings = termios.tcgetattr(sys.stdin)
+            tty.setcbreak(sys.stdin.fileno())
+
+            def _key_pressed() -> str | None:
+                if select.select([sys.stdin], [], [], 0)[0]:
+                    return sys.stdin.read(1)
+                return None
+
+        try:
+            with Live(
+                self.build_layout(),
+                console=self.console,
+                refresh_per_second=2,
+                screen=True,
+            ) as live:
+                while self._running:
+                    live.update(self.build_layout())
+                    key = await asyncio.get_event_loop().run_in_executor(
+                        None, _key_pressed
+                    )
+                    if key and key.lower() in ("q", "\x1b"):
+                        break
+                    await asyncio.sleep(0.25)
+        finally:
+            if sys.platform != "win32":
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, _old_settings)
 
     def stop(self) -> None:
         """Signal the dashboard to stop."""

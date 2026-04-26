@@ -1,100 +1,145 @@
-# Horizon Capital — Autonomous AI Hedge Fund Platform
+# Horizon Capital — AI Trading Platform
 
-An autonomous AI hedge fund platform that replaces traditional hedge fund departments with specialized AI agents. Targets Indian markets (NSE/BSE) and US markets (NYSE/NASDAQ), supporting equities, F&O, and crypto.
+A college project: an autonomous multi-agent AI trading platform that runs as a
+desktop terminal application. Specialized AI agents collaborate through structured
+debates to make paper-trading decisions across Indian markets (NSE/BSE), US markets
+(NYSE/NASDAQ), and cryptocurrency.
 
-## Architecture
+## Features
 
-```
-Data Feeds → Feature Engine → Regime Detection → Strategy Agents → Debate Engine → Risk Check → Portfolio Sizing → Execution
-```
-
-### AI Agents
-- **Regime Agent** — HMM + LFR drift detection (Bull/Bear/HighVol/Crisis)
-- **Strategy Agents** — Momentum, Mean Reversion, Volatility, Crisis Defense
-- **Risk Agent** — VaR calculation, drawdown monitoring, kill switch
-- **Portfolio Agent** — Kelly sizing, correlation penalty, unified NAV
-- **Sentiment Agent** — FinancialBERT scoring, narrative lifecycle tracking
-- **Debate Engine** — Claude-powered investment committee (4 agents debate each trade)
-- **Execution Agent** — Paper/Human Approval/Autonomous modes
-
-### Execution Modes
-```
-PAPER_TRADING → HUMAN_APPROVAL → FULLY_AUTONOMOUS
-```
+- **Multi-agent architecture** — four departments (Front Office, Middle Office, Back Office,
+  Executive) each staffed with specialized agents that communicate over an in-process
+  message bus
+- **LLM debate system** — before any trade is executed, four AI debaters (Strategy, Risk,
+  Sentiment, Portfolio) argue for or against the trade; a consensus vote decides
+- **Sentiment analysis** — real-time headline scoring using keyword matching and optional
+  FinancialBERT neural scoring; scores are displayed live on the dashboard
+- **Paper trading** — simulated broker with Almgren-Chriss market-impact model; no real
+  money involved
+- **Backtesting** — historical replay of strategies with equity curve and trade journal export
+- **3 data feeds** — Yahoo Finance (US equities), CoinGecko (crypto), and a mock feed for
+  Indian equities; switchable via `.env`
+- **Rich terminal dashboard** — 2fps live dashboard showing agents, watchlist with sparklines,
+  portfolio, risk metrics, sentiment, and order history
+- **Interactive REPL** — 30+ commands: `backtest`, `sentiment`, `debate`, `portfolio`,
+  `orders`, `approve`, `reject`, `health`, `performance`, and more
 
 ## Quick Start
 
 ```bash
-# 1. Clone and configure
-cp .env.example .env
-# Edit .env with your API keys
+cd backend
 
-# 2. Start infrastructure
-cd infrastructure
-docker compose up -d
+# First run: interactive setup wizard
+python -m app --setup
 
-# 3. Run migrations
-cd ../backend
-alembic upgrade head
+# Run the terminal agent (TUI + agents)
+python -m app
 
-# 4. Backfill historical data
-python ../scripts/backfill_historical.py
+# Headless mode (log output only)
+python -m app --headless
 
-# 5. Start backend
-uvicorn app.main:app --reload
-
-# 6. Start frontend
-cd ../frontend
-npm install && npm run dev
+# Show configuration
+python -m app config
 ```
 
-## Tech Stack
+No Docker required. Runs with SQLite + in-memory message bus by default.
 
-| Layer | Technology |
-|---|---|
-| Backend | FastAPI + SQLAlchemy 2.x async + asyncpg |
-| Database | PostgreSQL 16 |
-| Cache/Messaging | Redis 7 (pub/sub) |
-| Frontend | React 18 + TypeScript + Vite + Zustand + Tailwind |
-| ML | hmmlearn, FinancialBERT (HuggingFace), stable-baselines3 |
-| LLM | Claude API (debate engine) |
-| Brokers | Zerodha Kite (India) + Alpaca (US) |
-| Data | Yahoo Finance, Polygon.io, CoinGecko, NewsAPI, Reddit |
+## Architecture
 
-## Brokers
-- **Zerodha Kite** — Indian equities and F&O (mock mode available)
-- **Alpaca** — US equities (paper trading by default)
+```
+Data Feeds
+  └─ Yahoo Finance (US equities, ETFs)
+  └─ CoinGecko (crypto prices)
+  └─ Mock feed (Indian equities)
 
-## Key Features
-- Multi-agent institutional debate architecture
-- Regime-specific dynamic strategy switching
-- Narrative momentum modeling with cross-asset spillover detection
-- Visual pixel agent layer for AI transparency
-- CIO-controlled governance framework
-- Institutional-grade explainability per trade
-- Continuous learning and drift adaptation
+Feature Engine (23 technical indicators)
+  └─ Trend: SMA, EMA, MACD, Ichimoku
+  └─ Momentum: RSI, Stochastic, Williams %R
+  └─ Volatility: Bollinger Bands, ATR, GARCH(1,1)
+  └─ Volume: OBV, VWAP
+
+Strategy Agents
+  └─ Momentum — trend-following signals
+  └─ Mean Reversion — RSI/Bollinger-band reversals
+
+AI Debate Engine
+  └─ 4 debaters (Strategy / Risk / Sentiment / Portfolio)
+  └─ Each argues FOR or AGAINST a proposed trade
+  └─ Confidence-weighted consensus vote decides
+
+Risk Agent
+  └─ VaR (95%, 99%), drawdown limit, position limits
+  └─ Emergency halt (kill switch) on drawdown breach
+
+Execution Agent
+  └─ PAPER_TRADING — simulated fills
+  └─ HUMAN_APPROVAL — every trade needs CLI approval
+  └─ FULLY_AUTONOMOUS — debate gate controls all trades
+```
 
 ## Project Structure
 
 ```
-horizon-capital/
-├── infrastructure/     # Docker, Postgres, Redis, Nginx
-├── backend/           # FastAPI application
-│   ├── app/
-│   │   ├── agents/    # All AI agents
-│   │   ├── api/       # REST + WebSocket endpoints
-│   │   ├── core/      # DB, Redis, messaging, auth
-│   │   ├── data_layer/# Market data feeds
-│   │   ├── features/  # Technical indicators, feature store
-│   │   ├── models/    # SQLAlchemy ORM
-│   │   └── workers/   # Background workers
-│   └── alembic/       # DB migrations
-├── frontend/          # React dashboard
-├── ml_training/       # Offline model training
-├── tests/             # Unit + integration tests
-└── scripts/           # Bootstrap, backfill, smoke test
+backend/
+├── app/
+│   ├── __main__.py          # CLI entry point (TUI + REPL)
+│   ├── config.py            # Settings (.env loading)
+│   ├── agents/
+│   │   ├── front_office/    # Strategy, sentiment, execution agents
+│   │   ├── middle_office/   # Risk, compliance agents
+│   │   ├── back_office/     # Quant, accounting, IT agents
+│   │   └── executive/       # CIO agent
+│   ├── core/
+│   │   ├── messaging.py     # In-memory message bus
+│   │   ├── local_storage.py # SQLite schema (23 tables)
+│   │   └── kv_store.py      # Key-value store abstraction
+│   ├── backtesting/         # Historical replay engine
+│   ├── features/            # Technical indicators
+│   ├── services/            # Alerts, reports, health monitor
+│   ├── tui/                 # Rich terminal dashboard + REPL
+│   └── workers/             # Background data + performance workers
+└── tests/                   # 265 tests (pytest)
 ```
 
-## License
+## Tech Stack
 
-Proprietary — Horizon Capital
+| Component | Technology |
+|-----------|-----------|
+| Language | Python 3.11+ |
+| TUI | Rich (terminal dashboard) |
+| Web API | FastAPI (optional) |
+| Database | SQLite (local) / PostgreSQL |
+| Messaging | In-memory bus (local) / Redis |
+| LLM | Claude / GPT / Gemini (optional) |
+| Data | yfinance, CoinGecko, httpx |
+| ML | ta (technical analysis), arch (GARCH) |
+| Brokers | Alpaca (US paper), Zerodha (India) |
+
+## Configuration
+
+All settings in `.env`:
+
+```env
+SYSTEM_MODE=PAPER_TRADING     # PAPER_TRADING | HUMAN_APPROVAL | FULLY_AUTONOMOUS
+CIO_MODE=HUMAN                # HUMAN | AI
+STORAGE_BACKEND=LOCAL         # LOCAL (SQLite) | POSTGRES
+
+# Optional — LLM providers (for AI debate)
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AI...
+
+# Optional — real broker connections
+ALPACA_API_KEY=...
+ALPACA_SECRET_KEY=...
+```
+
+Without any API keys, the system runs fully in rule-based / paper mode.
+
+## Running Tests
+
+```bash
+cd backend
+python -m pytest tests/ -v        # 265 tests
+python -m ruff check app/          # 0 lint errors
+```

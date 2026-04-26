@@ -83,10 +83,11 @@ class RiskAgent(BaseAgent):
         """Validate a proposed signal before it becomes an order."""
         payload = message.payload
         symbol = payload.get("symbol", "")
+        direction = int(payload.get("direction", 0) or 0)
 
         violations: list[str] = []
 
-        if not await self._check_position_limit(symbol):
+        if not await self._check_position_limit(symbol, direction=direction):
             violations.append(
                 f"Position in {symbol} would exceed "
                 f"{settings.risk_max_position_pct}% limit"
@@ -147,12 +148,25 @@ class RiskAgent(BaseAgent):
 
     async def _recompute_risk(self) -> None:
         """Compute historical VaR and drawdown, persist metrics."""
+        import numpy as np
+
+        from app.agents.middle_office.risk.var_calculator import VaRCalculator
+
         returns = await self._load_portfolio_returns()
         equity_curve = await self._load_equity_curve()
 
-        var_95 = self._compute_var(returns, confidence=0.95)
-        max_dd = self._compute_max_drawdown(equity_curve)
-        current_dd = self._compute_current_drawdown(equity_curve)
+        returns_arr = np.array(returns) if returns else np.array([])
+        equity_arr = np.array(equity_curve) if equity_curve else np.array([])
+
+        var_95 = VaRCalculator.compute_var(returns_arr, confidence=0.95)
+        var_99 = VaRCalculator.compute_var(returns_arr, confidence=0.99)
+        cvar_95 = VaRCalculator.compute_cvar(returns_arr, confidence=0.95)
+        max_dd = VaRCalculator.compute_max_drawdown(equity_arr)
+        current_dd = VaRCalculator.compute_current_drawdown(equity_arr)
+
+        # Kill switch: auto-halt if drawdown exceeds limit
+        from app.config import settings as _s
+        kill_switch = current_dd * 100 >= _s.risk_max_drawdown_pct
 
         now = datetime.now(UTC)
         async with _get_session_factory()() as session:
@@ -166,16 +180,17 @@ class RiskAgent(BaseAgent):
                     VALUES
                         (:id, :var_95, :var_99, :cvar_95,
                          :max_dd, :current_dd,
-                         0, :now, :now)
+                         :kill, :now, :now)
                     """
                 ),
                 {
                     "id": str(uuid.uuid4()),
                     "var_95": var_95,
-                    "var_99": var_95,
-                    "cvar_95": var_95,
+                    "var_99": var_99,
+                    "cvar_95": cvar_95,
                     "max_dd": max_dd,
                     "current_dd": current_dd,
+                    "kill": 1 if kill_switch else 0,
                     "now": now,
                 },
             )
@@ -185,18 +200,55 @@ class RiskAgent(BaseAgent):
             "horizon:risk:latest",
             mapping={
                 "var_1d_95": str(var_95),
-                "var_1d_99": str(var_95),
-                "cvar_1d_95": str(var_95),
+                "var_1d_99": str(var_99),
+                "cvar_1d_95": str(cvar_95),
                 "max_drawdown": str(max_dd),
                 "current_drawdown": str(current_dd),
-                "kill_switch_active": "0",
+                "kill_switch_active": "1" if kill_switch else "0",
                 "updated_at": now.isoformat(),
             },
         )
 
+        # Publish risk metrics to bus so dashboard can render them
+        await self.emit(
+            channel="horizon.risk.metrics",
+            message_type=MessageType.RISK_ALERT,
+            payload={
+                "action": "METRICS_UPDATE",
+                "var_95": var_95,
+                "var_99": var_99,
+                "cvar_95": cvar_95,
+                "max_drawdown": max_dd * 100,
+                "current_drawdown": current_dd * 100,
+                "kill_switch_active": kill_switch,
+                "timestamp": now.isoformat(),
+            },
+        )
+
+        # Kill switch is sticky: once triggered it remains until a human
+        # clears it via ``horizon:system:halted:ack``. Auto-lifting masks
+        # systemic issues and lets strategies churn straight back in.
+        already_halted = await self.redis.get("horizon:system:halted") == "1"
+        if kill_switch and not already_halted:
+            await self.redis.set("horizon:system:halted", "1")
+            await self.emit(
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "action": "KILL_SWITCH_TRIGGERED",
+                    "severity": "EMERGENCY",
+                    "current_drawdown": current_dd,
+                    "limit": _s.risk_max_drawdown_pct,
+                    "timestamp": now.isoformat(),
+                },
+            )
+            logger.warning("kill_switch_triggered", drawdown=f"{current_dd:.4f}")
+
         logger.info(
             "risk_metrics_updated",
             var_95=f"{var_95:.4f}",
+            var_99=f"{var_99:.4f}",
+            cvar_95=f"{cvar_95:.4f}",
             current_dd=f"{current_dd:.4f}",
         )
 
@@ -204,58 +256,92 @@ class RiskAgent(BaseAgent):
     # Simple risk checks
     # ------------------------------------------------------------------ #
 
-    async def _check_position_limit(self, symbol: str) -> bool:
-        """Return True if the position is within the 5% per-symbol limit."""
+    async def _check_position_limit(
+        self, symbol: str, direction: int = 0
+    ) -> bool:
+        """Return True if the position limit is respected.
+
+        SELLs that reduce exposure are always allowed. For BUYs, the check
+        uses the *current* weight as a proxy for post-order weight — the
+        portfolio agent will clamp sizing against cash anyway.
+        """
+        if direction < 0:
+            return True  # reducing exposure — always permit
+
         nav_str = await self.redis.get("horizon:portfolio:nav")
         if not nav_str:
             return True
         nav = float(nav_str)
         if nav <= 0:
-            return True
+            logger.warning("position_limit_blocked_negative_nav", nav=nav)
+            return False  # Block ALL trading when NAV is zero or negative
 
+        # Sum quantity × price across ALL rows for this symbol (handles the
+        # rare same-ticker-two-exchanges case cleanly).
         async with _get_session_factory()() as session:
             row = await session.execute(
                 text(
-                    "SELECT quantity, current_price FROM positions "
-                    "WHERE symbol = :symbol LIMIT 1"
+                    "SELECT COALESCE(SUM(ABS(quantity * current_price)), 0) AS v "
+                    "FROM positions WHERE symbol = :symbol"
                 ),
                 {"symbol": symbol},
             )
             pos = row.fetchone()
 
-        if not pos:
+        current_value = float(pos.v or 0.0)
+        if current_value <= 0:
             return True
 
-        current_value = abs(pos.quantity * pos.current_price)
         weight_pct = (current_value / nav) * 100
+        # Block BUYs once already at or above the limit.
         return weight_pct < settings.risk_max_position_pct
 
     async def _check_daily_loss_limit(self) -> bool:
-        """Return True if daily loss is within the 10% limit."""
+        """Return True if TODAY'S loss is within the configured limit.
+
+        Compares current NAV against the earliest portfolio snapshot from the
+        current UTC day. If the snapshot is missing, the check passes
+        (bootstrap / first-run case).
+        """
         nav_str = await self.redis.get("horizon:portfolio:nav")
         if not nav_str:
             return True
         nav = float(nav_str)
         if nav <= 0:
-            return True
+            logger.warning("daily_loss_blocked_negative_nav", nav=nav)
+            return False  # Block ALL trading when NAV is zero or negative
+
+        today_utc_start = datetime.now(UTC).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
 
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
-                    SELECT COALESCE(SUM(unrealized_pnl), 0) AS total_unrealized,
-                           COALESCE(SUM(realized_pnl), 0) AS total_realized
-                    FROM positions
+                    SELECT total_value
+                    FROM portfolio_snapshots
+                    WHERE created_at >= :start
+                    ORDER BY created_at ASC
+                    LIMIT 1
                     """
-                )
+                ),
+                {"start": today_utc_start},
             )
             row = result.fetchone()
 
-        total_pnl = (row.total_unrealized or 0) + (row.total_realized or 0)
-        if total_pnl >= 0:
+        if row is None or not row.total_value:
+            return True  # no baseline yet — allow
+
+        start_of_day_nav = float(row.total_value)
+        if start_of_day_nav <= 0:
             return True
 
-        loss_pct = abs(total_pnl) / nav * 100
+        day_pnl = nav - start_of_day_nav
+        if day_pnl >= 0:
+            return True
+
+        loss_pct = abs(day_pnl) / start_of_day_nav * 100
         if loss_pct >= settings.risk_daily_loss_limit_pct:
             logger.warning(
                 "daily_loss_limit_breach",

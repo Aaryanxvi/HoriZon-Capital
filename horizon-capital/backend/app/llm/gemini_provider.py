@@ -6,7 +6,7 @@ from app.llm.base_provider import BaseLLMProvider
 
 
 class GeminiProvider(BaseLLMProvider):
-    """Wraps the Google Generative AI API (Gemini)."""
+    """Wraps the Google GenAI SDK (Gemini)."""
 
     provider_name = "gemini"
 
@@ -17,9 +17,8 @@ class GeminiProvider(BaseLLMProvider):
 
     def _get_client(self):
         if self._client is None:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            self._client = genai.GenerativeModel(self.model)
+            from google import genai
+            self._client = genai.Client(api_key=self.api_key)
         return self._client
 
     async def _do_complete(
@@ -29,19 +28,24 @@ class GeminiProvider(BaseLLMProvider):
         temperature: float = 0.7,
     ) -> str:
         client = self._get_client()
-        # Build conversation: system prompt + messages
-        prompt_parts = [f"System: {system_prompt}\n"]
+
+        contents = []
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
-            prompt_parts.append(f"{role.capitalize()}: {content}")
+            contents.append({"role": role, "parts": [{"text": content}]})
 
         import asyncio
         response = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: client.generate_content(
-                "\n".join(prompt_parts),
-                generation_config={"temperature": temperature, "max_output_tokens": 4096},
+            lambda: client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config={
+                    "system_instruction": system_prompt,
+                    "temperature": temperature,
+                    "max_output_tokens": 4096,
+                },
             ),
         )
         return response.text

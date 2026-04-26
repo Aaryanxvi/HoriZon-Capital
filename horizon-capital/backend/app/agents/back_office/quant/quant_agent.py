@@ -1,7 +1,7 @@
-"""Quant Agent -- feature computation and model drift monitoring.
+"""Quant Agent -- feature computation and pipeline health monitoring.
 
 Rule-based agent (no LLM). Monitors feature pipeline health and
-detects model drift.
+flags stale or missing data.
 """
 
 from __future__ import annotations

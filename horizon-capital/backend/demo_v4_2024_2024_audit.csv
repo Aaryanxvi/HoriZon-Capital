@@ -1,0 +1,607 @@
+date,agent,symbol,signal,strength,reason,nav
+2024-01-02,hmm_regime,SPY,-1,0.0,GMM regime=RISK_OFF conf=0.00,100000.0
+2024-01-02,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",100000.0
+2024-01-09,hmm_regime,SPY,1,0.997,GMM regime=RISK_ON conf=1.00,99678.64
+2024-01-09,combined_signal,SPY,1,0.2,tsmom=0.20 sent=+0.00 qual=+0.00 -> +0.200,99678.64
+2024-01-09,combined_signal,QQQ,1,0.456,tsmom=0.46 sent=+0.00 qual=+0.00 -> +0.456,99678.64
+2024-01-09,combined_signal,AAPL,1,0.526,tsmom=0.51 sent=+0.00 qual=+0.07 -> +0.526,99678.64
+2024-01-09,combined_signal,MSFT,1,0.753,tsmom=0.66 sent=+0.00 qual=+0.46 -> +0.753,99678.64
+2024-01-09,combined_signal,NVDA,1,1.0,tsmom=2.04 sent=+0.00 qual=+0.58 -> +2.158,99678.64
+2024-01-09,combined_signal,GOOGL,1,0.588,tsmom=0.53 sent=+0.00 qual=+0.27 -> +0.588,99678.64
+2024-01-09,combined_signal,AMZN,1,0.628,tsmom=0.69 sent=+0.00 qual=-0.30 -> +0.628,99678.64
+2024-01-09,combined_signal,META,1,1.0,tsmom=1.57 sent=+0.00 qual=+0.05 -> +1.581,99678.64
+2024-01-09,combined_signal,TSLA,1,0.912,tsmom=1.04 sent=+0.00 qual=-0.62 -> +0.912,99678.64
+2024-01-09,combined_signal,JPM,1,0.083,tsmom=0.18 sent=+0.00 qual=-0.48 -> +0.083,99678.64
+2024-01-09,combined_signal,AVGO,1,0.658,tsmom=0.67 sent=+0.00 qual=-0.04 -> +0.658,99678.64
+2024-01-09,combined_signal,XLE,-1,0.032,tsmom=-0.03 sent=+0.00 qual=+0.00 -> -0.032,99678.64
+2024-01-09,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, META=0.14, TSLA=0.10, MSFT=0.51, AVGO=0.18",99678.64
+2024-01-09,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, TSLA=1.00, MSFT=1.00, AVGO=1.00",99678.64
+2024-01-09,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.079, META=0.136, TSLA=0.103, MSFT=0.506, AVGO=0.177",99678.64
+2024-01-17,hmm_regime,SPY,1,1.0,GMM regime=RISK_ON conf=1.00,101691.71
+2024-01-17,combined_signal,SPY,1,0.198,tsmom=0.20 sent=+0.00 qual=+0.00 -> +0.198,101691.71
+2024-01-17,combined_signal,QQQ,1,0.446,tsmom=0.45 sent=+0.00 qual=+0.00 -> +0.446,101691.71
+2024-01-17,combined_signal,AAPL,1,0.475,tsmom=0.46 sent=+0.00 qual=+0.07 -> +0.475,101691.71
+2024-01-17,combined_signal,MSFT,1,0.647,tsmom=0.56 sent=+0.00 qual=+0.46 -> +0.647,101691.71
+2024-01-17,combined_signal,NVDA,1,1.0,tsmom=1.76 sent=+0.00 qual=+0.58 -> +1.880,101691.71
+2024-01-17,combined_signal,GOOGL,1,0.507,tsmom=0.45 sent=+0.00 qual=+0.27 -> +0.507,101691.71
+2024-01-17,combined_signal,AMZN,1,0.502,tsmom=0.56 sent=+0.00 qual=-0.30 -> +0.502,101691.71
+2024-01-17,combined_signal,META,1,1.0,tsmom=1.47 sent=+0.00 qual=+0.05 -> +1.485,101691.71
+2024-01-17,combined_signal,TSLA,1,0.804,tsmom=0.93 sent=+0.00 qual=-0.62 -> +0.804,101691.71
+2024-01-17,combined_signal,JPM,1,0.103,tsmom=0.20 sent=+0.00 qual=-0.48 -> +0.103,101691.71
+2024-01-17,combined_signal,AVGO,1,0.978,tsmom=0.99 sent=+0.00 qual=-0.04 -> +0.978,101691.71
+2024-01-17,combined_signal,XLE,-1,0.04,tsmom=-0.04 sent=+0.00 qual=+0.00 -> -0.040,101691.71
+2024-01-17,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, META=0.13, AVGO=0.17, TSLA=0.10, MSFT=0.52",101691.71
+2024-01-17,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, TSLA=1.00, MSFT=1.00",101691.71
+2024-01-17,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.079, META=0.131, AVGO=0.169, TSLA=0.098, MSFT=0.523",101691.71
+2024-01-24,hmm_regime,SPY,1,1.0,GMM regime=RISK_ON conf=1.00,107038.03
+2024-01-24,combined_signal,SPY,1,0.202,tsmom=0.20 sent=+0.00 qual=+0.00 -> +0.202,107038.03
+2024-01-24,combined_signal,QQQ,1,0.425,tsmom=0.43 sent=+0.00 qual=+0.00 -> +0.425,107038.03
+2024-01-24,combined_signal,AAPL,1,0.38,tsmom=0.37 sent=+0.00 qual=+0.07 -> +0.380,107038.03
+2024-01-24,combined_signal,MSFT,1,0.652,tsmom=0.56 sent=+0.00 qual=+0.46 -> +0.652,107038.03
+2024-01-24,combined_signal,NVDA,1,1.0,tsmom=1.54 sent=+0.00 qual=+0.58 -> +1.652,107038.03
+2024-01-24,combined_signal,GOOGL,1,0.503,tsmom=0.45 sent=+0.00 qual=+0.27 -> +0.503,107038.03
+2024-01-24,combined_signal,AMZN,1,0.534,tsmom=0.59 sent=+0.00 qual=-0.30 -> +0.534,107038.03
+2024-01-24,combined_signal,META,1,1.0,tsmom=1.47 sent=+0.00 qual=+0.05 -> +1.479,107038.03
+2024-01-24,combined_signal,TSLA,1,0.632,tsmom=0.76 sent=+0.00 qual=-0.62 -> +0.632,107038.03
+2024-01-24,combined_signal,JPM,1,0.14,tsmom=0.24 sent=+0.00 qual=-0.48 -> +0.140,107038.03
+2024-01-24,combined_signal,AVGO,1,0.953,tsmom=0.96 sent=+0.00 qual=-0.04 -> +0.953,107038.03
+2024-01-24,combined_signal,XLE,-1,0.024,tsmom=-0.02 sent=+0.00 qual=+0.00 -> -0.024,107038.03
+2024-01-24,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, META=0.13, AVGO=0.15, MSFT=0.53, TSLA=0.11",107038.03
+2024-01-24,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, MSFT=1.00, TSLA=0.96",107038.03
+2024-01-24,final_weights,PORTFOLIO,1,0.996,"final: NVDA=0.077, META=0.134, AVGO=0.151, MSFT=0.532, TSLA=0.102",107038.03
+2024-01-31,hmm_regime,SPY,1,0.989,GMM regime=RISK_ON conf=0.99,104506.63
+2024-01-31,combined_signal,SPY,1,0.18,tsmom=0.18 sent=+0.00 qual=+0.00 -> +0.180,104506.63
+2024-01-31,combined_signal,QQQ,1,0.376,tsmom=0.38 sent=+0.00 qual=+0.00 -> +0.376,104506.63
+2024-01-31,combined_signal,AAPL,1,0.308,tsmom=0.29 sent=+0.00 qual=+0.07 -> +0.308,104506.63
+2024-01-31,combined_signal,MSFT,1,0.601,tsmom=0.51 sent=+0.00 qual=+0.46 -> +0.601,104506.63
+2024-01-31,combined_signal,NVDA,1,1.0,tsmom=1.47 sent=+0.00 qual=+0.58 -> +1.583,104506.63
+2024-01-31,combined_signal,GOOGL,1,0.453,tsmom=0.40 sent=+0.00 qual=+0.27 -> +0.453,104506.63
+2024-01-31,combined_signal,AMZN,1,0.395,tsmom=0.45 sent=+0.00 qual=-0.30 -> +0.395,104506.63
+2024-01-31,combined_signal,META,1,1.0,tsmom=1.32 sent=+0.00 qual=+0.05 -> +1.335,104506.63
+2024-01-31,combined_signal,TSLA,1,0.311,tsmom=0.43 sent=+0.00 qual=-0.62 -> +0.311,104506.63
+2024-01-31,combined_signal,JPM,1,0.161,tsmom=0.26 sent=+0.00 qual=-0.48 -> +0.161,104506.63
+2024-01-31,combined_signal,AVGO,1,0.889,tsmom=0.90 sent=+0.00 qual=-0.04 -> +0.889,104506.63
+2024-01-31,combined_signal,XLE,-1,0.023,tsmom=-0.02 sent=+0.00 qual=+0.00 -> -0.023,104506.63
+2024-01-31,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.13, META=0.16, AVGO=0.16, MSFT=0.31, GOOGL=0.25",104506.63
+2024-01-31,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, MSFT=1.00, GOOGL=1.00",104506.63
+2024-01-31,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.128, META=0.161, AVGO=0.156, MSFT=0.306, GOOGL=0.250",104506.63
+2024-02-07,hmm_regime,SPY,1,0.981,GMM regime=RISK_ON conf=0.98,113031.32
+2024-02-07,combined_signal,SPY,1,0.159,tsmom=0.16 sent=+0.00 qual=+0.00 -> +0.159,113031.32
+2024-02-07,combined_signal,QQQ,1,0.318,tsmom=0.32 sent=+0.00 qual=+0.00 -> +0.318,113031.32
+2024-02-07,combined_signal,AAPL,1,0.218,tsmom=0.20 sent=+0.00 qual=+0.07 -> +0.218,113031.32
+2024-02-07,combined_signal,MSFT,1,0.508,tsmom=0.42 sent=+0.00 qual=+0.46 -> +0.508,113031.32
+2024-02-07,combined_signal,NVDA,1,1.0,tsmom=1.40 sent=+0.00 qual=+0.58 -> +1.514,113031.32
+2024-02-07,combined_signal,GOOGL,1,0.364,tsmom=0.31 sent=+0.00 qual=+0.27 -> +0.364,113031.32
+2024-02-07,combined_signal,AMZN,1,0.423,tsmom=0.48 sent=+0.00 qual=-0.30 -> +0.423,113031.32
+2024-02-07,combined_signal,META,1,0.876,tsmom=0.87 sent=+0.00 qual=+0.05 -> +0.876,113031.32
+2024-02-07,combined_signal,TSLA,1,0.07,tsmom=0.19 sent=+0.00 qual=-0.62 -> +0.070,113031.32
+2024-02-07,combined_signal,JPM,1,0.126,tsmom=0.22 sent=+0.00 qual=-0.48 -> +0.126,113031.32
+2024-02-07,combined_signal,AVGO,1,0.794,tsmom=0.80 sent=+0.00 qual=-0.04 -> +0.794,113031.32
+2024-02-07,combined_signal,XLE,-1,0.034,tsmom=-0.03 sent=+0.00 qual=+0.00 -> -0.034,113031.32
+2024-02-07,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.14, META=0.07, AVGO=0.17, MSFT=0.49, AMZN=0.13",113031.32
+2024-02-07,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, MSFT=1.00, AMZN=1.00",113031.32
+2024-02-07,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.137, META=0.071, AVGO=0.174, MSFT=0.493, AMZN=0.125",113031.32
+2024-02-14,hmm_regime,SPY,1,0.929,GMM regime=RISK_ON conf=0.93,113578.38
+2024-02-14,combined_signal,SPY,1,0.162,tsmom=0.16 sent=+0.00 qual=+0.00 -> +0.162,113578.38
+2024-02-14,combined_signal,QQQ,1,0.337,tsmom=0.34 sent=+0.00 qual=+0.00 -> +0.337,113578.38
+2024-02-14,combined_signal,AAPL,1,0.211,tsmom=0.20 sent=+0.00 qual=+0.07 -> +0.211,113578.38
+2024-02-14,combined_signal,MSFT,1,0.535,tsmom=0.44 sent=+0.00 qual=+0.46 -> +0.535,113578.38
+2024-02-14,combined_signal,NVDA,1,1.0,tsmom=1.44 sent=+0.00 qual=+0.58 -> +1.558,113578.38
+2024-02-14,combined_signal,GOOGL,1,0.549,tsmom=0.49 sent=+0.00 qual=+0.27 -> +0.549,113578.38
+2024-02-14,combined_signal,AMZN,1,0.463,tsmom=0.52 sent=+0.00 qual=-0.30 -> +0.463,113578.38
+2024-02-14,combined_signal,META,1,1.0,tsmom=1.05 sent=+0.00 qual=+0.05 -> +1.063,113578.38
+2024-02-14,combined_signal,TSLA,-1,0.093,tsmom=0.03 sent=+0.00 qual=-0.62 -> -0.093,113578.38
+2024-02-14,combined_signal,JPM,1,0.104,tsmom=0.20 sent=+0.00 qual=-0.48 -> +0.104,113578.38
+2024-02-14,combined_signal,AVGO,1,0.866,tsmom=0.87 sent=+0.00 qual=-0.04 -> +0.866,113578.38
+2024-02-14,combined_signal,XLE,-1,0.078,tsmom=-0.08 sent=+0.00 qual=+0.00 -> -0.078,113578.38
+2024-02-14,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.14, META=0.09, AVGO=0.18, GOOGL=0.24, MSFT=0.35",113578.38
+2024-02-14,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, GOOGL=1.00, MSFT=1.00",113578.38
+2024-02-14,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.138, META=0.089, AVGO=0.183, GOOGL=0.239, MSFT=0.352",113578.38
+2024-02-22,hmm_regime,SPY,-1,0.369,GMM regime=RISK_OFF conf=0.37,115829.82
+2024-02-22,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.37) -> 50% defense, 50% cash",115829.82
+2024-02-29,hmm_regime,SPY,1,0.862,GMM regime=RISK_ON conf=0.86,117398.93
+2024-02-29,combined_signal,SPY,1,0.242,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.242,117398.93
+2024-02-29,combined_signal,QQQ,1,0.442,tsmom=0.44 sent=+0.00 qual=+0.00 -> +0.442,117398.93
+2024-02-29,combined_signal,AAPL,1,0.288,tsmom=0.27 sent=+0.00 qual=+0.07 -> +0.288,117398.93
+2024-02-29,combined_signal,MSFT,1,0.716,tsmom=0.62 sent=+0.00 qual=+0.46 -> +0.716,117398.93
+2024-02-29,combined_signal,NVDA,1,1.0,tsmom=1.71 sent=+0.00 qual=+0.58 -> +1.828,117398.93
+2024-02-29,combined_signal,GOOGL,1,0.605,tsmom=0.55 sent=+0.00 qual=+0.27 -> +0.605,117398.93
+2024-02-29,combined_signal,AMZN,1,0.625,tsmom=0.68 sent=+0.00 qual=-0.30 -> +0.625,117398.93
+2024-02-29,combined_signal,META,1,1.0,tsmom=1.25 sent=+0.00 qual=+0.05 -> +1.260,117398.93
+2024-02-29,combined_signal,TSLA,-1,0.2,tsmom=-0.08 sent=+0.00 qual=-0.62 -> -0.200,117398.93
+2024-02-29,combined_signal,JPM,1,0.162,tsmom=0.26 sent=+0.00 qual=-0.48 -> +0.162,117398.93
+2024-02-29,combined_signal,AVGO,1,1.0,tsmom=1.03 sent=+0.00 qual=-0.04 -> +1.025,117398.93
+2024-02-29,combined_signal,XLE,1,0.013,tsmom=0.01 sent=+0.00 qual=+0.00 -> +0.013,117398.93
+2024-02-29,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.13, AVGO=0.10, MSFT=0.51, AMZN=0.19",117398.93
+2024-02-29,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, MSFT=1.00, AMZN=1.00",117398.93
+2024-02-29,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.064, META=0.130, AVGO=0.100, MSFT=0.515, AMZN=0.190",117398.93
+2024-03-07,hmm_regime,SPY,1,0.888,GMM regime=RISK_ON conf=0.89,119567.03
+2024-03-07,combined_signal,SPY,1,0.268,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.268,119567.03
+2024-03-07,combined_signal,QQQ,1,0.461,tsmom=0.46 sent=+0.00 qual=+0.00 -> +0.461,119567.03
+2024-03-07,combined_signal,AAPL,1,0.258,tsmom=0.24 sent=+0.00 qual=+0.07 -> +0.258,119567.03
+2024-03-07,combined_signal,MSFT,1,0.734,tsmom=0.64 sent=+0.00 qual=+0.46 -> +0.734,119567.03
+2024-03-07,combined_signal,NVDA,1,1.0,tsmom=1.90 sent=+0.00 qual=+0.58 -> +2.016,119567.03
+2024-03-07,combined_signal,GOOGL,1,0.599,tsmom=0.54 sent=+0.00 qual=+0.27 -> +0.599,119567.03
+2024-03-07,combined_signal,AMZN,1,0.757,tsmom=0.82 sent=+0.00 qual=-0.30 -> +0.757,119567.03
+2024-03-07,combined_signal,META,1,1.0,tsmom=1.54 sent=+0.00 qual=+0.05 -> +1.549,119567.03
+2024-03-07,combined_signal,TSLA,-1,0.093,tsmom=0.03 sent=+0.00 qual=-0.62 -> -0.093,119567.03
+2024-03-07,combined_signal,JPM,1,0.213,tsmom=0.31 sent=+0.00 qual=-0.48 -> +0.213,119567.03
+2024-03-07,combined_signal,AVGO,1,1.0,tsmom=1.03 sent=+0.00 qual=-0.04 -> +1.025,119567.03
+2024-03-07,combined_signal,XLE,1,0.023,tsmom=0.02 sent=+0.00 qual=+0.00 -> +0.023,119567.03
+2024-03-07,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.12, META=0.08, AVGO=0.18, AMZN=0.13, MSFT=0.49",119567.03
+2024-03-07,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",119567.03
+2024-03-07,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.123, META=0.076, AVGO=0.182, AMZN=0.130, MSFT=0.488",119567.03
+2024-03-14,hmm_regime,SPY,1,0.928,GMM regime=RISK_ON conf=0.93,118620.83
+2024-03-14,combined_signal,SPY,1,0.3,tsmom=0.30 sent=+0.00 qual=+0.00 -> +0.300,118620.83
+2024-03-14,combined_signal,QQQ,1,0.459,tsmom=0.46 sent=+0.00 qual=+0.00 -> +0.459,118620.83
+2024-03-14,combined_signal,AAPL,1,0.224,tsmom=0.21 sent=+0.00 qual=+0.07 -> +0.224,118620.83
+2024-03-14,combined_signal,MSFT,1,0.646,tsmom=0.56 sent=+0.00 qual=+0.46 -> +0.646,118620.83
+2024-03-14,combined_signal,NVDA,1,1.0,tsmom=2.05 sent=+0.00 qual=+0.58 -> +2.168,118620.83
+2024-03-14,combined_signal,GOOGL,1,0.573,tsmom=0.52 sent=+0.00 qual=+0.27 -> +0.573,118620.83
+2024-03-14,combined_signal,AMZN,1,0.718,tsmom=0.78 sent=+0.00 qual=-0.30 -> +0.718,118620.83
+2024-03-14,combined_signal,META,1,1.0,tsmom=1.39 sent=+0.00 qual=+0.05 -> +1.404,118620.83
+2024-03-14,combined_signal,TSLA,-1,0.078,tsmom=0.05 sent=+0.00 qual=-0.62 -> -0.078,118620.83
+2024-03-14,combined_signal,JPM,1,0.315,tsmom=0.41 sent=+0.00 qual=-0.48 -> +0.315,118620.83
+2024-03-14,combined_signal,AVGO,1,1.0,tsmom=1.06 sent=+0.00 qual=-0.04 -> +1.054,118620.83
+2024-03-14,combined_signal,XLE,1,0.116,tsmom=0.12 sent=+0.00 qual=+0.00 -> +0.116,118620.83
+2024-03-14,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.13, AVGO=0.09, AMZN=0.21, MSFT=0.51",118620.83
+2024-03-14,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",118620.83
+2024-03-14,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.059, META=0.133, AVGO=0.088, AMZN=0.206, MSFT=0.513",118620.83
+2024-03-21,hmm_regime,SPY,1,0.97,GMM regime=RISK_ON conf=0.97,120668.58
+2024-03-21,combined_signal,SPY,1,0.309,tsmom=0.31 sent=+0.00 qual=+0.00 -> +0.309,120668.58
+2024-03-21,combined_signal,QQQ,1,0.439,tsmom=0.44 sent=+0.00 qual=+0.00 -> +0.439,120668.58
+2024-03-21,combined_signal,AAPL,1,0.188,tsmom=0.17 sent=+0.00 qual=+0.07 -> +0.188,120668.58
+2024-03-21,combined_signal,MSFT,1,0.615,tsmom=0.52 sent=+0.00 qual=+0.46 -> +0.615,120668.58
+2024-03-21,combined_signal,NVDA,1,1.0,tsmom=1.97 sent=+0.00 qual=+0.58 -> +2.085,120668.58
+2024-03-21,combined_signal,GOOGL,1,0.449,tsmom=0.39 sent=+0.00 qual=+0.27 -> +0.449,120668.58
+2024-03-21,combined_signal,AMZN,1,0.71,tsmom=0.77 sent=+0.00 qual=-0.30 -> +0.710,120668.58
+2024-03-21,combined_signal,META,1,1.0,tsmom=1.44 sent=+0.00 qual=+0.05 -> +1.446,120668.58
+2024-03-21,combined_signal,TSLA,-1,0.091,tsmom=0.03 sent=+0.00 qual=-0.62 -> -0.091,120668.58
+2024-03-21,combined_signal,JPM,1,0.384,tsmom=0.48 sent=+0.00 qual=-0.48 -> +0.384,120668.58
+2024-03-21,combined_signal,AVGO,1,1.0,tsmom=1.10 sent=+0.00 qual=-0.04 -> +1.092,120668.58
+2024-03-21,combined_signal,XLE,1,0.128,tsmom=0.13 sent=+0.00 qual=+0.00 -> +0.128,120668.58
+2024-03-21,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.13, AVGO=0.08, AMZN=0.20, MSFT=0.52",120668.58
+2024-03-21,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",120668.58
+2024-03-21,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.060, META=0.132, AVGO=0.083, AMZN=0.204, MSFT=0.521",120668.58
+2024-03-28,hmm_regime,SPY,1,0.97,GMM regime=RISK_ON conf=0.97,118747.46
+2024-03-28,combined_signal,SPY,1,0.28,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.280,118747.46
+2024-03-28,combined_signal,QQQ,1,0.411,tsmom=0.41 sent=+0.00 qual=+0.00 -> +0.411,118747.46
+2024-03-28,combined_signal,AAPL,1,0.144,tsmom=0.13 sent=+0.00 qual=+0.07 -> +0.144,118747.46
+2024-03-28,combined_signal,MSFT,1,0.578,tsmom=0.49 sent=+0.00 qual=+0.46 -> +0.578,118747.46
+2024-03-28,combined_signal,NVDA,1,1.0,tsmom=1.93 sent=+0.00 qual=+0.58 -> +2.049,118747.46
+2024-03-28,combined_signal,GOOGL,1,0.42,tsmom=0.37 sent=+0.00 qual=+0.27 -> +0.420,118747.46
+2024-03-28,combined_signal,AMZN,1,0.704,tsmom=0.76 sent=+0.00 qual=-0.30 -> +0.704,118747.46
+2024-03-28,combined_signal,META,1,1.0,tsmom=1.39 sent=+0.00 qual=+0.05 -> +1.400,118747.46
+2024-03-28,combined_signal,TSLA,-1,0.082,tsmom=0.04 sent=+0.00 qual=-0.62 -> -0.082,118747.46
+2024-03-28,combined_signal,JPM,1,0.386,tsmom=0.48 sent=+0.00 qual=-0.48 -> +0.386,118747.46
+2024-03-28,combined_signal,AVGO,1,1.0,tsmom=1.11 sent=+0.00 qual=-0.04 -> +1.103,118747.46
+2024-03-28,combined_signal,XLE,1,0.079,tsmom=0.08 sent=+0.00 qual=+0.00 -> +0.079,118747.46
+2024-03-28,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.13, AVGO=0.08, AMZN=0.22, MSFT=0.51",118747.46
+2024-03-28,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",118747.46
+2024-03-28,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.058, META=0.127, AVGO=0.083, AMZN=0.221, MSFT=0.510",118747.46
+2024-04-05,hmm_regime,SPY,1,0.944,GMM regime=RISK_ON conf=0.94,121373.03
+2024-04-05,combined_signal,SPY,1,0.277,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.277,121373.03
+2024-04-05,combined_signal,QQQ,1,0.418,tsmom=0.42 sent=+0.00 qual=+0.00 -> +0.418,121373.03
+2024-04-05,combined_signal,AAPL,1,0.051,tsmom=0.04 sent=+0.00 qual=+0.07 -> +0.051,121373.03
+2024-04-05,combined_signal,MSFT,1,0.542,tsmom=0.45 sent=+0.00 qual=+0.46 -> +0.542,121373.03
+2024-04-05,combined_signal,NVDA,1,1.0,tsmom=2.45 sent=+0.00 qual=+0.58 -> +2.565,121373.03
+2024-04-05,combined_signal,GOOGL,1,0.341,tsmom=0.29 sent=+0.00 qual=+0.27 -> +0.341,121373.03
+2024-04-05,combined_signal,AMZN,1,0.69,tsmom=0.75 sent=+0.00 qual=-0.30 -> +0.690,121373.03
+2024-04-05,combined_signal,META,1,1.0,tsmom=1.42 sent=+0.00 qual=+0.05 -> +1.435,121373.03
+2024-04-05,combined_signal,TSLA,-1,0.16,tsmom=-0.04 sent=+0.00 qual=-0.62 -> -0.160,121373.03
+2024-04-05,combined_signal,JPM,1,0.406,tsmom=0.50 sent=+0.00 qual=-0.48 -> +0.406,121373.03
+2024-04-05,combined_signal,AVGO,1,1.0,tsmom=1.27 sent=+0.00 qual=-0.04 -> +1.263,121373.03
+2024-04-05,combined_signal,XLE,1,0.045,tsmom=0.04 sent=+0.00 qual=+0.00 -> +0.045,121373.03
+2024-04-05,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.11, META=0.07, AVGO=0.15, AMZN=0.15, MSFT=0.51",121373.03
+2024-04-05,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",121373.03
+2024-04-05,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.109, META=0.073, AVGO=0.154, AMZN=0.152, MSFT=0.512",121373.03
+2024-04-12,hmm_regime,SPY,1,0.555,GMM regime=RISK_ON conf=0.55,120877.0
+2024-04-12,combined_signal,SPY,1,0.26,tsmom=0.26 sent=+0.00 qual=+0.00 -> +0.260,120877.0
+2024-04-12,combined_signal,QQQ,1,0.383,tsmom=0.38 sent=+0.00 qual=+0.00 -> +0.383,120877.0
+2024-04-12,combined_signal,AAPL,1,0.064,tsmom=0.05 sent=+0.00 qual=+0.07 -> +0.064,120877.0
+2024-04-12,combined_signal,MSFT,1,0.57,tsmom=0.48 sent=+0.00 qual=+0.46 -> +0.570,120877.0
+2024-04-12,combined_signal,NVDA,1,1.0,tsmom=2.32 sent=+0.00 qual=+0.58 -> +2.441,120877.0
+2024-04-12,combined_signal,GOOGL,1,0.387,tsmom=0.33 sent=+0.00 qual=+0.27 -> +0.387,120877.0
+2024-04-12,combined_signal,AMZN,1,0.687,tsmom=0.75 sent=+0.00 qual=-0.30 -> +0.687,120877.0
+2024-04-12,combined_signal,META,1,1.0,tsmom=1.23 sent=+0.00 qual=+0.05 -> +1.245,120877.0
+2024-04-12,combined_signal,TSLA,-1,0.249,tsmom=-0.13 sent=+0.00 qual=-0.62 -> -0.249,120877.0
+2024-04-12,combined_signal,JPM,1,0.391,tsmom=0.49 sent=+0.00 qual=-0.48 -> +0.391,120877.0
+2024-04-12,combined_signal,AVGO,1,1.0,tsmom=1.05 sent=+0.00 qual=-0.04 -> +1.045,120877.0
+2024-04-12,combined_signal,XLE,1,0.076,tsmom=0.08 sent=+0.00 qual=+0.00 -> +0.076,120877.0
+2024-04-12,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.11, META=0.07, AVGO=0.15, AMZN=0.15, MSFT=0.52",120877.0
+2024-04-12,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, MSFT=1.00",120877.0
+2024-04-12,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.106, META=0.073, AVGO=0.149, AMZN=0.153, MSFT=0.519",120877.0
+2024-04-19,hmm_regime,SPY,-1,0.491,GMM regime=RISK_OFF conf=0.49,112195.37
+2024-04-19,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.49) -> 50% defense, 50% cash",112195.37
+2024-04-26,hmm_regime,SPY,-1,0.011,GMM regime=RISK_OFF conf=0.01,113103.79
+2024-04-26,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.01) -> 50% defense, 50% cash",113103.79
+2024-05-03,hmm_regime,SPY,-1,0.005,GMM regime=RISK_OFF conf=0.00,113236.16
+2024-05-03,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",113236.16
+2024-05-10,hmm_regime,SPY,-1,0.022,GMM regime=RISK_OFF conf=0.02,114078.41
+2024-05-10,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.02) -> 50% defense, 50% cash",114078.41
+2024-05-17,hmm_regime,SPY,-1,0.401,GMM regime=RISK_OFF conf=0.40,115133.16
+2024-05-17,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.40) -> 50% defense, 50% cash",115133.16
+2024-05-24,hmm_regime,SPY,1,0.696,GMM regime=RISK_ON conf=0.70,114116.98
+2024-05-24,combined_signal,SPY,1,0.244,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.244,114116.98
+2024-05-24,combined_signal,QQQ,1,0.277,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.277,114116.98
+2024-05-24,combined_signal,AAPL,-1,0.003,tsmom=-0.02 sent=+0.00 qual=+0.07 -> -0.003,114116.98
+2024-05-24,combined_signal,MSFT,1,0.345,tsmom=0.25 sent=+0.00 qual=+0.46 -> +0.345,114116.98
+2024-05-24,combined_signal,NVDA,1,1.0,tsmom=1.31 sent=+0.00 qual=+0.58 -> +1.427,114116.98
+2024-05-24,combined_signal,GOOGL,1,0.447,tsmom=0.39 sent=+0.00 qual=+0.27 -> +0.447,114116.98
+2024-05-24,combined_signal,AMZN,1,0.503,tsmom=0.56 sent=+0.00 qual=-0.30 -> +0.503,114116.98
+2024-05-24,combined_signal,META,1,0.767,tsmom=0.76 sent=+0.00 qual=+0.05 -> +0.767,114116.98
+2024-05-24,combined_signal,TSLA,-1,0.211,tsmom=-0.09 sent=+0.00 qual=-0.62 -> -0.211,114116.98
+2024-05-24,combined_signal,JPM,1,0.368,tsmom=0.46 sent=+0.00 qual=-0.48 -> +0.368,114116.98
+2024-05-24,combined_signal,AVGO,1,0.873,tsmom=0.88 sent=+0.00 qual=-0.04 -> +0.873,114116.98
+2024-05-24,combined_signal,XLE,1,0.252,tsmom=0.25 sent=+0.00 qual=+0.00 -> +0.252,114116.98
+2024-05-24,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, AVGO=0.09, META=0.16, AMZN=0.38, GOOGL=0.32",114116.98
+2024-05-24,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, AMZN=1.00, GOOGL=1.00",114116.98
+2024-05-24,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.058, AVGO=0.093, META=0.155, AMZN=0.375, GOOGL=0.319",114116.98
+2024-06-03,hmm_regime,SPY,1,0.799,GMM regime=RISK_ON conf=0.80,113425.06
+2024-06-03,combined_signal,SPY,1,0.212,tsmom=0.21 sent=+0.00 qual=+0.00 -> +0.212,113425.06
+2024-06-03,combined_signal,QQQ,1,0.236,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.236,113425.06
+2024-06-03,combined_signal,AAPL,1,0.031,tsmom=0.02 sent=+0.00 qual=+0.07 -> +0.031,113425.06
+2024-06-03,combined_signal,MSFT,1,0.311,tsmom=0.22 sent=+0.00 qual=+0.46 -> +0.311,113425.06
+2024-06-03,combined_signal,NVDA,1,1.0,tsmom=1.26 sent=+0.00 qual=+0.58 -> +1.375,113425.06
+2024-06-03,combined_signal,GOOGL,1,0.396,tsmom=0.34 sent=+0.00 qual=+0.27 -> +0.396,113425.06
+2024-06-03,combined_signal,AMZN,1,0.44,tsmom=0.50 sent=+0.00 qual=-0.30 -> +0.440,113425.06
+2024-06-03,combined_signal,META,1,0.67,tsmom=0.66 sent=+0.00 qual=+0.05 -> +0.670,113425.06
+2024-06-03,combined_signal,TSLA,-1,0.277,tsmom=-0.15 sent=+0.00 qual=-0.62 -> -0.277,113425.06
+2024-06-03,combined_signal,JPM,1,0.296,tsmom=0.39 sent=+0.00 qual=-0.48 -> +0.296,113425.06
+2024-06-03,combined_signal,AVGO,1,0.597,tsmom=0.61 sent=+0.00 qual=-0.04 -> +0.597,113425.06
+2024-06-03,combined_signal,XLE,1,0.198,tsmom=0.20 sent=+0.00 qual=+0.00 -> +0.198,113425.06
+2024-06-03,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.16, AVGO=0.09, AMZN=0.37, GOOGL=0.33",113425.06
+2024-06-03,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, GOOGL=1.00",113425.06
+2024-06-03,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.056, META=0.158, AVGO=0.094, AMZN=0.368, GOOGL=0.326",113425.06
+2024-06-10,hmm_regime,SPY,1,0.959,GMM regime=RISK_ON conf=0.96,118161.76
+2024-06-10,combined_signal,SPY,1,0.229,tsmom=0.23 sent=+0.00 qual=+0.00 -> +0.229,118161.76
+2024-06-10,combined_signal,QQQ,1,0.255,tsmom=0.26 sent=+0.00 qual=+0.00 -> +0.255,118161.76
+2024-06-10,combined_signal,AAPL,1,0.031,tsmom=0.02 sent=+0.00 qual=+0.07 -> +0.031,118161.76
+2024-06-10,combined_signal,MSFT,1,0.368,tsmom=0.28 sent=+0.00 qual=+0.46 -> +0.368,118161.76
+2024-06-10,combined_signal,NVDA,1,1.0,tsmom=1.32 sent=+0.00 qual=+0.58 -> +1.435,118161.76
+2024-06-10,combined_signal,GOOGL,1,0.434,tsmom=0.38 sent=+0.00 qual=+0.27 -> +0.434,118161.76
+2024-06-10,combined_signal,AMZN,1,0.46,tsmom=0.52 sent=+0.00 qual=-0.30 -> +0.460,118161.76
+2024-06-10,combined_signal,META,1,0.81,tsmom=0.80 sent=+0.00 qual=+0.05 -> +0.810,118161.76
+2024-06-10,combined_signal,TSLA,-1,0.434,tsmom=-0.31 sent=+0.00 qual=-0.62 -> -0.434,118161.76
+2024-06-10,combined_signal,JPM,1,0.351,tsmom=0.45 sent=+0.00 qual=-0.48 -> +0.351,118161.76
+2024-06-10,combined_signal,AVGO,1,0.681,tsmom=0.69 sent=+0.00 qual=-0.04 -> +0.681,118161.76
+2024-06-10,combined_signal,XLE,1,0.193,tsmom=0.19 sent=+0.00 qual=+0.00 -> +0.193,118161.76
+2024-06-10,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.05, META=0.15, AVGO=0.09, AMZN=0.36, GOOGL=0.34",118161.76
+2024-06-10,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, AMZN=1.00, GOOGL=1.00",118161.76
+2024-06-10,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.054, META=0.154, AVGO=0.087, AMZN=0.362, GOOGL=0.344",118161.76
+2024-06-17,hmm_regime,SPY,1,0.994,GMM regime=RISK_ON conf=0.99,121400.52
+2024-06-17,combined_signal,SPY,1,0.218,tsmom=0.22 sent=+0.00 qual=+0.00 -> +0.218,121400.52
+2024-06-17,combined_signal,QQQ,1,0.236,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.236,121400.52
+2024-06-17,combined_signal,AAPL,1,0.046,tsmom=0.03 sent=+0.00 qual=+0.07 -> +0.046,121400.52
+2024-06-17,combined_signal,MSFT,1,0.328,tsmom=0.24 sent=+0.00 qual=+0.46 -> +0.328,121400.52
+2024-06-17,combined_signal,NVDA,1,1.0,tsmom=1.17 sent=+0.00 qual=+0.58 -> +1.283,121400.52
+2024-06-17,combined_signal,GOOGL,1,0.48,tsmom=0.43 sent=+0.00 qual=+0.27 -> +0.480,121400.52
+2024-06-17,combined_signal,AMZN,1,0.413,tsmom=0.47 sent=+0.00 qual=-0.30 -> +0.413,121400.52
+2024-06-17,combined_signal,META,1,0.692,tsmom=0.68 sent=+0.00 qual=+0.05 -> +0.692,121400.52
+2024-06-17,combined_signal,TSLA,-1,0.442,tsmom=-0.32 sent=+0.00 qual=-0.62 -> -0.442,121400.52
+2024-06-17,combined_signal,JPM,1,0.371,tsmom=0.47 sent=+0.00 qual=-0.48 -> +0.371,121400.52
+2024-06-17,combined_signal,AVGO,1,0.631,tsmom=0.64 sent=+0.00 qual=-0.04 -> +0.631,121400.52
+2024-06-17,combined_signal,XLE,1,0.215,tsmom=0.21 sent=+0.00 qual=+0.00 -> +0.215,121400.52
+2024-06-17,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.10, META=0.10, AVGO=0.15, GOOGL=0.35, AMZN=0.30",121400.52
+2024-06-17,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, GOOGL=1.00, AMZN=1.00",121400.52
+2024-06-17,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.102, META=0.100, AVGO=0.148, GOOGL=0.351, AMZN=0.299",121400.52
+2024-06-25,hmm_regime,SPY,1,0.981,GMM regime=RISK_ON conf=0.98,120666.75
+2024-06-25,combined_signal,SPY,1,0.24,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.240,120666.75
+2024-06-25,combined_signal,QQQ,1,0.287,tsmom=0.29 sent=+0.00 qual=+0.00 -> +0.287,120666.75
+2024-06-25,combined_signal,AAPL,1,0.045,tsmom=0.03 sent=+0.00 qual=+0.07 -> +0.045,120666.75
+2024-06-25,combined_signal,MSFT,1,0.41,tsmom=0.32 sent=+0.00 qual=+0.46 -> +0.410,120666.75
+2024-06-25,combined_signal,NVDA,1,1.0,tsmom=1.62 sent=+0.00 qual=+0.58 -> +1.737,120666.75
+2024-06-25,combined_signal,GOOGL,1,0.533,tsmom=0.48 sent=+0.00 qual=+0.27 -> +0.533,120666.75
+2024-06-25,combined_signal,AMZN,1,0.36,tsmom=0.42 sent=+0.00 qual=-0.30 -> +0.360,120666.75
+2024-06-25,combined_signal,META,1,0.73,tsmom=0.72 sent=+0.00 qual=+0.05 -> +0.730,120666.75
+2024-06-25,combined_signal,TSLA,-1,0.38,tsmom=-0.26 sent=+0.00 qual=-0.62 -> -0.380,120666.75
+2024-06-25,combined_signal,JPM,1,0.384,tsmom=0.48 sent=+0.00 qual=-0.48 -> +0.384,120666.75
+2024-06-25,combined_signal,AVGO,1,0.73,tsmom=0.74 sent=+0.00 qual=-0.04 -> +0.730,120666.75
+2024-06-25,combined_signal,XLE,1,0.19,tsmom=0.19 sent=+0.00 qual=+0.00 -> +0.190,120666.75
+2024-06-25,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.07, AVGO=0.11, META=0.14, GOOGL=0.21, MSFT=0.46",120666.75
+2024-06-25,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, GOOGL=1.00, MSFT=1.00",120666.75
+2024-06-25,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.074, AVGO=0.112, META=0.144, GOOGL=0.208, MSFT=0.462",120666.75
+2024-07-02,hmm_regime,SPY,1,0.999,GMM regime=RISK_ON conf=1.00,122472.02
+2024-07-02,combined_signal,SPY,1,0.202,tsmom=0.20 sent=+0.00 qual=+0.00 -> +0.202,122472.02
+2024-07-02,combined_signal,QQQ,1,0.23,tsmom=0.23 sent=+0.00 qual=+0.00 -> +0.230,122472.02
+2024-07-02,combined_signal,AAPL,1,0.027,tsmom=0.01 sent=+0.00 qual=+0.07 -> +0.027,122472.02
+2024-07-02,combined_signal,MSFT,1,0.324,tsmom=0.23 sent=+0.00 qual=+0.46 -> +0.324,122472.02
+2024-07-02,combined_signal,NVDA,1,1.0,tsmom=1.71 sent=+0.00 qual=+0.58 -> +1.829,122472.02
+2024-07-02,combined_signal,GOOGL,1,0.499,tsmom=0.44 sent=+0.00 qual=+0.27 -> +0.499,122472.02
+2024-07-02,combined_signal,AMZN,1,0.31,tsmom=0.37 sent=+0.00 qual=-0.30 -> +0.310,122472.02
+2024-07-02,combined_signal,META,1,0.682,tsmom=0.67 sent=+0.00 qual=+0.05 -> +0.682,122472.02
+2024-07-02,combined_signal,TSLA,-1,0.493,tsmom=-0.37 sent=+0.00 qual=-0.62 -> -0.493,122472.02
+2024-07-02,combined_signal,JPM,1,0.317,tsmom=0.41 sent=+0.00 qual=-0.48 -> +0.317,122472.02
+2024-07-02,combined_signal,AVGO,1,0.522,tsmom=0.53 sent=+0.00 qual=-0.04 -> +0.522,122472.02
+2024-07-02,combined_signal,XLE,1,0.144,tsmom=0.14 sent=+0.00 qual=+0.00 -> +0.144,122472.02
+2024-07-02,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, META=0.15, AVGO=0.12, GOOGL=0.21, MSFT=0.45",122472.02
+2024-07-02,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, GOOGL=1.00, MSFT=1.00",122472.02
+2024-07-02,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.076, META=0.145, AVGO=0.115, GOOGL=0.209, MSFT=0.454",122472.02
+2024-07-10,hmm_regime,SPY,1,1.0,GMM regime=RISK_ON conf=1.00,126665.44
+2024-07-10,combined_signal,SPY,1,0.224,tsmom=0.22 sent=+0.00 qual=+0.00 -> +0.224,126665.44
+2024-07-10,combined_signal,QQQ,1,0.269,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.269,126665.44
+2024-07-10,combined_signal,AAPL,1,0.046,tsmom=0.03 sent=+0.00 qual=+0.07 -> +0.046,126665.44
+2024-07-10,combined_signal,MSFT,1,0.388,tsmom=0.30 sent=+0.00 qual=+0.46 -> +0.388,126665.44
+2024-07-10,combined_signal,NVDA,1,1.0,tsmom=1.87 sent=+0.00 qual=+0.58 -> +1.989,126665.44
+2024-07-10,combined_signal,GOOGL,1,0.55,tsmom=0.50 sent=+0.00 qual=+0.27 -> +0.550,126665.44
+2024-07-10,combined_signal,AMZN,1,0.394,tsmom=0.45 sent=+0.00 qual=-0.30 -> +0.394,126665.44
+2024-07-10,combined_signal,META,1,0.697,tsmom=0.69 sent=+0.00 qual=+0.05 -> +0.697,126665.44
+2024-07-10,combined_signal,TSLA,-1,0.479,tsmom=-0.36 sent=+0.00 qual=-0.62 -> -0.479,126665.44
+2024-07-10,combined_signal,JPM,1,0.284,tsmom=0.38 sent=+0.00 qual=-0.48 -> +0.284,126665.44
+2024-07-10,combined_signal,AVGO,1,0.648,tsmom=0.66 sent=+0.00 qual=-0.04 -> +0.648,126665.44
+2024-07-10,combined_signal,XLE,1,0.117,tsmom=0.12 sent=+0.00 qual=+0.00 -> +0.117,126665.44
+2024-07-10,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.10, META=0.10, AVGO=0.14, GOOGL=0.36, AMZN=0.30",126665.44
+2024-07-10,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, GOOGL=1.00, AMZN=1.00",126665.44
+2024-07-10,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.097, META=0.100, AVGO=0.145, GOOGL=0.357, AMZN=0.300",126665.44
+2024-07-17,hmm_regime,SPY,1,0.873,GMM regime=RISK_ON conf=0.87,116385.89
+2024-07-17,combined_signal,SPY,1,0.217,tsmom=0.22 sent=+0.00 qual=+0.00 -> +0.217,116385.89
+2024-07-17,combined_signal,QQQ,1,0.264,tsmom=0.26 sent=+0.00 qual=+0.00 -> +0.264,116385.89
+2024-07-17,combined_signal,AAPL,1,0.138,tsmom=0.12 sent=+0.00 qual=+0.07 -> +0.138,116385.89
+2024-07-17,combined_signal,MSFT,1,0.348,tsmom=0.26 sent=+0.00 qual=+0.46 -> +0.348,116385.89
+2024-07-17,combined_signal,NVDA,1,1.0,tsmom=1.76 sent=+0.00 qual=+0.58 -> +1.875,116385.89
+2024-07-17,combined_signal,GOOGL,1,0.488,tsmom=0.43 sent=+0.00 qual=+0.27 -> +0.488,116385.89
+2024-07-17,combined_signal,AMZN,1,0.327,tsmom=0.39 sent=+0.00 qual=-0.30 -> +0.327,116385.89
+2024-07-17,combined_signal,META,1,0.637,tsmom=0.63 sent=+0.00 qual=+0.05 -> +0.637,116385.89
+2024-07-17,combined_signal,TSLA,-1,0.484,tsmom=-0.36 sent=+0.00 qual=-0.62 -> -0.484,116385.89
+2024-07-17,combined_signal,JPM,1,0.197,tsmom=0.29 sent=+0.00 qual=-0.48 -> +0.197,116385.89
+2024-07-17,combined_signal,AVGO,1,1.0,tsmom=1.05 sent=+0.00 qual=-0.04 -> +1.045,116385.89
+2024-07-17,combined_signal,XLE,1,0.102,tsmom=0.10 sent=+0.00 qual=+0.00 -> +0.102,116385.89
+2024-07-17,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, AVGO=0.11, META=0.14, GOOGL=0.21, MSFT=0.46",116385.89
+2024-07-17,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, GOOGL=1.00, MSFT=1.00",116385.89
+2024-07-17,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.076, AVGO=0.111, META=0.141, GOOGL=0.213, MSFT=0.458",116385.89
+2024-07-24,hmm_regime,SPY,1,0.961,GMM regime=RISK_ON conf=0.96,113016.56
+2024-07-24,combined_signal,SPY,1,0.213,tsmom=0.21 sent=+0.00 qual=+0.00 -> +0.213,113016.56
+2024-07-24,combined_signal,QQQ,1,0.274,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.274,113016.56
+2024-07-24,combined_signal,AAPL,1,0.1,tsmom=0.09 sent=+0.00 qual=+0.07 -> +0.100,113016.56
+2024-07-24,combined_signal,MSFT,1,0.386,tsmom=0.29 sent=+0.00 qual=+0.46 -> +0.386,113016.56
+2024-07-24,combined_signal,NVDA,1,1.0,tsmom=1.76 sent=+0.00 qual=+0.58 -> +1.878,113016.56
+2024-07-24,combined_signal,GOOGL,1,0.562,tsmom=0.51 sent=+0.00 qual=+0.27 -> +0.562,113016.56
+2024-07-24,combined_signal,AMZN,1,0.384,tsmom=0.44 sent=+0.00 qual=-0.30 -> +0.384,113016.56
+2024-07-24,combined_signal,META,1,0.748,tsmom=0.74 sent=+0.00 qual=+0.05 -> +0.748,113016.56
+2024-07-24,combined_signal,TSLA,-1,0.417,tsmom=-0.29 sent=+0.00 qual=-0.62 -> -0.417,113016.56
+2024-07-24,combined_signal,JPM,1,0.191,tsmom=0.29 sent=+0.00 qual=-0.48 -> +0.191,113016.56
+2024-07-24,combined_signal,AVGO,1,0.744,tsmom=0.75 sent=+0.00 qual=-0.04 -> +0.744,113016.56
+2024-07-24,combined_signal,XLE,1,0.098,tsmom=0.10 sent=+0.00 qual=+0.00 -> +0.098,113016.56
+2024-07-24,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, META=0.15, AVGO=0.11, GOOGL=0.21, MSFT=0.45",113016.56
+2024-07-24,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, GOOGL=1.00, MSFT=1.00",113016.56
+2024-07-24,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.077, META=0.146, AVGO=0.115, GOOGL=0.210, MSFT=0.452",113016.56
+2024-07-31,hmm_regime,SPY,-1,0.002,GMM regime=RISK_OFF conf=0.00,113058.07
+2024-07-31,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",113058.07
+2024-08-07,hmm_regime,SPY,-1,0.002,GMM regime=RISK_OFF conf=0.00,113963.5
+2024-08-07,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",113963.5
+2024-08-14,hmm_regime,SPY,-1,0.0,GMM regime=RISK_OFF conf=0.00,115273.25
+2024-08-14,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",115273.25
+2024-08-21,hmm_regime,SPY,-1,0.0,GMM regime=RISK_OFF conf=0.00,116277.73
+2024-08-21,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",116277.73
+2024-08-28,hmm_regime,SPY,-1,0.003,GMM regime=RISK_OFF conf=0.00,115964.4
+2024-08-28,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.00) -> 50% defense, 50% cash",115964.4
+2024-09-05,hmm_regime,SPY,1,0.703,GMM regime=RISK_ON conf=0.70,116643.13
+2024-09-05,combined_signal,SPY,1,0.179,tsmom=0.18 sent=+0.00 qual=+0.00 -> +0.179,116643.13
+2024-09-05,combined_signal,QQQ,1,0.168,tsmom=0.17 sent=+0.00 qual=+0.00 -> +0.168,116643.13
+2024-09-05,combined_signal,AAPL,1,0.166,tsmom=0.15 sent=+0.00 qual=+0.07 -> +0.166,116643.13
+2024-09-05,combined_signal,MSFT,1,0.295,tsmom=0.20 sent=+0.00 qual=+0.46 -> +0.295,116643.13
+2024-09-05,combined_signal,NVDA,1,1.0,tsmom=1.10 sent=+0.00 qual=+0.58 -> +1.219,116643.13
+2024-09-05,combined_signal,GOOGL,1,0.238,tsmom=0.18 sent=+0.00 qual=+0.27 -> +0.238,116643.13
+2024-09-05,combined_signal,AMZN,1,0.143,tsmom=0.20 sent=+0.00 qual=-0.30 -> +0.143,116643.13
+2024-09-05,combined_signal,META,1,0.648,tsmom=0.64 sent=+0.00 qual=+0.05 -> +0.648,116643.13
+2024-09-05,combined_signal,TSLA,-1,0.362,tsmom=-0.24 sent=+0.00 qual=-0.62 -> -0.362,116643.13
+2024-09-05,combined_signal,JPM,1,0.321,tsmom=0.42 sent=+0.00 qual=-0.48 -> +0.321,116643.13
+2024-09-05,combined_signal,AVGO,1,0.582,tsmom=0.59 sent=+0.00 qual=-0.04 -> +0.582,116643.13
+2024-09-05,combined_signal,XLE,-1,0.011,tsmom=-0.01 sent=+0.00 qual=+0.00 -> -0.011,116643.13
+2024-09-05,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, META=0.10, AVGO=0.07, JPM=0.47, MSFT=0.30",116643.13
+2024-09-05,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, JPM=1.00, MSFT=1.00",116643.13
+2024-09-05,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.063, META=0.100, AVGO=0.069, JPM=0.468, MSFT=0.299",116643.13
+2024-09-12,hmm_regime,SPY,-1,0.222,GMM regime=RISK_OFF conf=0.22,117267.65
+2024-09-12,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.22) -> 50% defense, 50% cash",117267.65
+2024-09-19,hmm_regime,SPY,-1,0.487,GMM regime=RISK_OFF conf=0.49,116952.79
+2024-09-19,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.49) -> 50% defense, 50% cash",116952.79
+2024-09-26,hmm_regime,SPY,1,0.688,GMM regime=RISK_ON conf=0.69,117563.91
+2024-09-26,combined_signal,SPY,1,0.324,tsmom=0.32 sent=+0.00 qual=+0.00 -> +0.324,117563.91
+2024-09-26,combined_signal,QQQ,1,0.335,tsmom=0.33 sent=+0.00 qual=+0.00 -> +0.335,117563.91
+2024-09-26,combined_signal,AAPL,1,0.35,tsmom=0.34 sent=+0.00 qual=+0.07 -> +0.350,117563.91
+2024-09-26,combined_signal,MSFT,1,0.414,tsmom=0.32 sent=+0.00 qual=+0.46 -> +0.414,117563.91
+2024-09-26,combined_signal,NVDA,1,1.0,tsmom=1.96 sent=+0.00 qual=+0.58 -> +2.075,117563.91
+2024-09-26,combined_signal,GOOGL,1,0.304,tsmom=0.25 sent=+0.00 qual=+0.27 -> +0.304,117563.91
+2024-09-26,combined_signal,AMZN,1,0.297,tsmom=0.36 sent=+0.00 qual=-0.30 -> +0.297,117563.91
+2024-09-26,combined_signal,META,1,0.75,tsmom=0.74 sent=+0.00 qual=+0.05 -> +0.750,117563.91
+2024-09-26,combined_signal,TSLA,-1,0.268,tsmom=-0.14 sent=+0.00 qual=-0.62 -> -0.268,117563.91
+2024-09-26,combined_signal,JPM,1,0.46,tsmom=0.56 sent=+0.00 qual=-0.48 -> +0.460,117563.91
+2024-09-26,combined_signal,AVGO,1,0.952,tsmom=0.96 sent=+0.00 qual=-0.04 -> +0.952,117563.91
+2024-09-26,combined_signal,XLE,-1,0.001,tsmom=-0.00 sent=+0.00 qual=+0.00 -> -0.001,117563.91
+2024-09-26,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.07, AVGO=0.07, META=0.11, JPM=0.44, MSFT=0.32",117563.91
+2024-09-26,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, MSFT=1.00",117563.91
+2024-09-26,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.066, AVGO=0.068, META=0.109, JPM=0.435, MSFT=0.321",117563.91
+2024-10-03,hmm_regime,SPY,1,0.974,GMM regime=RISK_ON conf=0.97,114882.41
+2024-10-03,combined_signal,SPY,1,0.308,tsmom=0.31 sent=+0.00 qual=+0.00 -> +0.308,114882.41
+2024-10-03,combined_signal,QQQ,1,0.289,tsmom=0.29 sent=+0.00 qual=+0.00 -> +0.289,114882.41
+2024-10-03,combined_signal,AAPL,1,0.301,tsmom=0.29 sent=+0.00 qual=+0.07 -> +0.301,114882.41
+2024-10-03,combined_signal,MSFT,1,0.381,tsmom=0.29 sent=+0.00 qual=+0.46 -> +0.381,114882.41
+2024-10-03,combined_signal,NVDA,1,1.0,tsmom=1.43 sent=+0.00 qual=+0.58 -> +1.551,114882.41
+2024-10-03,combined_signal,GOOGL,1,0.219,tsmom=0.16 sent=+0.00 qual=+0.27 -> +0.219,114882.41
+2024-10-03,combined_signal,AMZN,1,0.342,tsmom=0.40 sent=+0.00 qual=-0.30 -> +0.342,114882.41
+2024-10-03,combined_signal,META,1,0.705,tsmom=0.69 sent=+0.00 qual=+0.05 -> +0.705,114882.41
+2024-10-03,combined_signal,TSLA,-1,0.242,tsmom=-0.12 sent=+0.00 qual=-0.62 -> -0.242,114882.41
+2024-10-03,combined_signal,JPM,1,0.46,tsmom=0.56 sent=+0.00 qual=-0.48 -> +0.460,114882.41
+2024-10-03,combined_signal,AVGO,1,0.869,tsmom=0.88 sent=+0.00 qual=-0.04 -> +0.869,114882.41
+2024-10-03,combined_signal,XLE,1,0.042,tsmom=0.04 sent=+0.00 qual=+0.00 -> +0.042,114882.41
+2024-10-03,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.07, AVGO=0.07, META=0.11, JPM=0.44, MSFT=0.32",114882.41
+2024-10-03,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, MSFT=1.00",114882.41
+2024-10-03,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.067, AVGO=0.068, META=0.112, JPM=0.436, MSFT=0.317",114882.41
+2024-10-10,hmm_regime,SPY,1,0.959,GMM regime=RISK_ON conf=0.96,118361.21
+2024-10-10,combined_signal,SPY,1,0.295,tsmom=0.29 sent=+0.00 qual=+0.00 -> +0.295,118361.21
+2024-10-10,combined_signal,QQQ,1,0.282,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.282,118361.21
+2024-10-10,combined_signal,AAPL,1,0.259,tsmom=0.25 sent=+0.00 qual=+0.07 -> +0.259,118361.21
+2024-10-10,combined_signal,MSFT,1,0.385,tsmom=0.29 sent=+0.00 qual=+0.46 -> +0.385,118361.21
+2024-10-10,combined_signal,NVDA,1,1.0,tsmom=1.55 sent=+0.00 qual=+0.58 -> +1.663,118361.21
+2024-10-10,combined_signal,GOOGL,1,0.158,tsmom=0.10 sent=+0.00 qual=+0.27 -> +0.158,118361.21
+2024-10-10,combined_signal,AMZN,1,0.359,tsmom=0.42 sent=+0.00 qual=-0.30 -> +0.359,118361.21
+2024-10-10,combined_signal,META,1,0.617,tsmom=0.61 sent=+0.00 qual=+0.05 -> +0.617,118361.21
+2024-10-10,combined_signal,TSLA,-1,0.25,tsmom=-0.13 sent=+0.00 qual=-0.62 -> -0.250,118361.21
+2024-10-10,combined_signal,JPM,1,0.342,tsmom=0.44 sent=+0.00 qual=-0.48 -> +0.342,118361.21
+2024-10-10,combined_signal,AVGO,1,0.896,tsmom=0.90 sent=+0.00 qual=-0.04 -> +0.896,118361.21
+2024-10-10,combined_signal,XLE,-1,0.003,tsmom=-0.00 sent=+0.00 qual=+0.00 -> -0.003,118361.21
+2024-10-10,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, AVGO=0.08, META=0.23, MSFT=0.42, AMZN=0.20",118361.21
+2024-10-10,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, MSFT=1.00, AMZN=1.00",118361.21
+2024-10-10,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.063, AVGO=0.078, META=0.235, MSFT=0.420, AMZN=0.204",118361.21
+2024-10-17,hmm_regime,SPY,1,0.971,GMM regime=RISK_ON conf=0.97,118814.53
+2024-10-17,combined_signal,SPY,1,0.341,tsmom=0.34 sent=+0.00 qual=+0.00 -> +0.341,118814.53
+2024-10-17,combined_signal,QQQ,1,0.337,tsmom=0.34 sent=+0.00 qual=+0.00 -> +0.337,118814.53
+2024-10-17,combined_signal,AAPL,1,0.322,tsmom=0.31 sent=+0.00 qual=+0.07 -> +0.322,118814.53
+2024-10-17,combined_signal,MSFT,1,0.43,tsmom=0.34 sent=+0.00 qual=+0.46 -> +0.430,118814.53
+2024-10-17,combined_signal,NVDA,1,1.0,tsmom=1.79 sent=+0.00 qual=+0.58 -> +1.911,118814.53
+2024-10-17,combined_signal,GOOGL,1,0.233,tsmom=0.18 sent=+0.00 qual=+0.27 -> +0.233,118814.53
+2024-10-17,combined_signal,AMZN,1,0.423,tsmom=0.48 sent=+0.00 qual=-0.30 -> +0.423,118814.53
+2024-10-17,combined_signal,META,1,0.78,tsmom=0.77 sent=+0.00 qual=+0.05 -> +0.780,118814.53
+2024-10-17,combined_signal,TSLA,-1,0.118,tsmom=0.01 sent=+0.00 qual=-0.62 -> -0.118,118814.53
+2024-10-17,combined_signal,JPM,1,0.372,tsmom=0.47 sent=+0.00 qual=-0.48 -> +0.372,118814.53
+2024-10-17,combined_signal,AVGO,1,0.908,tsmom=0.92 sent=+0.00 qual=-0.04 -> +0.908,118814.53
+2024-10-17,combined_signal,XLE,-1,0.008,tsmom=-0.01 sent=+0.00 qual=+0.00 -> -0.008,118814.53
+2024-10-17,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.06, AVGO=0.08, META=0.23, MSFT=0.43, AMZN=0.20",118814.53
+2024-10-17,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, MSFT=1.00, AMZN=1.00",118814.53
+2024-10-17,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.061, AVGO=0.077, META=0.232, MSFT=0.429, AMZN=0.201",118814.53
+2024-10-24,hmm_regime,SPY,1,0.95,GMM regime=RISK_ON conf=0.95,118879.38
+2024-10-24,combined_signal,SPY,1,0.389,tsmom=0.39 sent=+0.00 qual=+0.00 -> +0.389,118879.38
+2024-10-24,combined_signal,QQQ,1,0.407,tsmom=0.41 sent=+0.00 qual=+0.00 -> +0.407,118879.38
+2024-10-24,combined_signal,AAPL,1,0.351,tsmom=0.34 sent=+0.00 qual=+0.07 -> +0.351,118879.38
+2024-10-24,combined_signal,MSFT,1,0.367,tsmom=0.28 sent=+0.00 qual=+0.46 -> +0.367,118879.38
+2024-10-24,combined_signal,NVDA,1,1.0,tsmom=1.97 sent=+0.00 qual=+0.58 -> +2.086,118879.38
+2024-10-24,combined_signal,GOOGL,1,0.353,tsmom=0.30 sent=+0.00 qual=+0.27 -> +0.353,118879.38
+2024-10-24,combined_signal,AMZN,1,0.516,tsmom=0.57 sent=+0.00 qual=-0.30 -> +0.516,118879.38
+2024-10-24,combined_signal,META,1,0.912,tsmom=0.90 sent=+0.00 qual=+0.05 -> +0.912,118879.38
+2024-10-24,combined_signal,TSLA,1,0.073,tsmom=0.20 sent=+0.00 qual=-0.62 -> +0.073,118879.38
+2024-10-24,combined_signal,JPM,1,0.424,tsmom=0.52 sent=+0.00 qual=-0.48 -> +0.424,118879.38
+2024-10-24,combined_signal,AVGO,1,1.0,tsmom=1.13 sent=+0.00 qual=-0.04 -> +1.120,118879.38
+2024-10-24,combined_signal,XLE,1,0.011,tsmom=0.01 sent=+0.00 qual=+0.00 -> +0.011,118879.38
+2024-10-24,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.08, AVGO=0.07, META=0.16, AMZN=0.17, JPM=0.52",118879.38
+2024-10-24,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, AMZN=1.00, JPM=1.00",118879.38
+2024-10-24,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.078, AVGO=0.073, META=0.160, AMZN=0.172, JPM=0.517",118879.38
+2024-10-31,hmm_regime,SPY,1,0.819,GMM regime=RISK_ON conf=0.82,117759.18
+2024-10-31,combined_signal,SPY,1,0.362,tsmom=0.36 sent=+0.00 qual=+0.00 -> +0.362,117759.18
+2024-10-31,combined_signal,QQQ,1,0.358,tsmom=0.36 sent=+0.00 qual=+0.00 -> +0.358,117759.18
+2024-10-31,combined_signal,AAPL,1,0.318,tsmom=0.30 sent=+0.00 qual=+0.07 -> +0.318,117759.18
+2024-10-31,combined_signal,MSFT,1,0.304,tsmom=0.21 sent=+0.00 qual=+0.46 -> +0.304,117759.18
+2024-10-31,combined_signal,NVDA,1,1.0,tsmom=1.90 sent=+0.00 qual=+0.58 -> +2.020,117759.18
+2024-10-31,combined_signal,GOOGL,1,0.37,tsmom=0.31 sent=+0.00 qual=+0.27 -> +0.370,117759.18
+2024-10-31,combined_signal,AMZN,1,0.269,tsmom=0.33 sent=+0.00 qual=-0.30 -> +0.269,117759.18
+2024-10-31,combined_signal,META,1,0.885,tsmom=0.87 sent=+0.00 qual=+0.05 -> +0.885,117759.18
+2024-10-31,combined_signal,TSLA,1,0.047,tsmom=0.17 sent=+0.00 qual=-0.62 -> +0.047,117759.18
+2024-10-31,combined_signal,JPM,1,0.407,tsmom=0.50 sent=+0.00 qual=-0.48 -> +0.407,117759.18
+2024-10-31,combined_signal,AVGO,1,1.0,tsmom=1.05 sent=+0.00 qual=-0.04 -> +1.038,117759.18
+2024-10-31,combined_signal,XLE,1,0.124,tsmom=0.12 sent=+0.00 qual=+0.00 -> +0.124,117759.18
+2024-10-31,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.07, AVGO=0.07, META=0.14, JPM=0.47, GOOGL=0.25",117759.18
+2024-10-31,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, GOOGL=1.00",117759.18
+2024-10-31,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.074, AVGO=0.071, META=0.144, JPM=0.465, GOOGL=0.246",117759.18
+2024-11-07,hmm_regime,SPY,-1,0.011,GMM regime=RISK_OFF conf=0.01,127143.79
+2024-11-07,alloc,DEFENSE,0,1.0,"RISK_OFF (conf 0.01) -> 50% defense, 50% cash",127143.79
+2024-11-14,hmm_regime,SPY,1,0.738,GMM regime=RISK_ON conf=0.74,125621.15
+2024-11-14,combined_signal,SPY,1,0.313,tsmom=0.31 sent=+0.00 qual=+0.00 -> +0.313,125621.15
+2024-11-14,combined_signal,QQQ,1,0.283,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.283,125621.15
+2024-11-14,combined_signal,AAPL,1,0.253,tsmom=0.24 sent=+0.00 qual=+0.07 -> +0.253,125621.15
+2024-11-14,combined_signal,MSFT,1,0.225,tsmom=0.13 sent=+0.00 qual=+0.46 -> +0.225,125621.15
+2024-11-14,combined_signal,NVDA,1,1.0,tsmom=1.80 sent=+0.00 qual=+0.58 -> +1.918,125621.15
+2024-11-14,combined_signal,GOOGL,1,0.268,tsmom=0.21 sent=+0.00 qual=+0.27 -> +0.268,125621.15
+2024-11-14,combined_signal,AMZN,1,0.251,tsmom=0.31 sent=+0.00 qual=-0.30 -> +0.251,125621.15
+2024-11-14,combined_signal,META,1,0.75,tsmom=0.74 sent=+0.00 qual=+0.05 -> +0.750,125621.15
+2024-11-14,combined_signal,TSLA,-1,0.214,tsmom=-0.09 sent=+0.00 qual=-0.62 -> -0.214,125621.15
+2024-11-14,combined_signal,JPM,1,0.438,tsmom=0.53 sent=+0.00 qual=-0.48 -> +0.438,125621.15
+2024-11-14,combined_signal,AVGO,1,0.882,tsmom=0.89 sent=+0.00 qual=-0.04 -> +0.882,125621.15
+2024-11-14,combined_signal,XLE,1,0.108,tsmom=0.11 sent=+0.00 qual=+0.00 -> +0.108,125621.15
+2024-11-14,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.02, AVGO=0.02, META=0.18, JPM=0.20, SPY=0.58",125621.15
+2024-11-14,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, SPY=1.00",125621.15
+2024-11-14,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.019, AVGO=0.022, META=0.183, JPM=0.197, SPY=0.581",125621.15
+2024-11-21,hmm_regime,SPY,1,0.737,GMM regime=RISK_ON conf=0.74,125953.68
+2024-11-21,combined_signal,SPY,1,0.29,tsmom=0.29 sent=+0.00 qual=+0.00 -> +0.290,125953.68
+2024-11-21,combined_signal,QQQ,1,0.271,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.271,125953.68
+2024-11-21,combined_signal,AAPL,1,0.224,tsmom=0.21 sent=+0.00 qual=+0.07 -> +0.224,125953.68
+2024-11-21,combined_signal,MSFT,1,0.221,tsmom=0.13 sent=+0.00 qual=+0.46 -> +0.221,125953.68
+2024-11-21,combined_signal,NVDA,1,1.0,tsmom=1.88 sent=+0.00 qual=+0.58 -> +2.000,125953.68
+2024-11-21,combined_signal,GOOGL,1,0.233,tsmom=0.18 sent=+0.00 qual=+0.27 -> +0.233,125953.68
+2024-11-21,combined_signal,AMZN,1,0.211,tsmom=0.27 sent=+0.00 qual=-0.30 -> +0.211,125953.68
+2024-11-21,combined_signal,META,1,0.678,tsmom=0.67 sent=+0.00 qual=+0.05 -> +0.678,125953.68
+2024-11-21,combined_signal,TSLA,-1,0.011,tsmom=0.11 sent=+0.00 qual=-0.62 -> -0.011,125953.68
+2024-11-21,combined_signal,JPM,1,0.406,tsmom=0.50 sent=+0.00 qual=-0.48 -> +0.406,125953.68
+2024-11-21,combined_signal,AVGO,1,0.782,tsmom=0.79 sent=+0.00 qual=-0.04 -> +0.782,125953.68
+2024-11-21,combined_signal,XLE,1,0.098,tsmom=0.10 sent=+0.00 qual=+0.00 -> +0.098,125953.68
+2024-11-21,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.02, AVGO=0.02, META=0.18, JPM=0.21, SPY=0.57",125953.68
+2024-11-21,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, SPY=1.00",125953.68
+2024-11-21,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.019, AVGO=0.021, META=0.181, JPM=0.214, SPY=0.565",125953.68
+2024-11-29,hmm_regime,SPY,1,1.0,GMM regime=RISK_ON conf=1.00,127859.31
+2024-11-29,combined_signal,SPY,1,0.263,tsmom=0.26 sent=+0.00 qual=+0.00 -> +0.263,127859.31
+2024-11-29,combined_signal,QQQ,1,0.253,tsmom=0.25 sent=+0.00 qual=+0.00 -> +0.253,127859.31
+2024-11-29,combined_signal,AAPL,1,0.208,tsmom=0.19 sent=+0.00 qual=+0.07 -> +0.208,127859.31
+2024-11-29,combined_signal,MSFT,1,0.169,tsmom=0.08 sent=+0.00 qual=+0.46 -> +0.169,127859.31
+2024-11-29,combined_signal,NVDA,1,1.0,tsmom=1.84 sent=+0.00 qual=+0.58 -> +1.956,127859.31
+2024-11-29,combined_signal,GOOGL,1,0.349,tsmom=0.29 sent=+0.00 qual=+0.27 -> +0.349,127859.31
+2024-11-29,combined_signal,AMZN,1,0.217,tsmom=0.28 sent=+0.00 qual=-0.30 -> +0.217,127859.31
+2024-11-29,combined_signal,META,1,0.751,tsmom=0.74 sent=+0.00 qual=+0.05 -> +0.751,127859.31
+2024-11-29,combined_signal,TSLA,-1,0.083,tsmom=0.04 sent=+0.00 qual=-0.62 -> -0.083,127859.31
+2024-11-29,combined_signal,JPM,1,0.36,tsmom=0.46 sent=+0.00 qual=-0.48 -> +0.360,127859.31
+2024-11-29,combined_signal,AVGO,1,0.854,tsmom=0.86 sent=+0.00 qual=-0.04 -> +0.854,127859.31
+2024-11-29,combined_signal,XLE,1,0.083,tsmom=0.08 sent=+0.00 qual=+0.00 -> +0.083,127859.31
+2024-11-29,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.10, AVGO=0.09, META=0.18, JPM=0.38, GOOGL=0.26",127859.31
+2024-11-29,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, GOOGL=1.00",127859.31
+2024-11-29,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.095, AVGO=0.089, META=0.178, JPM=0.383, GOOGL=0.256",127859.31
+2024-12-06,hmm_regime,SPY,1,0.984,GMM regime=RISK_ON conf=0.98,132051.35
+2024-12-06,combined_signal,SPY,1,0.317,tsmom=0.32 sent=+0.00 qual=+0.00 -> +0.317,132051.35
+2024-12-06,combined_signal,QQQ,1,0.324,tsmom=0.32 sent=+0.00 qual=+0.00 -> +0.324,132051.35
+2024-12-06,combined_signal,AAPL,1,0.189,tsmom=0.18 sent=+0.00 qual=+0.07 -> +0.189,132051.35
+2024-12-06,combined_signal,MSFT,1,0.244,tsmom=0.15 sent=+0.00 qual=+0.46 -> +0.244,132051.35
+2024-12-06,combined_signal,NVDA,1,1.0,tsmom=2.20 sent=+0.00 qual=+0.58 -> +2.312,132051.35
+2024-12-06,combined_signal,GOOGL,1,0.378,tsmom=0.32 sent=+0.00 qual=+0.27 -> +0.378,132051.35
+2024-12-06,combined_signal,AMZN,1,0.371,tsmom=0.43 sent=+0.00 qual=-0.30 -> +0.371,132051.35
+2024-12-06,combined_signal,META,1,0.828,tsmom=0.82 sent=+0.00 qual=+0.05 -> +0.828,132051.35
+2024-12-06,combined_signal,TSLA,1,0.1,tsmom=0.22 sent=+0.00 qual=-0.62 -> +0.100,132051.35
+2024-12-06,combined_signal,JPM,1,0.447,tsmom=0.54 sent=+0.00 qual=-0.48 -> +0.447,132051.35
+2024-12-06,combined_signal,AVGO,1,1.0,tsmom=1.02 sent=+0.00 qual=-0.04 -> +1.016,132051.35
+2024-12-06,combined_signal,XLE,1,0.184,tsmom=0.18 sent=+0.00 qual=+0.00 -> +0.184,132051.35
+2024-12-06,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.10, AVGO=0.09, META=0.18, JPM=0.39, GOOGL=0.25",132051.35
+2024-12-06,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, AVGO=1.00, META=1.00, JPM=1.00, GOOGL=1.00",132051.35
+2024-12-06,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.097, AVGO=0.089, META=0.175, JPM=0.385, GOOGL=0.253",132051.35
+2024-12-13,hmm_regime,SPY,1,0.972,GMM regime=RISK_ON conf=0.97,135632.36
+2024-12-13,combined_signal,SPY,1,0.274,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.274,135632.36
+2024-12-13,combined_signal,QQQ,1,0.27,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.270,135632.36
+2024-12-13,combined_signal,AAPL,1,0.172,tsmom=0.16 sent=+0.00 qual=+0.07 -> +0.172,135632.36
+2024-12-13,combined_signal,MSFT,1,0.264,tsmom=0.17 sent=+0.00 qual=+0.46 -> +0.264,135632.36
+2024-12-13,combined_signal,NVDA,1,1.0,tsmom=2.04 sent=+0.00 qual=+0.58 -> +2.153,135632.36
+2024-12-13,combined_signal,GOOGL,1,0.389,tsmom=0.33 sent=+0.00 qual=+0.27 -> +0.389,135632.36
+2024-12-13,combined_signal,AMZN,1,0.375,tsmom=0.43 sent=+0.00 qual=-0.30 -> +0.375,135632.36
+2024-12-13,combined_signal,META,1,0.748,tsmom=0.74 sent=+0.00 qual=+0.05 -> +0.748,135632.36
+2024-12-13,combined_signal,TSLA,1,0.116,tsmom=0.24 sent=+0.00 qual=-0.62 -> +0.116,135632.36
+2024-12-13,combined_signal,JPM,1,0.414,tsmom=0.51 sent=+0.00 qual=-0.48 -> +0.414,135632.36
+2024-12-13,combined_signal,AVGO,1,0.555,tsmom=0.56 sent=+0.00 qual=-0.04 -> +0.555,135632.36
+2024-12-13,combined_signal,XLE,1,0.158,tsmom=0.16 sent=+0.00 qual=+0.00 -> +0.158,135632.36
+2024-12-13,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.10, META=0.19, AVGO=0.07, JPM=0.40, GOOGL=0.23",135632.36
+2024-12-13,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, JPM=1.00, GOOGL=1.00",135632.36
+2024-12-13,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.100, META=0.191, AVGO=0.073, JPM=0.403, GOOGL=0.234",135632.36
+2024-12-20,hmm_regime,SPY,1,0.664,GMM regime=RISK_ON conf=0.66,133969.53
+2024-12-20,combined_signal,SPY,1,0.268,tsmom=0.27 sent=+0.00 qual=+0.00 -> +0.268,133969.53
+2024-12-20,combined_signal,QQQ,1,0.244,tsmom=0.24 sent=+0.00 qual=+0.00 -> +0.244,133969.53
+2024-12-20,combined_signal,AAPL,1,0.194,tsmom=0.18 sent=+0.00 qual=+0.07 -> +0.194,133969.53
+2024-12-20,combined_signal,MSFT,1,0.205,tsmom=0.11 sent=+0.00 qual=+0.46 -> +0.205,133969.53
+2024-12-20,combined_signal,NVDA,1,1.0,tsmom=1.99 sent=+0.00 qual=+0.58 -> +2.111,133969.53
+2024-12-20,combined_signal,GOOGL,1,0.251,tsmom=0.20 sent=+0.00 qual=+0.27 -> +0.251,133969.53
+2024-12-20,combined_signal,AMZN,1,0.23,tsmom=0.29 sent=+0.00 qual=-0.30 -> +0.230,133969.53
+2024-12-20,combined_signal,META,1,0.605,tsmom=0.60 sent=+0.00 qual=+0.05 -> +0.605,133969.53
+2024-12-20,combined_signal,TSLA,1,0.211,tsmom=0.33 sent=+0.00 qual=-0.62 -> +0.211,133969.53
+2024-12-20,combined_signal,JPM,1,0.4,tsmom=0.50 sent=+0.00 qual=-0.48 -> +0.400,133969.53
+2024-12-20,combined_signal,AVGO,1,0.462,tsmom=0.47 sent=+0.00 qual=-0.04 -> +0.462,133969.53
+2024-12-20,combined_signal,XLE,1,0.174,tsmom=0.17 sent=+0.00 qual=+0.00 -> +0.174,133969.53
+2024-12-20,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.04, META=0.18, AVGO=0.04, JPM=0.22, SPY=0.53",133969.53
+2024-12-20,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, JPM=1.00, SPY=1.00",133969.53
+2024-12-20,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.037, META=0.177, AVGO=0.035, JPM=0.219, SPY=0.532",133969.53
+2024-12-30,hmm_regime,SPY,1,1.0,GMM regime=RISK_ON conf=1.00,134798.65
+2024-12-30,combined_signal,SPY,1,0.28,tsmom=0.28 sent=+0.00 qual=+0.00 -> +0.280,134798.65
+2024-12-30,combined_signal,QQQ,1,0.25,tsmom=0.25 sent=+0.00 qual=+0.00 -> +0.250,134798.65
+2024-12-30,combined_signal,AAPL,1,0.253,tsmom=0.24 sent=+0.00 qual=+0.07 -> +0.253,134798.65
+2024-12-30,combined_signal,MSFT,1,0.226,tsmom=0.13 sent=+0.00 qual=+0.46 -> +0.226,134798.65
+2024-12-30,combined_signal,NVDA,1,1.0,tsmom=1.79 sent=+0.00 qual=+0.58 -> +1.909,134798.65
+2024-12-30,combined_signal,GOOGL,1,0.267,tsmom=0.21 sent=+0.00 qual=+0.27 -> +0.267,134798.65
+2024-12-30,combined_signal,AMZN,1,0.309,tsmom=0.37 sent=+0.00 qual=-0.30 -> +0.309,134798.65
+2024-12-30,combined_signal,META,1,0.638,tsmom=0.63 sent=+0.00 qual=+0.05 -> +0.638,134798.65
+2024-12-30,combined_signal,TSLA,1,0.266,tsmom=0.39 sent=+0.00 qual=-0.62 -> +0.266,134798.65
+2024-12-30,combined_signal,JPM,1,0.407,tsmom=0.50 sent=+0.00 qual=-0.48 -> +0.407,134798.65
+2024-12-30,combined_signal,AVGO,1,0.46,tsmom=0.47 sent=+0.00 qual=-0.04 -> +0.460,134798.65
+2024-12-30,combined_signal,XLE,1,0.167,tsmom=0.17 sent=+0.00 qual=+0.00 -> +0.167,134798.65
+2024-12-30,hrp,PORTFOLIO,1,1.0,"HRP weights: NVDA=0.12, META=0.20, AVGO=0.07, JPM=0.42, AMZN=0.19",134798.65
+2024-12-30,kelly_size,PORTFOLIO,1,1.0,"half-Kelly caps: NVDA=1.00, META=1.00, AVGO=1.00, JPM=1.00, AMZN=1.00",134798.65
+2024-12-30,final_weights,PORTFOLIO,1,1.0,"final: NVDA=0.116, META=0.197, AVGO=0.070, JPM=0.424, AMZN=0.192",134798.65

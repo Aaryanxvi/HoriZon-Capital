@@ -108,9 +108,15 @@ class PerformanceService:
         dd = (eq - running_max) / np.where(running_max == 0, 1, running_max)
         max_dd = float(abs(np.min(dd)))
 
-        n_days = max(len(eq), 1)
         total_ret = (eq[-1] - eq[0]) / eq[0] if eq[0] != 0 else 0.0
-        annual_ret = (1 + total_ret) ** (252 / n_days) - 1
+        if len(equity_data) >= 2:
+            first_ts = equity_data[0][0]
+            last_ts = equity_data[-1][0]
+            calendar_days = max((last_ts - first_ts).days, 1)
+            n_trading_days = max(calendar_days * 252 / 365, 1)
+        else:
+            n_trading_days = 1
+        annual_ret = (1 + total_ret) ** (252 / n_trading_days) - 1
 
         # Sharpe
         daily_rf = (1.05) ** (1 / 252) - 1
@@ -119,8 +125,8 @@ class PerformanceService:
         sharpe = float(np.mean(excess) / std_excess * np.sqrt(252)) if std_excess > 0 else 0.0
 
         # Sortino
-        downside = excess[excess < 0]
-        ds_std = float(np.std(downside, ddof=1)) if len(downside) >= 2 else 0.0
+        downside_diff = np.minimum(excess, 0.0)
+        ds_std = float(np.sqrt(np.mean(downside_diff ** 2)))
         sortino = (
             float(np.mean(excess) / ds_std * np.sqrt(252))
             if ds_std > 0
@@ -141,9 +147,11 @@ class PerformanceService:
                 buy_qty += qty
             elif side == "SELL" and buy_qty > 0:
                 avg_entry = buy_cost / buy_qty
-                pnl = (price - avg_entry) * qty
+                sell_qty = min(qty, buy_qty)
+                pnl = (price - avg_entry) * sell_qty
                 trade_pnls.append(pnl)
-                buy_qty -= qty
+                buy_cost -= avg_entry * sell_qty
+                buy_qty -= sell_qty
                 if buy_qty <= 0:
                     buy_cost = 0.0
                     buy_qty = 0.0

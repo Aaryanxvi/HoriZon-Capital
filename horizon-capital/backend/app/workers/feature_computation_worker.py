@@ -46,14 +46,33 @@ class TechnicalIndicators:
 
     @staticmethod
     def rsi(df: pd.DataFrame, period: int = 14, column: str = "close") -> pd.DataFrame:
-        """Relative Strength Index."""
+        """Relative Strength Index.
+
+        Handles edge cases: RSI = 100 when avg_loss = 0 (all gains),
+        RSI = 0 when avg_gain = 0 (all losses).
+        """
         delta = df[column].diff()
         gain = delta.where(delta > 0, 0.0)
         loss = (-delta).where(delta < 0, 0.0)
         avg_gain = gain.ewm(alpha=1.0 / period, min_periods=period, adjust=False).mean()
         avg_loss = loss.ewm(alpha=1.0 / period, min_periods=period, adjust=False).mean()
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        df["rsi"] = 100 - (100 / (1 + rs))
+        # When avg_loss is 0 → RSI = 100 (pure uptrend)
+        # When avg_gain is 0 → RSI = 0 (pure downtrend)
+        # Otherwise → standard formula
+        rsi = pd.Series(np.nan, index=df.index, dtype=float)
+        both_zero = (avg_gain == 0) & (avg_loss == 0)
+        loss_zero = (avg_loss == 0) & (avg_gain > 0)
+        gain_zero = (avg_gain == 0) & (avg_loss > 0)
+        normal = (avg_gain > 0) & (avg_loss > 0)
+        rsi[both_zero] = 50.0
+        rsi[loss_zero] = 100.0
+        rsi[gain_zero] = 0.0
+        rs = avg_gain[normal] / avg_loss[normal]
+        rsi[normal] = 100 - (100 / (1 + rs))
+        # Preserve NaN for initial periods where min_periods not met
+        not_ready = avg_gain.isna() | avg_loss.isna()
+        rsi[not_ready] = np.nan
+        df["rsi"] = rsi
         return df
 
     @staticmethod
@@ -375,13 +394,13 @@ class FeatureComputationWorker:
                     SELECT timestamp, open, high, low, close, volume, exchange
                     FROM ohlcv
                     WHERE symbol = :symbol AND timeframe = :timeframe
-                    ORDER BY timestamp ASC
+                    ORDER BY timestamp DESC
                     LIMIT 500
                     """
                 ),
                 {"symbol": raw_symbol, "timeframe": timeframe},
             )
-            rows = result.fetchall()
+            rows = list(reversed(result.fetchall()))
 
         if len(rows) < MIN_BARS_REQUIRED:
             logger.debug(
@@ -446,7 +465,7 @@ class FeatureComputationWorker:
             timestamp=now,
         )
 
-        # Cache notification (no-op in LOCAL mode; Redis pub/sub in PROD mode)
+        # Cache last-updated timestamp for this symbol/timeframe
         await get_kv_store().set(
             f"horizon:features:{raw_symbol}:{timeframe}:updated",
             now.isoformat(),

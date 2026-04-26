@@ -56,6 +56,8 @@ class MACDStrategy(BaseStrategy):
             return None
         current_diff = macd_line.iloc[-1] - signal_line.iloc[-1]
         prev_diff = macd_line.iloc[-2] - signal_line.iloc[-2]
+        # Crossover detection — only on the bar the cross happens.
+        # Pure crossover strategy: no trend-follow duplicate branch (caused double signals).
         if prev_diff <= 0 < current_diff:
             return Signal(
                 symbol=symbol, direction=1,
@@ -92,18 +94,20 @@ class BollingerBandStrategy(BaseStrategy):
         band_width = upper - lower
         if band_width == 0:
             return None
-        if price < lower:
+        # Symmetric band-edge entries: touch-or-pierce of upper/lower band.
+        position_in_band = (price - lower) / band_width
+        if position_in_band <= 0.1:
             return Signal(
                 symbol=symbol, direction=1,
-                strength=min((lower - price) / band_width, 1.0),
+                strength=min((0.1 - position_in_band) / 0.1 + 0.1, 1.0),
                 strategy_name=self.name,
-                reasoning=f"Price {price:.2f} below lower BB {lower:.2f}",
+                reasoning=f"Price {price:.2f} at lower BB (pos={position_in_band:.2f})",
             )
-        elif price > upper:
+        elif position_in_band >= 0.9:
             return Signal(
                 symbol=symbol, direction=-1,
-                strength=min((price - upper) / band_width, 1.0),
+                strength=min((position_in_band - 0.9) / 0.1 + 0.1, 1.0),
                 strategy_name=self.name,
-                reasoning=f"Price {price:.2f} above upper BB {upper:.2f}",
+                reasoning=f"Price {price:.2f} at upper BB (pos={position_in_band:.2f})",
             )
         return None

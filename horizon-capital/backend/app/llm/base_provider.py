@@ -1,42 +1,12 @@
-"""Abstract base class for LLM providers with circuit breaker + rate limiting."""
+"""Abstract base class for LLM providers."""
 
 from __future__ import annotations
 
 import abc
 
 from app.core.logging import get_logger
-from app.core.resilience import CircuitBreaker, RateLimiter, RateLimitError
 
 logger = get_logger("llm.provider")
-
-# Shared rate limiter — initialized lazily from settings
-_llm_rate_limiter: RateLimiter | None = None
-
-
-def _get_llm_rate_limiter() -> RateLimiter:
-    global _llm_rate_limiter  # noqa: PLW0603
-    if _llm_rate_limiter is None:
-        from app.config import settings
-        _llm_rate_limiter = RateLimiter(
-            name="llm_global",
-            max_calls=settings.llm_max_calls_per_minute,
-            window_seconds=60.0,
-        )
-    return _llm_rate_limiter
-
-# Per-provider circuit breakers (created on demand)
-_circuit_breakers: dict[str, CircuitBreaker] = {}
-
-
-def _get_circuit_breaker(name: str) -> CircuitBreaker:
-    if name not in _circuit_breakers:
-        _circuit_breakers[name] = CircuitBreaker(
-            name=f"llm_{name}",
-            failure_threshold=3,
-            recovery_timeout=30.0,
-            half_open_max=1,
-        )
-    return _circuit_breakers[name]
 
 
 class BaseLLMProvider(abc.ABC):
@@ -44,16 +14,32 @@ class BaseLLMProvider(abc.ABC):
 
     Each provider wraps a single LLM API (Claude, OpenAI, Gemini) and
     exposes a uniform ``complete()`` interface for agent use.
-
-    Calls are protected by:
-    - A global rate limiter (60 calls/min across all providers)
-    - Per-provider circuit breakers (open after 3 consecutive failures)
     """
 
     provider_name: str = ""
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
+        # Subclasses set ``self.model`` in their own __init__. Default empty
+        # so ``with_model()`` works generically.
+        if not hasattr(self, "model"):
+            self.model: str = ""
+
+    def with_model(self, model: str) -> "BaseLLMProvider":
+        """Return a new provider instance using a different model.
+
+        Cheap shallow-copy: shares the underlying client when subclasses
+        cache it lazily. Used by ProviderRegistry.get_provider_for_agent
+        when an override is in effect.
+        """
+        clone = self.__class__.__new__(self.__class__)
+        clone.__dict__.update(self.__dict__)
+        clone.model = model
+        # Force lazy client to re-create with new model if subclass caches by
+        # model — most don't, but be safe.
+        if hasattr(clone, "_client"):
+            clone._client = None
+        return clone
 
     async def complete(
         self,
@@ -61,17 +47,12 @@ class BaseLLMProvider(abc.ABC):
         messages: list[dict],
         temperature: float = 0.7,
     ) -> str:
-        """Send a completion request with rate limiting and circuit breaker."""
-        limiter = _get_llm_rate_limiter()
-        if not await limiter.acquire():
-            raise RateLimitError(
-                limiter.name,
-                limiter.max_calls,
-                limiter.window_seconds,
-            )
-
-        cb = _get_circuit_breaker(self.provider_name)
-        return await cb.call(self._do_complete, system_prompt, messages, temperature)
+        """Send a completion request."""
+        try:
+            return await self._do_complete(system_prompt, messages, temperature)
+        except Exception as exc:
+            logger.error("llm_complete_error", provider=self.provider_name, error=str(exc))
+            raise
 
     @abc.abstractmethod
     async def _do_complete(

@@ -32,6 +32,9 @@ from rich.prompt import Confirm, Prompt  # noqa: E402
 from rich.table import Table  # noqa: E402
 from rich.text import Text  # noqa: E402
 
+from app.tui.settings_panel import _mask, _write_env_key  # noqa: E402
+from app.tui.settings_panel import _read_env as _read_env_all  # noqa: E402
+
 console = Console()
 
 VERSION = "0.1.0"
@@ -544,10 +547,171 @@ def _dept_ai_routing_step(config: dict[str, str], available: list[str]) -> None:
             console.print(f"    [green]{dept} → {chosen}[/green]")
 
 
+def _run_update_mode(env_path: Path) -> dict[str, str]:
+    """Run the update-mode wizard for an existing .env configuration."""
+    env_data = _read_env_all(str(env_path))
+    config: dict[str, str] = {}
+
+    console.print(Panel(
+        "[bold cyan]Welcome back to Horizon Capital![/bold cyan]\n\n"
+        "Your existing configuration was found.\n"
+        "Press [green]Enter[/green] to keep a value, or type a new one to update it.",
+        title="Update Configuration",
+        border_style="bright_cyan",
+    ))
+
+    # --- LLM Providers ---
+    _step_header(1, 4, "AI Providers")
+    for env_key, label, hint in [
+        ("ANTHROPIC_API_KEY", "Claude API key", "sk-ant-..."),
+        ("OPENAI_API_KEY", "OpenAI API key", "sk-..."),
+        ("GOOGLE_API_KEY", "Google Gemini API key", "AIza..."),
+    ]:
+        existing = env_data.get(env_key, "")
+        display = _mask(existing) if existing else "(not set)"
+        console.print(f"  {label} ({hint}) [dim](current: {display})[/dim]")
+        new_val = Prompt.ask("  New value (Enter to keep)", default="", console=console)
+        if new_val.strip():
+            _write_env_key(str(env_path), env_key, new_val.strip())
+            config[env_key] = new_val.strip()
+            console.print("    [green]Updated[/green]")
+        elif existing:
+            config[env_key] = existing
+        console.print()
+
+    # --- Broker ---
+    _step_header(2, 4, "Broker Connection")
+    for env_key, label in [
+        ("ALPACA_API_KEY", "Alpaca API key"),
+        ("ALPACA_API_SECRET", "Alpaca API secret"),
+        ("ZERODHA_API_KEY", "Zerodha API key"),
+        ("ZERODHA_API_SECRET", "Zerodha API secret"),
+    ]:
+        existing = env_data.get(env_key, "")
+        if existing or env_key in ("ALPACA_API_KEY", "ZERODHA_API_KEY"):
+            display = _mask(existing) if existing else "(not set)"
+            console.print(f"  {label} [dim](current: {display})[/dim]")
+            new_val = Prompt.ask("  New value (Enter to keep)", default="", console=console)
+            if new_val.strip():
+                _write_env_key(str(env_path), env_key, new_val.strip())
+                config[env_key] = new_val.strip()
+                console.print("    [green]Updated[/green]")
+            elif existing:
+                config[env_key] = existing
+            console.print()
+
+    # --- System Mode ---
+    _step_header(3, 4, "System & Trading Mode")
+    current_mode = env_data.get("SYSTEM_MODE", "PAPER_TRADING")
+    console.print(f"  System mode [dim](current: {current_mode})[/dim]")
+    mode_idx = _select_option(
+        "Select trading mode (or keep current):",
+        [
+            f"Keep current ({current_mode})",
+            "Paper Trading — simulated orders, no real money",
+            "Human Approval — every trade requires your confirmation",
+            "Fully Autonomous — system trades automatically within risk limits",
+        ],
+        default=0,
+    )
+    if mode_idx > 0:
+        mode_map = {1: "PAPER_TRADING", 2: "HUMAN_APPROVAL", 3: "FULLY_AUTONOMOUS"}
+        config["SYSTEM_MODE"] = mode_map[mode_idx]
+        _write_env_key(str(env_path), "SYSTEM_MODE", mode_map[mode_idx])
+    else:
+        config["SYSTEM_MODE"] = current_mode
+
+    current_cio = env_data.get("CIO_MODE", "HUMAN")
+    console.print(f"\n  CIO mode [dim](current: {current_cio})[/dim]")
+    cio_idx = _select_option(
+        "Who makes the investment decisions?",
+        [
+            f"Keep current ({current_cio})",
+            "Human — you act as CIO via interactive terminal",
+            "AI — autonomous AI CIO agent governs the system",
+        ],
+        default=0,
+    )
+    if cio_idx > 0:
+        cio_val = "HUMAN" if cio_idx == 1 else "AI"
+        config["CIO_MODE"] = cio_val
+        _write_env_key(str(env_path), "CIO_MODE", cio_val)
+    else:
+        config["CIO_MODE"] = current_cio
+
+    # --- Risk & Capital (quick) ---
+    _step_header(4, 4, "Risk & Capital")
+    import os as _os
+    for env_key, label, default_val in [
+        ("RISK_MAX_DRAWDOWN_PCT", "Max drawdown %", "10"),
+        ("RISK_MAX_POSITION_PCT", "Max position %", "5"),
+        ("RISK_VAR_LIMIT_PCT", "VaR limit %", "3"),
+        ("INITIAL_CAPITAL_USD", "Starting capital USD", "1000000"),
+        ("INITIAL_CAPITAL_INR", "Starting capital INR", "10000000"),
+    ]:
+        existing = env_data.get(env_key, default_val)
+        console.print(f"  {label} [dim](current: {existing})[/dim]")
+        new_val = Prompt.ask("  New value (Enter to keep)", default="", console=console)
+        if new_val.strip():
+            _write_env_key(str(env_path), env_key, new_val.strip())
+            config[env_key] = new_val.strip()
+            if env_key in ("INITIAL_CAPITAL_USD", "INITIAL_CAPITAL_INR"):
+                _os.environ["HORIZON_FORCE_RESEED_CAPITAL"] = "1"
+        else:
+            config[env_key] = existing
+
+    # Summary
+    console.print()
+    table = Table(
+        title="[bold bright_cyan]Updated Configuration[/bold bright_cyan]",
+        border_style="bright_cyan",
+        show_lines=True,
+    )
+    table.add_column("Setting", style="bold white")
+    table.add_column("Value", style="bold green")
+
+    llm_providers = []
+    if config.get("ANTHROPIC_API_KEY"):
+        llm_providers.append("Claude")
+    if config.get("OPENAI_API_KEY"):
+        llm_providers.append("OpenAI")
+    if config.get("GOOGLE_API_KEY"):
+        llm_providers.append("Gemini")
+    table.add_row(
+        "LLM Providers",
+        ", ".join(llm_providers) if llm_providers else "None (rule-based only)",
+    )
+    table.add_row("System Mode", config.get("SYSTEM_MODE", "PAPER_TRADING"))
+    table.add_row("CIO Mode", config.get("CIO_MODE", "HUMAN"))
+    console.print(table)
+    console.print()
+
+    console.print("[green]Configuration updated.[/green]\n")
+
+    # Hot-reload settings
+    try:
+        import app.config as _config_mod
+        from app.config import Settings as _Settings
+        _config_mod.settings = _Settings(_env_file=str(env_path))
+        from app.llm.provider_registry import provider_registry as _registry
+        _registry.auto_register_from_settings()
+    except Exception:
+        pass
+
+    return config
+
+
 def run_onboarding() -> dict[str, str]:
     """Run the interactive onboarding wizard. Returns a dict of env vars to save."""
     _ensure_utf8()
     config: dict[str, str] = {}
+
+    # Detect update mode: .env exists with meaningful content
+    env_path = _env_path()
+    is_update = env_path.exists() and env_path.stat().st_size > 10
+
+    if is_update:
+        return _run_update_mode(env_path)
 
     _play_intro_animation()
 

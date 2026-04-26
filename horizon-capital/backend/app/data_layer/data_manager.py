@@ -1,4 +1,4 @@
-"""DataManager -- orchestrates all feeds, routes data to Redis & Postgres."""
+"""DataManager -- orchestrates data feeds, routes data to KV store and database."""
 
 from __future__ import annotations
 
@@ -6,92 +6,62 @@ import json
 
 from sqlalchemy import text
 
-from app.config import settings
 from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
 from app.data_layer.alpaca_feed import AlpacaFeed
+from app.data_layer.crypto_feed import CryptoFeed
+from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick
+from app.data_layer.yahoo_feed import YahooFeed
 
 
 def _get_session_factory():
     from app.core.runtime import get_session_factory
     return get_session_factory()
-from app.data_layer.crypto_feed import CryptoFeed  # noqa: E402
-from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick  # noqa: E402
-from app.data_layer.forex_feed import ForexFeed  # noqa: E402
-from app.data_layer.polygon_feed import PolygonFeed  # noqa: E402
-from app.data_layer.yahoo_feed import YahooFeed  # noqa: E402
-from app.data_layer.zerodha_feed import ZerodhaFeed  # noqa: E402
+
 
 logger = get_logger(__name__)
 
 
 class DataManager:
-    """Central hub that wires up every feed, routes ticks to Redis and OHLCV
-    bars to Postgres, and exposes a simple ``get_quote`` read path.
+    """Central hub that wires up feeds, routes ticks to KV store and OHLCV
+    bars to the database, and exposes a simple ``get_quote`` read path.
     """
 
     def __init__(self) -> None:
-        # Feeds
         self.yahoo_feed = YahooFeed()
         self.alpaca_feed = AlpacaFeed()
-        self.zerodha_feed = ZerodhaFeed()
         self.crypto_feed = CryptoFeed()
-        self.forex_feed = ForexFeed()
-        self.polygon_feed = PolygonFeed()
 
         self._feeds = [
             self.yahoo_feed,
             self.alpaca_feed,
-            self.zerodha_feed,
             self.crypto_feed,
-            self.polygon_feed,
         ]
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
     async def start_all(self) -> None:
         """Connect, subscribe, register callbacks, and start every feed."""
+        from app.config import settings
         logger.info("data_manager.start_all")
 
-        # Parse symbol lists from settings
-        india_symbols = [s.strip() for s in settings.india_symbols.split(",") if s.strip()]
         us_symbols = [s.strip() for s in settings.us_symbols.split(",") if s.strip()]
         crypto_symbols = [s.strip() for s in settings.crypto_symbols.split(",") if s.strip()]
+        all_symbols = [s.strip() for s in settings.all_symbols if s.strip()]
 
-        # Register callbacks on every BaseFeed
         for feed in self._feeds:
             feed.on_tick(self._handle_tick)
             feed.on_ohlcv(self._handle_ohlcv)
 
-        # -- Yahoo (all symbols, for historical back-fill) --------
         await self.yahoo_feed.connect()
-        all_yf_symbols = india_symbols + us_symbols + crypto_symbols
-        await self.yahoo_feed.subscribe(all_yf_symbols)
+        await self.yahoo_feed.subscribe(all_symbols)
         await self.yahoo_feed.start()
 
-        # -- Zerodha (Indian symbols) ----------------------------
-        await self.zerodha_feed.connect()
-        await self.zerodha_feed.subscribe(india_symbols)
-        await self.zerodha_feed.start()
-
-        # -- Alpaca (US symbols) ----------------------------------
         await self.alpaca_feed.connect()
         await self.alpaca_feed.subscribe(us_symbols)
         await self.alpaca_feed.start()
 
-        # -- Crypto -----------------------------------------------
         await self.crypto_feed.connect()
         await self.crypto_feed.subscribe(crypto_symbols)
         await self.crypto_feed.start()
-
-        # -- Polygon (US symbols, if key set) ---------------------
-        await self.polygon_feed.connect()
-        await self.polygon_feed.subscribe(us_symbols)
-        await self.polygon_feed.start()
-
-        # -- Forex (standalone, no BaseFeed) ----------------------
-        await self.forex_feed.start()
 
         logger.info("data_manager.all_feeds_started")
 
@@ -103,14 +73,10 @@ class DataManager:
                 await feed.disconnect()
             except Exception:
                 logger.exception("data_manager.disconnect_error", feed=feed.name)
-        await self.forex_feed.stop()
         logger.info("data_manager.all_feeds_stopped")
 
-    # ------------------------------------------------------------------
-    # Tick handling -> Redis
-    # ------------------------------------------------------------------
     async def _handle_tick(self, tick: NormalizedTick) -> None:
-        """Store latest quote in Redis HSET and publish on a channel."""
+        """Store latest quote in KV store and publish on a channel."""
         redis_key = f"horizon:quote:{tick.symbol}"
         try:
             kv = get_kv_store()
@@ -121,15 +87,8 @@ class DataManager:
         except Exception:
             logger.warning("data_manager.tick_write_error", symbol=tick.symbol)
 
-    # ------------------------------------------------------------------
-    # OHLCV handling -> Postgres
-    # ------------------------------------------------------------------
     async def _handle_ohlcv(self, bar: NormalizedOHLCV) -> None:
-        """Upsert OHLCV bar into Postgres and cache latest price in KV."""
-        # Cache latest price for portfolio agent / paper broker.
-        # Store under both raw symbol (e.g. "RELIANCE") and canonical
-        # symbol with exchange (e.g. "RELIANCE.NSE") so lookups work
-        # regardless of which format the caller uses.
+        """Upsert OHLCV bar into the database and cache latest price in KV."""
         try:
             kv = get_kv_store()
             price_str = str(bar.close)
@@ -141,7 +100,6 @@ class DataManager:
 
         try:
             async with _get_session_factory()() as session:
-                # Use raw SQL upsert to handle the unique constraint gracefully
                 stmt = text(
                     """
                     INSERT INTO ohlcv (symbol, exchange, timestamp, timeframe,
@@ -181,11 +139,8 @@ class DataManager:
                 timeframe=bar.timeframe,
             )
 
-    # ------------------------------------------------------------------
-    # Read path
-    # ------------------------------------------------------------------
     async def get_quote(self, symbol: str) -> NormalizedTick | None:
-        """Return the latest cached tick for *symbol* from Redis."""
+        """Return the latest cached tick for *symbol* from KV store."""
         redis_key = f"horizon:quote:{symbol}"
         data = await get_kv_store().hgetall(redis_key)
         if not data:
@@ -195,7 +150,3 @@ class DataManager:
         except Exception:
             logger.exception("data_manager.get_quote_parse_error", symbol=symbol)
             return None
-
-    async def get_forex_rate(self) -> float | None:
-        """Convenience proxy for the forex feed."""
-        return await self.forex_feed.get_rate()

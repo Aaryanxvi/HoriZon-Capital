@@ -62,14 +62,16 @@ _SAFE_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _migrate_table(conn, table: str, required_col: str) -> None:  # noqa: ANN001
-    """Drop a table if it exists but is missing a required column (schema migration)."""
+    """Add a missing column to an existing table (non-destructive migration)."""
     if not _SAFE_IDENTIFIER.match(table) or not _SAFE_IDENTIFIER.match(required_col):
         return
     try:
         cols = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()  # noqa: S608
         col_names = {row[1] for row in cols}
         if cols and required_col not in col_names:
-            conn.execute(text(f"DROP TABLE {table}"))  # noqa: S608
+            conn.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN {required_col} TEXT DEFAULT NULL")  # noqa: S608
+            )
     except Exception:
         pass
 
@@ -252,6 +254,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
 
     # --- Debate sessions and arguments ---
     _migrate_table(conn, "debate_sessions", "proposed_action")
+    _migrate_table(conn, "debate_sessions", "reason")
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS debate_sessions (
             id TEXT PRIMARY KEY,
@@ -264,6 +267,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
             total_rounds INTEGER DEFAULT 1,
             final_decision TEXT,
             consensus_score REAL,
+            reason TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -396,7 +400,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
         )
     """))
 
-    # --- Alert history (Phase 7) ---
+    # --- Alert history ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS alert_history (
             id TEXT PRIMARY KEY,
@@ -412,7 +416,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
     """))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_alert_severity ON alert_history (severity)"))
 
-    # --- Model registry (Phase 8) ---
+    # --- Model registry ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS model_versions (
             id TEXT PRIMARY KEY,
@@ -428,7 +432,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
     """))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_model_name ON model_versions (model_name)"))
 
-    # --- Strategy rotation history (Phase 8) ---
+    # --- Strategy rotation history ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS strategy_selections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -440,7 +444,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
         )
     """))
 
-    # --- Stress test results (Phase 6) ---
+    # --- Stress test results ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS stress_test_results (
             id TEXT PRIMARY KEY,
@@ -454,7 +458,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
         )
     """))
 
-    # --- Reports (Phase 9) ---
+    # --- Reports ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS reports (
             id TEXT PRIMARY KEY,
@@ -469,7 +473,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
         )
     """))
 
-    # --- Health snapshots (Phase 10) ---
+    # --- Health snapshots ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS health_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -506,5 +510,34 @@ def _create_tables(conn) -> None:  # noqa: ANN001
     conn.execute(text(
         "CREATE INDEX IF NOT EXISTS ix_backtest_symbol ON backtest_runs (symbol)"
     ))
+
+    # --- CIO Advisories ---
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS cio_advisories (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            outlook TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            recommended_adjustments TEXT NOT NULL,
+            risk_flags TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            trigger TEXT NOT NULL
+        )
+    """))
+
+    # --- CIO Overrides ---
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS cio_overrides (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT NOT NULL,
+            trigger TEXT NOT NULL,
+            confidence REAL NOT NULL,
+            actions TEXT NOT NULL,
+            full_prompt TEXT NOT NULL,
+            full_response TEXT NOT NULL,
+            portfolio_snapshot TEXT NOT NULL,
+            provider TEXT NOT NULL
+        )
+    """))
 
     conn.commit()

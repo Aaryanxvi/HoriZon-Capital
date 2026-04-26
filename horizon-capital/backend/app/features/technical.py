@@ -1,4 +1,4 @@
-"""Technical indicators per QTMRL Paper 2.
+"""Technical indicators for market analysis.
 
 Provides 23 indicators across four categories: Trend, Volatility, Momentum,
 and Volume/Other.  Each static method returns a ``pd.Series`` or ``pd.DataFrame``
@@ -16,7 +16,7 @@ import ta
 
 
 class TechnicalIndicators:
-    """All 23 QTMRL-2 indicators implemented with pandas + ta library."""
+    """All 23 technical indicators implemented with pandas + ta library."""
 
     # ------------------------------------------------------------------
     # Trend indicators (4)

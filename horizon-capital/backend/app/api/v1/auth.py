@@ -1,9 +1,11 @@
 """Authentication endpoints: login and token refresh."""
 
+import asyncio
+import time
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.config import settings
-from app.core.resilience import RateLimiter
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -15,10 +17,22 @@ from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Rate limit: 5 login attempts per 60 seconds
-_login_limiter = RateLimiter(name="auth_login", max_calls=5, window_seconds=60.0)
+_login_timestamps: list[float] = []
+_login_lock = asyncio.Lock()
 
-# Pre-hash the default password at module load so verify_password works
+
+async def _check_rate_limit() -> bool:
+    """Return True if the request is allowed (max 5 per 60 seconds)."""
+    async with _login_lock:
+        now = time.monotonic()
+        cutoff = now - 60.0
+        _login_timestamps[:] = [t for t in _login_timestamps if t > cutoff]
+        if len(_login_timestamps) >= 5:
+            return False
+        _login_timestamps.append(now)
+        return True
+
+
 _hashed_default_password: str | None = None
 
 
@@ -32,7 +46,7 @@ def _get_hashed_default_password() -> str:
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest) -> TokenResponse:
     """Authenticate the CIO user and return a JWT token pair."""
-    if not await _login_limiter.acquire():
+    if not await _check_rate_limit():
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Try again in 60 seconds.",

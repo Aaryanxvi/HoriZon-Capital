@@ -3,11 +3,6 @@
 Replaces simple random slippage with a market-impact model that separates
 permanent and temporary price impact based on order size, daily volume,
 and volatility.
-
-References
-----------
-- Almgren & Chriss (2000), "Optimal Execution of Portfolio Transactions",
-  J. Risk, 3(2), 5-39 (1,610 citations).
 """
 
 import random
@@ -26,11 +21,12 @@ logger = get_logger("execution.paper_broker")
 # Almgren-Chriss default parameters (calibrated for liquid US equities)
 _DEFAULT_DAILY_VOLUME = 1_000_000  # shares; used when actual volume unknown
 _DEFAULT_VOLATILITY = 0.02  # 2% daily volatility
-_PERMANENT_IMPACT_GAMMA = 0.314  # permanent impact exponent
-_PERMANENT_IMPACT_ETA = 0.142  # permanent impact coefficient
-_TEMPORARY_IMPACT_EPSILON = 0.0625  # temporary impact half-spread
-_TEMPORARY_IMPACT_ETA = 0.142  # temporary impact coefficient
-_TEMPORARY_IMPACT_GAMMA = 0.600  # temporary impact exponent
+_PERMANENT_IMPACT_GAMMA = 0.5  # permanent impact exponent (sqrt-law)
+_PERMANENT_IMPACT_ETA = 0.01  # permanent impact coefficient
+# Half-spread as FRACTION of price (1 bp = 0.0001). Liquid equities ~ 1-2 bps.
+_TEMPORARY_IMPACT_EPSILON = 0.0001
+_TEMPORARY_IMPACT_ETA = 0.01  # temporary impact coefficient
+_TEMPORARY_IMPACT_GAMMA = 0.5  # temporary impact exponent
 
 
 class AlmgrenChrissModel:
@@ -93,9 +89,8 @@ class AlmgrenChrissModel:
             * (participation ** _PERMANENT_IMPACT_GAMMA)
         )
 
-        # Temporary impact: h(v) = epsilon * sign + eta * sigma * |n/V|^gamma
-        # epsilon is the half-spread, eta * sigma * |n/V|^gamma is the
-        # market-moving component
+        # Temporary impact: half-spread (as FRACTION of price) + size-dependent component.
+        # epsilon is the half-spread fraction (e.g. 0.0001 = 1 bp).
         temporary = (
             _TEMPORARY_IMPACT_EPSILON * price
             + _TEMPORARY_IMPACT_ETA
@@ -182,11 +177,22 @@ class PaperBroker:
             side=side,
         )
 
+        # Commission model by exchange (round-trip cost retail pays).
+        exchange = order.get("exchange", "")
+        notional = impact["fill_price"] * quantity
+        if exchange in ("NSE", "BSE"):
+            commission_bps = 10.0  # ~0.1% (STT + brokerage + GST + exchange + SEBI)
+        elif exchange == "CRYPTO":
+            commission_bps = 10.0  # ~0.1% taker fee typical crypto exchanges
+        else:
+            commission_bps = 1.0  # US equities: near-zero + SEC fees, use ~1 bp
+        commission = abs(notional) * commission_bps / 10_000.0
+
         fill = {
             "order_id": order_id,
             "filled_qty": quantity,
             "fill_price": impact["fill_price"],
-            "commission": 0.0,
+            "commission": round(commission, 4),
             "slippage": impact["slippage_amount"],
             "slippage_pct": impact["total_impact_pct"],
             "permanent_impact": impact["permanent_impact"],
@@ -214,7 +220,21 @@ class PaperBroker:
     # ------------------------------------------------------------------ #
 
     async def _get_last_price(self, symbol: str) -> float:
-        """Read the cached last price from KV store."""
+        """Return the current mark price for ``symbol``.
+
+        Priority order:
+        1. Alpaca latest trade (realtime IEX), when configured and symbol is US.
+        2. KV-cached last price (written by the data ingestion worker or the
+           strategy agent's daily-bar poll).
+        """
+        from app.data_layer import alpaca_quotes
+
+        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol)
+        if is_us and alpaca_quotes.is_configured():
+            live = await alpaca_quotes.get_latest_price(symbol)
+            if live and live > 0:
+                return live
+
         val = await _get_kv().get(f"horizon:price:{symbol}")
         if val is not None:
             try:

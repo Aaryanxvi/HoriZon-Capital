@@ -38,11 +38,12 @@ class BacktestMetrics:
 
     @staticmethod
     def win_rate(trades: list[dict]) -> float:
-        """Fraction of trades with positive PnL."""
-        if not trades:
+        """Fraction of SELL trades with positive PnL."""
+        sell_trades = [t for t in trades if t.get("side") == "SELL"]
+        if not sell_trades:
             return 0.0
-        winners = sum(1 for t in trades if t.get("pnl", 0) > 0)
-        return winners / len(trades)
+        winners = sum(1 for t in sell_trades if t.get("pnl", 0) > 0)
+        return winners / len(sell_trades)
 
     @staticmethod
     def total_return(equity_curve: list[float] | np.ndarray) -> float:

@@ -2,14 +2,7 @@
 
 Provides system-wide health monitoring including agent uptime, message
 throughput, latency tracking, memory usage, and system diagnostics.
-
-Research references
--------------------
-- Google SRE Book (2016). "Site Reliability Engineering" — Ch. 6:
-  Monitoring Distributed Systems. The four golden signals: latency,
-  traffic, errors, saturation.
-- Beyer et al. (2018). "The Site Reliability Workbook" — operational
-  monitoring and alerting best practices.
+Tracks four key metrics: latency, traffic, errors, and resource saturation.
 """
 
 from __future__ import annotations
@@ -81,7 +74,7 @@ class SystemHealthSnapshot:
 class HealthMonitor:
     """System-wide health monitoring service.
 
-    Tracks the four golden signals (Ref: Google SRE Book 2016):
+    Tracks four key metrics:
     1. Latency — message processing time
     2. Traffic — message throughput
     3. Errors — agent crashes, message failures
@@ -114,6 +107,15 @@ class HealthMonitor:
 
         # Monitor task
         self._monitor_task: asyncio.Task | None = None
+
+        # psutil process handle (kept alive for CPU delta sampling)
+        self._process = None
+        try:
+            import psutil
+            self._process = psutil.Process()
+            self._process.cpu_percent(interval=0)  # prime the sampler
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -148,6 +150,15 @@ class HealthMonitor:
         now = time.time()
         self._message_timestamps.append(now)
         self._total_messages += 1
+
+        # Latency = wall time between message creation and receipt on bus
+        try:
+            sent_ts = msg.timestamp.timestamp()
+            latency = now - sent_ts
+            if 0 <= latency < 60:
+                self._message_latencies.append(latency)
+        except (AttributeError, TypeError, ValueError):
+            pass
 
         # Track per-agent messages
         sender = msg.sender_id
@@ -200,13 +211,20 @@ class HealthMonitor:
         # System metrics
         memory_mb = 0.0
         cpu_pct = 0.0
-        try:
-            import psutil
-            process = psutil.Process()
-            memory_mb = process.memory_info().rss / (1024 * 1024)
-            cpu_pct = process.cpu_percent(interval=0)
-        except (ImportError, Exception):
-            pass
+        if self._process is not None:
+            try:
+                memory_mb = self._process.memory_info().rss / (1024 * 1024)
+                cpu_pct = self._process.cpu_percent(interval=0)
+            except Exception:
+                pass
+        else:
+            try:
+                import psutil
+                self._process = psutil.Process()
+                self._process.cpu_percent(interval=0)
+                memory_mb = self._process.memory_info().rss / (1024 * 1024)
+            except Exception:
+                pass
 
         # Agent counts from orchestrator if available
         total_agents = 0
@@ -262,7 +280,20 @@ class HealthMonitor:
                 )
                 result = row.fetchone()
                 if result and result[0]:
-                    last_ingestion = str(result[0])
+                    raw = result[0]
+                    last_ingestion = str(raw)
+                    try:
+                        if isinstance(raw, datetime):
+                            dt = raw
+                        else:
+                            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=UTC)
+                        data_freshness = max(
+                            0.0, (now_utc - dt).total_seconds()
+                        )
+                    except (ValueError, TypeError):
+                        pass
 
                 count_row = await session.execute(
                     sa_text("SELECT COUNT(DISTINCT symbol) FROM ohlcv")
@@ -361,6 +392,8 @@ class HealthMonitor:
             f"  Symbols Tracked: {snapshot.ohlcv_symbols_tracked}",
             f"  Last Ingestion:  "
             f"{snapshot.last_data_ingestion[:19] if snapshot.last_data_ingestion else 'N/A'}",
+            f"  Data Age:        "
+            f"{_format_age(snapshot.data_freshness_seconds) if snapshot.last_data_ingestion else 'N/A'}",
             "",
             f"  Kill Switch:    "
             f"{'[red]ACTIVE[/]' if snapshot.kill_switch_active else '[green]OFF[/]'}",
@@ -391,3 +424,13 @@ class HealthMonitor:
 def _get_session_factory():
     from app.core.runtime import get_session_factory
     return get_session_factory()
+
+
+def _format_age(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    if seconds < 86400:
+        return f"{seconds / 3600:.1f}h"
+    return f"{seconds / 86400:.1f}d"

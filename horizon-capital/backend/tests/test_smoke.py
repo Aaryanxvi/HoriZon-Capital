@@ -49,9 +49,10 @@ class TestConfig:
         from app.config import settings
 
         symbols = settings.all_symbols
-        assert "RELIANCE.NSE" in symbols
+        # US-only scope: at least one US symbol must parse; India/crypto lists
+        # may be empty by configuration.
         assert "AAPL.NASDAQ" in symbols
-        assert "BTC-USD" in symbols
+        assert all("." in s or "-" in s for s in symbols)
 
     def test_cio_mode_valid(self):
         from app.config import CIOMode, settings
@@ -421,8 +422,8 @@ class TestTerminalCommands:
         assert result is not None
         assert "status" in result
         assert "quit" in result
-        assert "departments" in result
-        assert "cio" in result
+        assert "backtest" in result
+        assert "health" in result
 
     @pytest.mark.asyncio
     async def test_config_command(self):
@@ -432,15 +433,6 @@ class TestTerminalCommands:
         result = await handler.handle("config")
         assert "PAPER_TRADING" in result
         assert "CIO Mode" in result
-
-    @pytest.mark.asyncio
-    async def test_symbols_command(self):
-        from app.tui.commands import CommandHandler
-
-        handler = CommandHandler()
-        result = await handler.handle("symbols")
-        assert "India" in result
-        assert "RELIANCE" in result
 
     @pytest.mark.asyncio
     async def test_unknown_command(self):
@@ -459,21 +451,11 @@ class TestTerminalCommands:
         assert handler.should_quit is True
 
     @pytest.mark.asyncio
-    async def test_departments_command(self):
+    async def test_agents_command(self):
         from app.tui.commands import CommandHandler
 
         handler = CommandHandler()
-        result = await handler.handle("departments")
-        assert result is not None
-        # Without orchestrator, should show message
-        assert "Orchestrator not available" in result or "Department" in result
-
-    @pytest.mark.asyncio
-    async def test_agents_config_command(self):
-        from app.tui.commands import CommandHandler
-
-        handler = CommandHandler()
-        result = await handler.handle("agents config")
+        result = await handler.handle("agents")
         assert result is not None
         assert "Agent Configuration" in result
 
@@ -625,32 +607,32 @@ class TestNewMessageTypes:
 
 
 class TestPhase2Commands:
-    """Phase 2 CIO terminal commands."""
+    """REPL commands work correctly."""
 
     @pytest.mark.asyncio
-    async def test_help_includes_phase2(self):
+    async def test_help_includes_core_commands(self):
         from app.tui.commands import CommandHandler
 
         handler = CommandHandler()
         result = await handler.handle("help")
-        assert "interrupt" in result
-        assert "risk-tolerance" in result
-        assert "exposures" in result
+        assert "portfolio" in result
+        assert "risk" in result
+        assert "performance" in result
 
     @pytest.mark.asyncio
-    async def test_risk_tolerance_no_args(self):
+    async def test_signals_no_data(self):
         from app.tui.commands import CommandHandler
 
         handler = CommandHandler()
-        result = await handler.handle("risk-tolerance")
-        assert "Current risk tolerance" in result
+        result = await handler.handle("signals")
+        assert result is not None
 
     @pytest.mark.asyncio
-    async def test_exposures_no_dashboard(self):
+    async def test_debate_no_data(self):
         from app.tui.commands import CommandHandler
 
         handler = CommandHandler()
-        result = await handler.handle("exposures")
+        result = await handler.handle("debate")
         assert result is not None
 
 
@@ -1142,37 +1124,6 @@ class TestBackupService:
         assert loaded[0]["symbol"] == "AAPL"
 
 
-class TestPrometheusMetrics:
-    """Prometheus metrics exporter (Phase 4)."""
-
-    def test_gauge(self):
-        from app.monitoring.metrics import PrometheusMetrics
-        m = PrometheusMetrics()
-        m.set_gauge("test_value", 42.0, {"env": "test"})
-        text = m.export()
-        assert "test_value" in text
-        assert "42.0" in text
-
-    def test_counter(self):
-        from app.monitoring.metrics import PrometheusMetrics
-        m = PrometheusMetrics()
-        m.inc_counter("test_count", {"type": "order"}, amount=3)
-        text = m.export()
-        assert "test_count" in text
-        assert "3" in text
-
-    def test_convenience_methods(self):
-        from app.monitoring.metrics import PrometheusMetrics
-        m = PrometheusMetrics()
-        m.record_portfolio_value(1_000_000, "USD")
-        m.record_pnl(5000, 2000)
-        m.record_agent_health("regime-1", True)
-        m.record_kill_switch(False)
-        text = m.export()
-        assert "horizon_portfolio_value" in text
-        assert "horizon_pnl_realized" in text
-
-
 class TestMultiModelDebate:
     """Multi-model debate with perspective rotation (Du et al. ICML 2024)."""
 
@@ -1347,32 +1298,6 @@ class TestPixelAgents:
         assert PixelAgentVisualizer._make_short_name("risk-agent") == "RISK"
 
 
-class TestPluginManager:
-    """Plugin architecture (Gamma et al. 1994 Strategy Pattern)."""
-
-    def test_init_creates_dir(self, tmp_path):
-        from app.plugins.plugin_manager import PluginManager
-        pm = PluginManager(plugin_dir=tmp_path / "plugins")
-        pm.discover()
-        assert (tmp_path / "plugins").exists()
-
-    def test_discover_empty(self, tmp_path):
-        from app.plugins.plugin_manager import PluginManager
-        pm = PluginManager(plugin_dir=tmp_path)
-        plugins = pm.discover()
-        assert len(plugins) == 0
-
-    def test_list_plugins(self, tmp_path):
-        from app.plugins.plugin_manager import PluginManager
-        pm = PluginManager(plugin_dir=tmp_path)
-        assert len(pm.list_plugins()) == 0
-
-    def test_get_nonexistent(self, tmp_path):
-        from app.plugins.plugin_manager import PluginManager
-        pm = PluginManager(plugin_dir=tmp_path)
-        assert pm.get_strategy("fake") is None
-
-
 class TestNewMessageTypes:
     """Core message types exist."""
 
@@ -1468,40 +1393,16 @@ class TestOrderSplitterAutoSelect:
         assert schedule.algorithm == "ALMGREN_CHRISS"
 
 
-class TestMarketHoursValidation:
-    """Market hours check returns expected values."""
-
-    def test_crypto_always_open(self):
-        from app.agents.front_office.trading.execution_agent import ExecutionAgent
-        assert ExecutionAgent._is_market_open("CRYPTO") is True
-
-    def test_unknown_exchange_always_open(self):
-        from app.agents.front_office.trading.execution_agent import ExecutionAgent
-        assert ExecutionAgent._is_market_open("OTHER") is True
-
-    def test_nse_returns_bool(self):
-        from app.agents.front_office.trading.execution_agent import ExecutionAgent
-        result = ExecutionAgent._is_market_open("NSE")
-        assert isinstance(result, bool)
-
-    def test_nasdaq_returns_bool(self):
-        from app.agents.front_office.trading.execution_agent import ExecutionAgent
-        result = ExecutionAgent._is_market_open("NASDAQ")
-        assert isinstance(result, bool)
-
-
 class TestBrokerConnect:
-    """Broker connect, disconnect, and go-live commands."""
+    """Paper broker and AlpacaBroker basics."""
 
     def test_alpaca_broker_dynamic_credentials(self):
         """AlpacaBroker reads credentials dynamically from settings."""
         from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
         broker = AlpacaBroker()
-        # headers is a property, not a cached dict
         h = broker.headers
         assert "APCA-API-KEY-ID" in h
         assert "APCA-API-SECRET-KEY" in h
-        # base_url is a property
         assert broker.base_url.startswith("https://")
 
     def test_alpaca_get_account_method_exists(self):
@@ -1510,110 +1411,11 @@ class TestBrokerConnect:
         assert hasattr(broker, "get_account")
         assert asyncio.iscoroutinefunction(broker.get_account)
 
-    def test_zerodha_broker_dynamic_credentials(self):
-        """ZerodhaBroker reads credentials dynamically from settings."""
-        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-        broker = ZerodhaBroker()
-        # Properties delegate to settings
-        assert isinstance(broker.mock_mode, bool)
-        assert isinstance(broker.api_key, str)
-        assert isinstance(broker.api_secret, str)
-
-    def test_zerodha_get_profile_exists(self):
-        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-        broker = ZerodhaBroker()
-        assert hasattr(broker, "get_profile")
-        assert asyncio.iscoroutinefunction(broker.get_profile)
-
-    def test_zerodha_get_margins_exists(self):
-        from app.agents.front_office.trading.zerodha_broker import ZerodhaBroker
-        broker = ZerodhaBroker()
-        assert hasattr(broker, "get_margins")
-        assert asyncio.iscoroutinefunction(broker.get_margins)
-
-    @pytest.mark.asyncio
-    async def test_connect_no_args_shows_status(self):
-        """connect (no args) should return broker connection table info."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("connect")
-        assert result is not None
-        assert "connect alpaca" in result or "connect zerodha" in result
-
-    @pytest.mark.asyncio
-    async def test_broker_status_command(self):
-        """broker status should return system mode info."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("broker status")
-        assert result is not None
-        assert "System mode" in result or "mode" in result.lower()
-
-    @pytest.mark.asyncio
-    async def test_disconnect_no_args_shows_usage(self):
-        """disconnect (no args) should show usage."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("disconnect")
-        assert "Usage" in result
-
-    @pytest.mark.asyncio
-    async def test_connect_unknown_broker(self):
-        """connect <unknown> should return error."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("connect fakeBroker")
-        assert "Unknown broker" in result
-
-    @pytest.mark.asyncio
-    async def test_broker_account_no_creds(self):
-        """broker account should handle no credentials gracefully."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("broker account")
-        assert result is not None
-        assert "not configured" in result or "Broker" in result
-
-    @pytest.mark.asyncio
-    async def test_broker_positions_no_creds(self):
-        """broker positions should handle no positions gracefully."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        result = await handler.handle("broker positions")
-        assert result is not None
-
-    def test_write_env_keys_helper(self, tmp_path):
-        """_write_env_keys merges and removes keys correctly."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        env_file = tmp_path / ".env"
-        env_file.write_text("FOO=bar\nBAZ=qux\n")
-        # Monkey-patch _get_env_path
-        handler._get_env_path = lambda: env_file
-        handler._write_env_keys(updates={"FOO": "new", "ADDED": "val"}, removals=["BAZ"])
-        content = env_file.read_text()
-        assert "FOO=new" in content
-        assert "ADDED=val" in content
-        assert "BAZ" not in content
-
-    def test_mode_command_exists(self):
-        """mode command should exist in handlers."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        assert hasattr(handler, "_cmd_mode")
-
-    def test_go_live_command_exists(self):
-        """go-live command should exist."""
-        from app.tui.commands import CommandHandler
-        handler = CommandHandler()
-        assert hasattr(handler, "_cmd_go_live")
-
-    def test_help_text_includes_broker_section(self):
+    def test_help_text_includes_commands(self):
         from app.tui.commands import HELP_TEXT
-        assert "Broker & Live Trading" in HELP_TEXT
-        assert "connect alpaca" in HELP_TEXT
-        assert "go-live" in HELP_TEXT
-        assert "disconnect" in HELP_TEXT
+        assert "backtest" in HELP_TEXT
+        assert "portfolio" in HELP_TEXT
+        assert "health" in HELP_TEXT
 
 
 class TestPriceUpdate:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.config import settings
 from app.core.logging import get_logger
 from app.llm.base_provider import BaseLLMProvider
 
@@ -57,6 +58,24 @@ class ProviderRegistry:
         available = self.list_available()
         logger.info("llm_providers_available", providers=available)
 
+    def reload_from_settings(self) -> None:
+        """Re-register all providers from current settings values.
+
+        Call this after settings have been mutated in-place (e.g. from the
+        settings panel).  Clears existing registrations and re-registers
+        from scratch so removed keys take effect.
+        """
+        # Clear existing registrations
+        self._providers.clear()
+
+        # Re-register from current (possibly updated) settings
+        self.register("claude", settings.anthropic_api_key)
+        self.register("openai", settings.openai_api_key)
+        self.register("gemini", settings.google_api_key)
+
+        available = self.list_available()
+        logger.info("llm_providers_reloaded", providers=available)
+
     def get_providers_for_department(self, department: str) -> list[BaseLLMProvider]:
         """Return the providers configured for a given department.
 
@@ -96,6 +115,41 @@ class ProviderRegistry:
         """Return a single provider name for a department, or empty string."""
         providers = self.get_providers_for_department(department)
         return providers[0].provider_name if providers else ""
+
+    def get_provider_for_agent(
+        self, agent_id: str, default_provider: str = "",
+    ) -> BaseLLMProvider | None:
+        """Resolve provider+model for a specific agent.
+
+        Resolution order:
+          1. Per-agent override (set via UI/REPL) -> overrides both provider + model
+          2. Department default provider (default_provider arg)
+          3. Any registered provider as last resort
+
+        When an override exists, returns a fresh provider instance whose
+        ``model`` attribute reflects the user's pick.
+        """
+        from app.llm.agent_model_overrides import get_override
+
+        ov = get_override(agent_id)
+        if ov:
+            base = self._providers.get(ov["provider"])
+            if base is not None:
+                return base.with_model(ov["model"])
+            logger.warning(
+                "agent_override_provider_unavailable",
+                agent=agent_id, provider=ov["provider"],
+            )
+
+        if default_provider:
+            base = self._providers.get(default_provider)
+            if base is not None:
+                return base
+
+        # Fallback: any registered provider
+        if self._providers:
+            return next(iter(self._providers.values()))
+        return None
 
 
 # Module-level singleton

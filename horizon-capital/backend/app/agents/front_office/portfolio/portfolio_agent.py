@@ -1,9 +1,8 @@
 """Portfolio Agent -- capital allocation, position sizing, and NAV tracking."""
 
 import asyncio
-import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -30,12 +29,22 @@ logger = get_logger("agent.portfolio")
 class PortfolioAgent(BaseAgent):
     """Manages capital allocation, position sizing, and portfolio snapshots.
 
+    In PAPER_TRADING mode (no LLM): signals are auto-approved and forwarded
+    directly to execution.
+
+    In FULLY_AUTONOMOUS mode: signals are buffered until a DEBATE_CONCLUSION
+    arrives — only APPROVED signals proceed to execution.
+
+    In HUMAN_APPROVAL mode: signals are buffered and forwarded as
+    PENDING_APPROVAL orders for the CIO to approve/reject via the REPL.
+
     Subscribes to:
-      - ``horizon.risk.approved.*``  -- risk-gated signals to compute position sizes
-      - ``horizon.debate.*``         -- debate conclusions (FULLY_AUTONOMOUS mode)
+      - ``horizon.risk.approved.*``  -- risk-gated signals
+      - ``horizon.debate.*``         -- debate conclusions
 
     Publishes:
       - ``horizon.portfolio.update``  -- after each snapshot refresh
+      - ``horizon.execution.order.*`` -- sized orders
     """
 
     def __init__(self, bus: AgentBus) -> None:
@@ -47,8 +56,21 @@ class PortfolioAgent(BaseAgent):
         self.optimizer = PortfolioOptimizer()
         self.currency = CurrencyConverter(redis=_get_kv())
         self.redis = _get_kv()
-        # Buffer for FULLY_AUTONOMOUS: symbol -> (signal_payload, buffered_at)
-        self._pending_signals: dict[str, tuple[dict, float]] = {}
+        # Buffer: symbol -> list of pending signal payloads awaiting debate
+        self._pending_signals: dict[str, list[dict]] = {}
+        # Cooldown: symbol -> last order timestamp (fallback if no bar_timestamp)
+        self._last_order_time: dict[str, datetime] = {}
+        # Bar-level dedup: symbol -> last bar_timestamp an order was placed for
+        self._last_order_bar: dict[str, str] = {}
+        # Signal-id dedup: bounded set of signal_ids already processed.
+        # Prevents duplicate parent orders if the same signal is re-delivered.
+        self._processed_signal_ids: set[str] = set()
+        self._processed_signal_order: list[str] = []
+        self._processed_signal_max = 5000
+        # Last-emitted sizing per (symbol, side): qty actually sent downstream.
+        # Skip emit if next sizing matches — kills 60s-loop spam.
+        self._last_emitted_qty: dict[tuple[str, str], float] = {}
+        self._order_cooldown = timedelta(seconds=120)  # fallback cooldown
 
     # ------------------------------------------------------------------ #
     # Subscriptions
@@ -82,70 +104,151 @@ class PortfolioAgent(BaseAgent):
             await self._handle_debate_conclusion(message.payload)
 
     async def _handle_signal(self, payload: dict) -> None:
-        """Process a risk-approved signal.
+        """Buffer or immediately process a risk-approved signal depending on mode."""
+        # Kill switch enforcement — hard stop, no orders when halted
+        halted = await self.redis.get("horizon:system:halted")
+        if halted == "1":
+            logger.warning("signal_blocked_system_halted",
+                           symbol=payload.get("symbol"))
+            return
 
-        Immediate in PAPER/HUMAN mode, buffered in FULLY_AUTONOMOUS (awaits debate).
-        """
-        symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
-
         if direction == 0:
             return
 
-        mode = await self._get_mode()
-        if mode == "FULLY_AUTONOMOUS":
-            # Buffer signal; wait for debate conclusion before sizing
-            self._pending_signals[symbol] = (payload, time.monotonic())
-            # Prune stale signals (older than 5 minutes)
-            now = time.monotonic()
-            stale = [s for s, (_, ts) in self._pending_signals.items() if now - ts > 300]
-            for s in stale:
-                del self._pending_signals[s]
-            logger.info("signal_buffered_awaiting_debate", symbol=symbol)
+        # Signal-id dedup (idempotency): if upstream re-delivers the same
+        # signal_id, drop it. This prevents duplicate parent orders.
+        signal_id = payload.get("signal_id") or ""
+        if signal_id and signal_id in self._processed_signal_ids:
+            logger.debug("signal_deduped_signal_id", signal_id=signal_id)
             return
 
-        # PAPER_TRADING or HUMAN_APPROVAL: process immediately
-        await self._size_and_emit(payload, debate_id=None)
+        # Dedup: one order per symbol per bar. Strategy agent now stamps
+        # bar_timestamp; fall back to 120s cooldown if unavailable.
+        symbol = payload.get("symbol", "")
+        bar_ts = payload.get("bar_timestamp") or ""
+        now = datetime.now(UTC)
+        last_bar = self._last_order_bar.get(symbol)
+        last = self._last_order_time.get(symbol)
+        if bar_ts and last_bar == bar_ts:
+            logger.debug("signal_deduped_bar", symbol=symbol, bar=bar_ts)
+            return
+        if not bar_ts and last and (now - last) < self._order_cooldown:
+            logger.debug("signal_deduped_cooldown", symbol=symbol)
+            return
+
+        mode = settings.system_mode.value
+        emitted = False
+
+        if mode == "PAPER_TRADING":
+            emitted = await self._size_and_emit(payload, debate_id=None)
+        elif mode == "HUMAN_APPROVAL":
+            emitted = await self._size_and_emit_pending(payload)
+        else:
+            if symbol not in self._pending_signals:
+                self._pending_signals[symbol] = []
+            self._pending_signals[symbol].append(payload)
+            logger.info("signal_buffered_for_debate", symbol=symbol)
+            emitted = True
+
+        # Lock only AFTER successful emit, so qty=0 rejects don't block retries.
+        if emitted:
+            self._last_order_time[symbol] = now
+            if bar_ts:
+                self._last_order_bar[symbol] = bar_ts
+            if signal_id:
+                self._processed_signal_ids.add(signal_id)
+                self._processed_signal_order.append(signal_id)
+                if len(self._processed_signal_order) > self._processed_signal_max:
+                    old = self._processed_signal_order.pop(0)
+                    self._processed_signal_ids.discard(old)
 
     async def _handle_debate_conclusion(self, payload: dict) -> None:
-        """When debate approves a signal in FULLY_AUTONOMOUS mode, emit ORDER_NEW."""
-        decision = payload.get("decision", "").upper()
+        """Process a debate conclusion — release or discard buffered signals."""
         symbol = payload.get("symbol", "")
-        debate_id = payload.get("session_id")
+        decision = payload.get("decision", "")
+        debate_id = payload.get("session_id", "")
 
-        if decision != "APPROVED":
-            # Discard buffered signal
-            self._pending_signals.pop(symbol, None)
-            logger.info("signal_rejected_by_debate", symbol=symbol)
+        buffered = self._pending_signals.pop(symbol, [])
+        if not buffered:
             return
 
-        entry = self._pending_signals.pop(symbol, None)
-        if entry is None:
-            logger.debug("no_buffered_signal_for_debate", symbol=symbol)
-            return
+        if decision == "APPROVED":
+            for sig in buffered:
+                await self._size_and_emit(sig, debate_id=debate_id)
+            logger.info("debate_approved_orders_released",
+                        symbol=symbol, count=len(buffered))
+        else:
+            logger.info("debate_rejected_orders_discarded",
+                        symbol=symbol, count=len(buffered), decision=decision)
 
-        signal_payload, buffered_at = entry
-        if time.monotonic() - buffered_at > 300:
-            logger.warning("stale_signal_discarded", symbol=symbol)
-            return
+    async def _size_and_emit_pending(self, payload: dict) -> bool:
+        """Size an order and emit it as PENDING_APPROVAL for human CIO review."""
+        symbol = payload.get("symbol", "")
+        direction = payload.get("direction", 0)
+        exchange = payload.get("exchange", "")
+        strength = float(payload.get("strength", 1.0) or 1.0)
 
-        await self._size_and_emit(signal_payload, debate_id=debate_id)
+        try:
+            sizing = await self._compute_position_size(
+                symbol, direction, exchange, strength=strength
+            )
+        except Exception as exc:
+            logger.error("sizing_error", symbol=symbol, error=str(exc))
+            return False
 
-    async def _size_and_emit(self, payload: dict, debate_id: str | None) -> None:
+        if sizing["quantity"] <= 0:
+            return False
+
+        side = "BUY" if direction > 0 else "SELL"
+        if self._is_duplicate_sizing(symbol, side, sizing["quantity"]):
+            logger.debug("sizing_deduped_qty_unchanged",
+                         symbol=symbol, side=side, qty=sizing["quantity"])
+            return False
+
+        await self.emit(
+            channel="horizon.execution.order.pending",
+            message_type=MessageType.ORDER_NEW,
+            payload={
+                "symbol": symbol,
+                "exchange": exchange,
+                "side": side,
+                "quantity": sizing["quantity"],
+                "order_type": "MARKET",
+                "signal_id": payload.get("signal_id"),
+                "stop_loss": payload.get("stop_loss"),
+                "allocation_usd": sizing["allocation_usd"],
+                "requires_approval": True,
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        self._last_emitted_qty[(symbol, side)] = sizing["quantity"]
+        return True
+
+    async def _size_and_emit(self, payload: dict, debate_id: str | None) -> bool:
         """Compute position size and emit ORDER_NEW."""
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         exchange = payload.get("exchange", "")
+        strength = float(payload.get("strength", 1.0) or 1.0)
 
         try:
-            sizing = await self._compute_position_size(symbol, direction, exchange)
+            sizing = await self._compute_position_size(
+                symbol, direction, exchange, strength=strength
+            )
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
-            return
+            return False
 
         if sizing["quantity"] <= 0:
             logger.info("zero_size", symbol=symbol)
-            return
+            return False
+
+        side = "BUY" if direction > 0 else "SELL"
+        if self._is_duplicate_sizing(symbol, side, sizing["quantity"]):
+            logger.debug("sizing_deduped_qty_unchanged",
+                         symbol=symbol, side=side, qty=sizing["quantity"])
+            return False
 
         await self.emit(
             channel="horizon.execution.order.new",
@@ -153,7 +256,7 @@ class PortfolioAgent(BaseAgent):
             payload={
                 "symbol": symbol,
                 "exchange": exchange,
-                "side": "BUY" if direction > 0 else "SELL",
+                "side": side,
                 "quantity": sizing["quantity"],
                 "order_type": "MARKET",
                 "signal_id": payload.get("signal_id"),
@@ -163,50 +266,119 @@ class PortfolioAgent(BaseAgent):
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
+        self._last_emitted_qty[(symbol, side)] = sizing["quantity"]
 
         logger.info(
             "order_sized",
             symbol=symbol,
-            side="BUY" if direction > 0 else "SELL",
+            side=side,
             qty=sizing["quantity"],
             allocation=sizing["allocation_usd"],
         )
+        return True
+
+    def _is_duplicate_sizing(self, symbol: str, side: str, qty: float) -> bool:
+        """Skip emit when (symbol, side) qty matches last emitted within 1 share."""
+        prev = self._last_emitted_qty.get((symbol, side))
+        if prev is None:
+            return False
+        return abs(prev - qty) < 1.0
 
     # ------------------------------------------------------------------ #
     # Position sizing
     # ------------------------------------------------------------------ #
 
     async def _compute_position_size(
-        self, symbol: str, direction: int, exchange: str
+        self,
+        symbol: str,
+        direction: int,
+        exchange: str,
+        strength: float = 1.0,
     ) -> dict:
-        """Determine how many shares/units to trade using equal-weight sizing."""
+        """Determine how many shares/units to trade.
+
+        Allocation is done in the INSTRUMENT's native currency (INR for NSE/BSE,
+        USD for US/crypto). Price stored in KV is also native — so
+        `qty = native_allocation / native_price` is dimensionally correct.
+
+        For BUY: equal-weight against target num_positions, capped by native cash.
+        For SELL: partial exit scaled by signal strength (was full dump).
+        """
         positions = await self._load_positions()
         cash_usd, cash_inr = await self._load_cash()
-        nav = await self.currency.compute_unified_nav(cash_usd, cash_inr, positions)
-
-        if nav <= 0:
-            return {"quantity": 0.0, "allocation_usd": 0.0}
-
-        num_positions = max(len(positions) + 1, 1)
-        allocation_usd = self.optimizer.position_size(
-            portfolio_value=nav,
-            num_positions=num_positions,
-            max_pct=settings.risk_max_position_pct / 100.0,
+        nav_usd = await self.currency.compute_unified_nav(
+            cash_usd, cash_inr, positions,
         )
+
+        if nav_usd <= 0:
+            return {"quantity": 0.0, "allocation_usd": 0.0}
 
         price = await self._get_price(symbol)
         if price <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
 
-        qty = allocation_usd / price
+        is_inr = exchange in ("NSE", "BSE")
+        is_crypto = exchange == "CRYPTO"
 
-        if exchange not in ("CRYPTO",):
+        # Partial-exit SELL: reduce position proportional to signal strength.
+        if direction < 0:
+            held = 0.0
+            for p in positions:
+                if p.get("symbol") == symbol:
+                    held = p.get("quantity", 0.0)
+                    break
+            if held <= 0:
+                return {"quantity": 0.0, "allocation_usd": 0.0}
+
+            # Strength in [0,1] -> exit fraction in [0.25, 1.0]. Weak signals trim.
+            exit_frac = max(0.25, min(1.0, strength))
+            sell_qty = held * exit_frac
+            if not is_crypto:
+                sell_qty = float(int(sell_qty))
+            if sell_qty <= 0:
+                return {"quantity": 0.0, "allocation_usd": 0.0}
+            return {
+                "quantity": sell_qty,
+                "allocation_usd": sell_qty * price,
+            }
+
+        # BUY: equal-weight against a target number of positions (stable).
+        # Cap by both risk_max_position_pct and 25% of NAV as absolute ceiling
+        # to avoid concentrating when the universe is tiny.
+        target_n = max(10, len(positions) + 1)
+        target_usd = nav_usd / target_n
+        target_pct_cap = settings.risk_max_position_pct / 100.0
+        target_usd = min(target_usd, nav_usd * target_pct_cap, nav_usd * 0.25)
+
+        # Scale by signal strength — weak signals buy smaller.
+        target_usd *= max(0.25, min(1.0, strength))
+
+        # Translate USD target -> native-currency allocation.
+        if is_inr:
+            usd_inr = await self.currency.get_usd_inr_rate()
+            if usd_inr <= 0:
+                return {"quantity": 0.0, "allocation_usd": 0.0}
+            native_target = target_usd * usd_inr
+            native_cash = cash_inr
+        else:
+            native_target = target_usd
+            native_cash = cash_usd
+
+        if native_cash <= 0:
+            logger.info("insufficient_cash", symbol=symbol, cash=native_cash)
+            return {"quantity": 0.0, "allocation_usd": 0.0}
+
+        native_alloc = min(native_target, native_cash * 0.9)
+        qty = native_alloc / price
+
+        if not is_crypto:
             qty = float(int(qty))
 
-        return {
-            "quantity": qty,
-            "allocation_usd": qty * price,
-        }
+        if qty <= 0:
+            return {"quantity": 0.0, "allocation_usd": 0.0}
+
+        alloc_usd = (qty * price / usd_inr) if is_inr else (qty * price)
+        return {"quantity": qty, "allocation_usd": alloc_usd}
 
     # ------------------------------------------------------------------ #
     # Snapshot persistence
@@ -295,6 +467,21 @@ class PortfolioAgent(BaseAgent):
         )
         await self.redis.set("horizon:portfolio:nav", str(nav))
 
+        # Build position summaries for dashboard
+        pos_summaries = [
+            {
+                "symbol": p.get("symbol", ""),
+                "exchange": p.get("exchange", ""),
+                "side": p.get("side", "LONG"),
+                "qty": p.get("quantity", 0),
+                "avg_entry_price": p.get("avg_entry_price", 0.0),
+                "current_price": p.get("current_price", 0.0),
+                "unrealized_pnl": p.get("unrealized_pnl", 0.0),
+                "currency": p.get("currency", "USD"),
+            }
+            for p in positions
+        ]
+
         # Publish update
         await self.emit(
             channel="horizon.portfolio.update",
@@ -303,6 +490,7 @@ class PortfolioAgent(BaseAgent):
                 "total_value": nav,
                 "cash_usd": cash_usd,
                 "cash_inr": cash_inr,
+                "positions": pos_summaries,
                 "gross_leverage": gross_leverage,
                 "net_leverage": net_leverage,
                 "timestamp": now.isoformat(),
@@ -363,9 +551,3 @@ class PortfolioAgent(BaseAgent):
                 pass
         return 0.0
 
-    async def _get_mode(self) -> str:
-        """Read current system mode from KV store, falling back to settings."""
-        mode = await self.redis.get("horizon:system:mode")
-        if mode and mode in ("PAPER_TRADING", "HUMAN_APPROVAL", "FULLY_AUTONOMOUS"):
-            return mode
-        return settings.system_mode.value

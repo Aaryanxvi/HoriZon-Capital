@@ -59,13 +59,18 @@ class PerformanceService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _load_equity_curve(since: datetime) -> np.ndarray:
-        """Load portfolio total_value time series from portfolio_snapshots."""
+    async def _load_equity_curve(
+        since: datetime,
+    ) -> tuple[np.ndarray, list[datetime]]:
+        """Load portfolio total_value time series from portfolio_snapshots.
+
+        Returns (values_array, timestamps_list).
+        """
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
-                    SELECT total_value
+                    SELECT created_at, total_value
                     FROM portfolio_snapshots
                     WHERE created_at >= :since
                     ORDER BY created_at ASC
@@ -75,8 +80,10 @@ class PerformanceService:
             )
             rows = result.fetchall()
         if not rows:
-            return np.array([], dtype=np.float64)
-        return np.array([r.total_value for r in rows], dtype=np.float64)
+            return np.array([], dtype=np.float64), []
+        values = np.array([float(r.total_value) for r in rows], dtype=np.float64)
+        timestamps = [r.created_at for r in rows]
+        return values, timestamps
 
     @staticmethod
     async def _load_trades(since: datetime) -> list[dict[str, Any]]:
@@ -124,12 +131,27 @@ class PerformanceService:
         return float((equity[-1] - equity[0]) / equity[0])
 
     @classmethod
-    def _annualized_return(cls, equity: np.ndarray) -> float:
+    def _annualized_return(
+        cls, equity: np.ndarray, timestamps: list | None = None,
+    ) -> float:
         total = cls._total_return(equity)
-        n_days = len(equity)
-        if n_days <= 1 or total <= -1.0:
+        if len(equity) <= 1 or total <= -1.0:
             return 0.0
-        years = n_days / TRADING_DAYS_PER_YEAR
+        if timestamps and len(timestamps) >= 2:
+            from datetime import datetime
+            first = (
+                timestamps[0] if isinstance(timestamps[0], datetime)
+                else datetime.fromisoformat(str(timestamps[0]))
+            )
+            last = (
+                timestamps[-1] if isinstance(timestamps[-1], datetime)
+                else datetime.fromisoformat(str(timestamps[-1]))
+            )
+            calendar_days = max((last - first).days, 1)
+            trading_days = max(calendar_days * 252 / 365, 1)
+        else:
+            trading_days = max(len(equity) - 1, 1)
+        years = trading_days / TRADING_DAYS_PER_YEAR
         if years == 0:
             return 0.0
         return float((1 + total) ** (1 / years) - 1)
@@ -151,10 +173,8 @@ class PerformanceService:
         if len(returns) < 2:
             return 0.0
         excess = returns - risk_free_rate / TRADING_DAYS_PER_YEAR
-        downside = excess[excess < 0]
-        if len(downside) < 2:
-            return 0.0
-        downside_std = float(np.std(downside, ddof=1))
+        downside_diff = np.minimum(excess, 0.0)
+        downside_std = float(np.sqrt(np.mean(downside_diff ** 2)))
         if downside_std == 0:
             return 0.0
         return float(np.mean(excess) / downside_std * np.sqrt(TRADING_DAYS_PER_YEAR))
@@ -168,8 +188,10 @@ class PerformanceService:
         return float(np.max(drawdowns))
 
     @classmethod
-    def _calmar_ratio(cls, equity: np.ndarray) -> float:
-        ann_ret = cls._annualized_return(equity)
+    def _calmar_ratio(
+        cls, equity: np.ndarray, timestamps: list | None = None,
+    ) -> float:
+        ann_ret = cls._annualized_return(equity, timestamps)
         max_dd = cls._max_drawdown(equity)
         if max_dd == 0:
             return 0.0
@@ -177,32 +199,55 @@ class PerformanceService:
 
     @staticmethod
     def _win_rate(trades: list[dict[str, Any]]) -> float:
-        """Fraction of profitable fills (simplified: BUY fills with fill_price > 0)."""
+        """Fraction of round-trip trades with positive realized PnL."""
         if not trades:
             return 0.0
-        # A trade "wins" when it was a SELL that realised positive PnL.
-        # Simplified: count SELL fills as trades, and use fill_price * qty - commission.
-        sell_trades = [t for t in trades if t["side"] == "SELL"]
-        if not sell_trades:
-            return 0.0
-        winners = sum(
-            1
-            for t in sell_trades
-            if t["fill_price"] * t["filled_qty"] - t["commission"] > 0
-        )
-        return float(winners / len(sell_trades))
+        buy_cost = 0.0
+        buy_qty = 0.0
+        round_trips = 0
+        winners = 0
+        for t in trades:
+            if t["side"] == "BUY":
+                buy_cost += t["fill_price"] * t["filled_qty"]
+                buy_qty += t["filled_qty"]
+            elif t["side"] == "SELL" and buy_qty > 0:
+                avg_entry = buy_cost / buy_qty
+                sell_qty = min(t["filled_qty"], buy_qty)
+                realized_pnl = (t["fill_price"] - avg_entry) * sell_qty - t.get("commission", 0)
+                round_trips += 1
+                if realized_pnl > 0:
+                    winners += 1
+                buy_cost -= avg_entry * sell_qty
+                buy_qty -= sell_qty
+                if buy_qty <= 0:
+                    buy_cost = 0.0
+                    buy_qty = 0.0
+        return float(winners / round_trips) if round_trips > 0 else 0.0
 
     @staticmethod
     def _profit_factor(trades: list[dict[str, Any]]) -> float:
+        """Gross profit / gross loss from realized round-trip PnL."""
+        buy_cost = 0.0
+        buy_qty = 0.0
         gross_profit = 0.0
         gross_loss = 0.0
         for t in trades:
-            pnl = t["fill_price"] * t["filled_qty"] - t["commission"]
-            if t["side"] == "SELL":
-                if pnl > 0:
-                    gross_profit += pnl
+            if t["side"] == "BUY":
+                buy_cost += t["fill_price"] * t["filled_qty"]
+                buy_qty += t["filled_qty"]
+            elif t["side"] == "SELL" and buy_qty > 0:
+                avg_entry = buy_cost / buy_qty
+                sell_qty = min(t["filled_qty"], buy_qty)
+                realized_pnl = (t["fill_price"] - avg_entry) * sell_qty - t.get("commission", 0)
+                if realized_pnl > 0:
+                    gross_profit += realized_pnl
                 else:
-                    gross_loss += abs(pnl)
+                    gross_loss += abs(realized_pnl)
+                buy_cost -= avg_entry * sell_qty
+                buy_qty -= sell_qty
+                if buy_qty <= 0:
+                    buy_cost = 0.0
+                    buy_qty = 0.0
         if gross_loss == 0:
             return 0.0 if gross_profit == 0 else float("inf")
         return float(gross_profit / gross_loss)
@@ -305,7 +350,7 @@ class PerformanceService:
     async def compute_snapshot(self, period: str) -> dict[str, Any]:
         """Compute all metrics for a single period and return as a dict."""
         since = self._period_start(period)
-        equity = await self._load_equity_curve(since)
+        equity, timestamps = await self._load_equity_curve(since)
         trades = await self._load_trades(since)
         portfolio_returns = self._compute_returns(equity)
 
@@ -327,10 +372,10 @@ class PerformanceService:
         return {
             "period": period,
             "total_return": round(self._total_return(equity), 6),
-            "annualized_return": round(self._annualized_return(equity), 6),
+            "annualized_return": round(self._annualized_return(equity, timestamps), 6),
             "sharpe_ratio": round(self._sharpe_ratio(equity), 4),
             "sortino_ratio": round(self._sortino_ratio(equity), 4),
-            "calmar_ratio": round(self._calmar_ratio(equity), 4),
+            "calmar_ratio": round(self._calmar_ratio(equity, timestamps), 4),
             "max_drawdown": round(self._max_drawdown(equity), 6),
             "win_rate": round(self._win_rate(trades), 4),
             "profit_factor": round(self._profit_factor(trades), 4),

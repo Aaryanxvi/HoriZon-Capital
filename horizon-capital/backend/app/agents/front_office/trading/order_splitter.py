@@ -2,17 +2,6 @@
 
 Splits large orders into smaller child orders to minimize market impact,
 scheduling them across time intervals.
-
-Research references
--------------------
-- Almgren & Chriss 2000, J. Risk (~1,610 citations) — mean-variance optimal
-  execution with permanent + temporary market impact.
-- Cartea & Jaimungal 2015, Quantitative Finance (~400 citations) — extends
-  Almgren-Chriss by modeling limit orders via jump-diffusion with Poisson
-  arrivals and market order impulse control. Adaptive mix of limit/market
-  orders saves 1-2.5x the spread vs static Almgren-Chriss.
-- Bertsimas & Lo 1998, J. Financial Markets (~1,200 citations) — dynamic
-  programming for optimal execution; first formal treatment.
 """
 
 from __future__ import annotations
@@ -65,11 +54,11 @@ class OrderSplitter:
 
     2. **VWAP** — Volume-Weighted Average Price. Shapes the schedule to match
        historical intraday volume profile, executing more during high-volume
-       periods. Ref: Berkowitz et al. 1988 — the original VWAP concept.
+       periods.
 
     3. **Almgren-Chriss optimal** — Minimizes expected cost + risk penalty.
        Front-loads execution when urgency (risk aversion) is high; distributes
-       evenly when patient. Ref: Almgren & Chriss 2000.
+       evenly when patient.
     """
 
     # Default intraday volume profile (US equities, hourly buckets 9:30-16:00)
@@ -164,11 +153,7 @@ class OrderSplitter:
         volume_profile: np.ndarray | None = None,
         start_time: datetime | None = None,
     ) -> ExecutionSchedule:
-        """Generate a VWAP schedule: shaped by intraday volume profile.
-
-        Ref: Berkowitz et al. 1988 — match execution to historical volume
-        pattern to minimize tracking error against VWAP benchmark.
-        """
+        """Generate a VWAP schedule: shaped by intraday volume profile."""
         start = start_time or datetime.now(UTC)
         profile = volume_profile if volume_profile is not None else self._DEFAULT_VOLUME_PROFILE
 
@@ -228,8 +213,8 @@ class OrderSplitter:
     ) -> ExecutionSchedule:
         """Generate an Almgren-Chriss optimal execution schedule.
 
-        Ref: Almgren & Chriss 2000 — the optimal trade trajectory minimizes
-        E[cost] + lambda * Var[cost]. Higher lambda front-loads execution.
+        The optimal trajectory minimizes E[cost] + lambda * Var[cost].
+        Higher lambda front-loads execution.
 
         The optimal trajectory is:
 

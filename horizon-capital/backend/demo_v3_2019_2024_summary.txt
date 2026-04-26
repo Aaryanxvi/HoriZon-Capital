@@ -1,0 +1,18 @@
+DEMO v3 PROFIT-MAX (2019-01-01 -> 2024-12-31)
+=========================================================
+Universe risk        : SPY, QQQ, AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, JPM, AVGO, XLE
+Defense              : TLT, GLD
+Leverage proxy       : TQQQ
+Initial capital      : $100,000.00
+Final NAV            : $703,681.90
+Total return         : +603.68%
+CAGR                 : +38.52%
+Sharpe (rf=0)        : 1.43
+Max drawdown         : -27.64%
+Trades executed      : 2575
+
+--- Benchmark: SPY buy-and-hold ---
+SPY total return     : +158.40%
+SPY CAGR             : +17.18%
+SPY Sharpe           : 0.90
+Alpha vs SPY         : +445.28%

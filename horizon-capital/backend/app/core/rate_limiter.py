@@ -2,12 +2,6 @@
 
 Prevents quota exhaustion across broker APIs, data feeds, and LLM calls
 by enforcing per-service rate limits using the token bucket algorithm.
-
-Research references
--------------------
-- Turner 1986, RFC 970 — token bucket as traffic shaping mechanism.
-- BIS 2025, "Project Rio: Fast-Paced Market Monitoring" — recommends
-  rate limiting at the API gateway level for trading systems.
 """
 
 from __future__ import annotations
