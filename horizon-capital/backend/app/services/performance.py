@@ -22,13 +22,25 @@ logger = get_logger("services.performance")
 
 # Mapping from period labels to calendar-day look-backs
 _PERIOD_DAYS: dict[str, int | None] = {
-    "1d": 1,
-    "7d": 7,
-    "30d": 30,
-    "90d": 90,
+    "1D": 1,
+    "7D": 7,
+    "30D": 30,
+    "90D": 90,
     "YTD": None,   # computed dynamically
     "ALL": None,    # no filter
 }
+
+
+def _resolve_start(period: str) -> datetime:
+    """Map a period label (case-insensitive) to its UTC start datetime."""
+    now = datetime.now(UTC)
+    p = (period or "").strip().upper()
+    if p == "YTD":
+        return datetime(now.year, 1, 1, tzinfo=UTC)
+    if p == "ALL":
+        return datetime(2000, 1, 1, tzinfo=UTC)
+    days = _PERIOD_DAYS.get(p, 30) or 30
+    return now - timedelta(days=days)
 
 
 class PerformanceService:
@@ -48,16 +60,7 @@ class PerformanceService:
             {sharpe, sortino, calmar, win_rate, profit_factor, alpha_india,
              alpha_us, max_drawdown, total_return, annualized_return, total_trades}
         """
-        now = datetime.now(UTC)
-
-        # Resolve start date
-        if period == "YTD":
-            start = datetime(now.year, 1, 1, tzinfo=UTC)
-        elif period == "ALL":
-            start = datetime(2000, 1, 1, tzinfo=UTC)
-        else:
-            days = _PERIOD_DAYS.get(period, 30)
-            start = now - timedelta(days=days)
+        start = _resolve_start(period)
 
         async with _get_session_factory()() as session:
             # Equity curve from portfolio snapshots
@@ -214,15 +217,7 @@ class PerformanceService:
 
         Suitable for charting on the frontend.
         """
-        now = datetime.now(UTC)
-
-        if period == "YTD":
-            start = datetime(now.year, 1, 1, tzinfo=UTC)
-        elif period == "ALL":
-            start = datetime(2000, 1, 1, tzinfo=UTC)
-        else:
-            days = _PERIOD_DAYS.get(period, 30)
-            start = now - timedelta(days=days)
+        start = _resolve_start(period)
 
         async with _get_session_factory()() as session:
             rows = await session.execute(

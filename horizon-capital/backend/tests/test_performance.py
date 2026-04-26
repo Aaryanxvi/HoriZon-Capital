@@ -152,3 +152,141 @@ async def test_worker_publishes_alpha_keys_service_reads(monkeypatch: pytest.Mon
     assert us is not None, "alpha_us KV key was never written"
     assert float(india) == pytest.approx(0.0123)
     assert float(us) == pytest.approx(0.0456)
+
+
+@pytest.mark.asyncio
+async def test_service_period_case_insensitive_ytd(monkeypatch: pytest.MonkeyPatch) -> None:
+    """compute_snapshot('ytd') must scope to year-start, not last 30 days."""
+    from datetime import datetime, UTC
+    captured: dict = {}
+
+    class _Result:
+        def fetchall(self):
+            return []
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def execute(self, _stmt, params):
+            captured.setdefault("starts", []).append(params["start"])
+            return _Result()
+
+    from app.services.performance import PerformanceService
+    import app.services.performance as svc
+
+    monkeypatch.setattr(svc, "_get_session_factory", lambda: lambda: _Session())
+
+    await PerformanceService.compute_snapshot("ytd")
+    assert len(captured["starts"]) > 0, "no queries executed"
+    start_date = captured["starts"][0]
+    now = datetime.now(UTC)
+    assert start_date.year == now.year, f"YTD start should be year {now.year}, got {start_date.year}"
+    assert start_date.month == 1, f"YTD start should be month 1, got {start_date.month}"
+    assert start_date.day == 1, f"YTD start should be day 1, got {start_date.day}"
+
+
+@pytest.mark.asyncio
+async def test_service_period_case_insensitive_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """compute_snapshot('all') must scope from year 2000, not last 30 days."""
+    from datetime import datetime, UTC
+    captured: dict = {}
+
+    class _Result:
+        def fetchall(self):
+            return []
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def execute(self, _stmt, params):
+            captured.setdefault("starts", []).append(params["start"])
+            return _Result()
+
+    from app.services.performance import PerformanceService
+    import app.services.performance as svc
+
+    monkeypatch.setattr(svc, "_get_session_factory", lambda: lambda: _Session())
+
+    await PerformanceService.compute_snapshot("all")
+    assert len(captured["starts"]) > 0, "no queries executed"
+    start_date = captured["starts"][0]
+    assert start_date.year == 2000, f"ALL start should be year 2000, got {start_date.year}"
+    assert start_date.month == 1, f"ALL start should be month 1, got {start_date.month}"
+    assert start_date.day == 1, f"ALL start should be day 1, got {start_date.day}"
+
+
+@pytest.mark.asyncio
+async def test_service_pnl_curve_case_insensitive_ytd(monkeypatch: pytest.MonkeyPatch) -> None:
+    """get_pnl_curve('ytd') must scope to year-start, not last 30 days."""
+    from datetime import datetime, UTC
+    captured: dict = {}
+
+    class _Result:
+        def fetchall(self):
+            return []
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def execute(self, _stmt, params):
+            captured.setdefault("starts", []).append(params["start"])
+            return _Result()
+
+    from app.services.performance import PerformanceService
+    import app.services.performance as svc
+
+    monkeypatch.setattr(svc, "_get_session_factory", lambda: lambda: _Session())
+
+    await PerformanceService.get_pnl_curve("ytd")
+    assert len(captured["starts"]) > 0, "no queries executed"
+    start_date = captured["starts"][0]
+    now = datetime.now(UTC)
+    assert start_date.year == now.year, f"YTD start should be year {now.year}, got {start_date.year}"
+    assert start_date.month == 1, f"YTD start should be month 1, got {start_date.month}"
+    assert start_date.day == 1, f"YTD start should be day 1, got {start_date.day}"
+
+
+@pytest.mark.asyncio
+async def test_service_pnl_curve_case_insensitive_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """get_pnl_curve('all') must scope from year 2000, not last 30 days."""
+    from datetime import datetime, UTC
+    captured: dict = {}
+
+    class _Result:
+        def fetchall(self):
+            return []
+
+    class _Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def execute(self, _stmt, params):
+            captured.setdefault("starts", []).append(params["start"])
+            return _Result()
+
+    from app.services.performance import PerformanceService
+    import app.services.performance as svc
+
+    monkeypatch.setattr(svc, "_get_session_factory", lambda: lambda: _Session())
+
+    await PerformanceService.get_pnl_curve("all")
+    assert len(captured["starts"]) > 0, "no queries executed"
+    start_date = captured["starts"][0]
+    assert start_date.year == 2000, f"ALL start should be year 2000, got {start_date.year}"
+    assert start_date.month == 1, f"ALL start should be month 1, got {start_date.month}"
+    assert start_date.day == 1, f"ALL start should be day 1, got {start_date.day}"
