@@ -37,7 +37,7 @@ class OrderManager:
     # Order creation
     # ------------------------------------------------------------------ #
 
-    async def create_order(self, order_data: dict) -> dict:
+    async def create_order(self, order_data: dict, *, session=None) -> dict:
         """Insert a new order row and return its representation.
 
         Parameters
@@ -45,6 +45,10 @@ class OrderManager:
         order_data:
             Must include: symbol, exchange, order_type, side, quantity, broker, mode.
             Optional: limit_price, stop_price, signal_id, debate_id.
+        session:
+            Optional caller-owned SQLAlchemy session.  When provided the method
+            does NOT commit — the caller owns the transaction boundary.  When
+            ``None`` (default) the method opens its own session and commits.
 
         Returns
         -------
@@ -54,8 +58,10 @@ class OrderManager:
         order_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
-        async with _get_session_factory()() as session:
-            await session.execute(
+        owns_session = session is None
+
+        async def _do(s):
+            await s.execute(
                 text(
                     """
                     INSERT INTO orders
@@ -84,7 +90,13 @@ class OrderManager:
                     "now": now,
                 },
             )
-            await session.commit()
+
+        if owns_session:
+            async with _get_session_factory()() as s:
+                await _do(s)
+                await s.commit()
+        else:
+            await _do(session)
 
         order = {
             **order_data,
@@ -106,12 +118,24 @@ class OrderManager:
         *,
         broker_order_id: str | None = None,
         rejection_reason: str | None = None,
+        session=None,
     ) -> bool:
         """Transition an order to a new status.
 
+        Parameters
+        ----------
+        session:
+            Optional caller-owned session.  When provided, the method does NOT
+            commit and passes the same session through to ``_get_status`` so
+            that uncommitted writes made by the caller are visible.
+
         Returns True on success, False if the transition is invalid.
         """
-        current_status = await self._get_status(order_id)
+        owns_session = session is None
+
+        # Validate the transition before opening/using the write session so we
+        # can return early without touching DB state.
+        current_status = await self._get_status(order_id, session=session)
         if current_status is None:
             logger.warning("order_not_found", order_id=order_id)
             return False
@@ -126,8 +150,9 @@ class OrderManager:
             return False
 
         now = datetime.now(UTC)
-        async with _get_session_factory()() as session:
-            await session.execute(
+
+        async def _do(s):
+            await s.execute(
                 text(
                     """
                     UPDATE orders
@@ -146,7 +171,13 @@ class OrderManager:
                     "now": now,
                 },
             )
-            await session.commit()
+
+        if owns_session:
+            async with _get_session_factory()() as s:
+                await _do(s)
+                await s.commit()
+        else:
+            await _do(session)
 
         logger.info("order_status_updated", order_id=order_id, status=new_status)
         return True
@@ -162,13 +193,24 @@ class OrderManager:
         price: float,
         commission: float = 0.0,
         slippage: float = 0.0,
+        *,
+        session=None,
     ) -> dict:
-        """Record a fill against an order and return the fill record."""
+        """Record a fill against an order and return the fill record.
+
+        Parameters
+        ----------
+        session:
+            Optional caller-owned session.  When provided, the method does NOT
+            commit.
+        """
         fill_id = str(uuid.uuid4())
         now = datetime.now(UTC)
 
-        async with _get_session_factory()() as session:
-            await session.execute(
+        owns_session = session is None
+
+        async def _do(s):
+            await s.execute(
                 text(
                     """
                     INSERT INTO fills
@@ -189,7 +231,13 @@ class OrderManager:
                     "now": now,
                 },
             )
-            await session.commit()
+
+        if owns_session:
+            async with _get_session_factory()() as s:
+                await _do(s)
+                await s.commit()
+        else:
+            await _do(session)
 
         logger.info(
             "fill_recorded",
@@ -220,6 +268,8 @@ class OrderManager:
         qty: float,
         price: float,
         stop_loss_price: float | None = None,
+        *,
+        session=None,
     ) -> None:
         """Upsert into the positions table after a fill.
 
@@ -230,15 +280,20 @@ class OrderManager:
         side:  ``BUY`` or ``SELL``.
         qty:  Filled quantity.
         price:  Fill price.
+        session:
+            Optional caller-owned session.  When provided, the method does NOT
+            commit.
         """
         now = datetime.now(UTC)
 
         # Determine currency from exchange
         currency = "INR" if exchange in ("NSE", "BSE") else "USD"
 
-        async with _get_session_factory()() as session:
+        owns_session = session is None
+
+        async def _do(s):
             # Fetch existing position
-            result = await session.execute(
+            result = await s.execute(
                 text(
                     "SELECT id, side, quantity, avg_entry_price, realized_pnl"
                     " FROM positions WHERE symbol = :sym AND exchange = :exch LIMIT 1"
@@ -250,7 +305,7 @@ class OrderManager:
             if existing is None:
                 # Create new position
                 pos_side = "LONG" if side == "BUY" else "SHORT"
-                await session.execute(
+                await s.execute(
                     text(
                         """
                         INSERT INTO positions
@@ -326,7 +381,7 @@ class OrderManager:
 
                 new_realized = old_realized + realized_delta
 
-                await session.execute(
+                await s.execute(
                     text(
                         """
                         UPDATE positions
@@ -349,7 +404,12 @@ class OrderManager:
                     },
                 )
 
-            await session.commit()
+        if owns_session:
+            async with _get_session_factory()() as s:
+                await _do(s)
+                await s.commit()
+        else:
+            await _do(session)
 
         logger.info("position_updated", symbol=symbol, side=side, qty=qty, price=price)
 
@@ -357,12 +417,27 @@ class OrderManager:
     # Internal helpers
     # ------------------------------------------------------------------ #
 
-    async def _get_status(self, order_id: str) -> str | None:
-        """Fetch the current status of an order."""
-        async with _get_session_factory()() as session:
-            result = await session.execute(
+    async def _get_status(self, order_id: str, *, session=None) -> str | None:
+        """Fetch the current status of an order.
+
+        Parameters
+        ----------
+        session:
+            Optional caller-owned session.  When provided the read uses the
+            caller's transaction so uncommitted writes are visible.
+        """
+        owns_session = session is None
+
+        async def _do(s):
+            result = await s.execute(
                 text("SELECT status FROM orders WHERE id = :id"),
                 {"id": order_id},
             )
             row = result.fetchone()
-        return row.status if row else None
+            return row.status if row else None
+
+        if owns_session:
+            async with _get_session_factory()() as s:
+                return await _do(s)
+        else:
+            return await _do(session)

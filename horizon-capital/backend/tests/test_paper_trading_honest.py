@@ -103,3 +103,38 @@ async def test_adjust_cash_inserts_when_row_missing():
     async with local_session_factory() as session:
         amount = await get_cash(session, "INR")
     assert amount == pytest.approx(999.0)
+
+
+@pytest.mark.asyncio
+async def test_order_manager_uses_shared_session():
+    """When given a session, OrderManager must not commit; rollback undoes all writes."""
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.order_manager import OrderManager
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    await init_local_db()
+    om = OrderManager()
+
+    async with local_session_factory() as session:
+        order = await om.create_order(
+            {
+                "symbol": "AAPL",
+                "exchange": "",
+                "order_type": "MARKET",
+                "side": "BUY",
+                "quantity": 10,
+                "broker": "PAPER",
+                "mode": "PAPER_TRADING",
+            },
+            session=session,
+        )
+        await session.rollback()
+
+    async with local_session_factory() as session:
+        result = await session.execute(
+            text("SELECT 1 FROM orders WHERE id = :id"),
+            {"id": order["id"]},
+        )
+        row = result.fetchone()
+    assert row is None, "rolled-back order should not persist"
