@@ -177,7 +177,9 @@ class ReportGenerator:
             n_days = max(len(values), 1)
             annual_ret = (1 + total_ret) ** (252 / n_days) - 1
 
-            daily_rf = (1.05) ** (1 / 252) - 1
+            from app.config import settings
+            rf = settings.risk_free_rate
+            daily_rf = (1.0 + rf) ** (1 / 252) - 1
             excess = returns - daily_rf
             vol = float(np.std(returns, ddof=1)) if len(returns) >= 2 else 0.0
 

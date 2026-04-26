@@ -79,7 +79,7 @@ class PortfolioAgent(BaseAgent):
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.risk.approved.*", self.on_message)
         await self.bus.subscribe("horizon.debate.*", self.on_message)
-
+        await self.bus.subscribe("horizon.execution.order.fill", self.on_message)
     # ------------------------------------------------------------------ #
     # Main loop -- snapshot every 60 seconds
     # ------------------------------------------------------------------ #
@@ -102,6 +102,11 @@ class PortfolioAgent(BaseAgent):
             await self._handle_signal(message.payload)
         elif message.message_type == MessageType.DEBATE_CONCLUSION:
             await self._handle_debate_conclusion(message.payload)
+        elif message.message_type == MessageType.ORDER_FILL:
+            try:
+                await self._update_snapshot()
+            except Exception as exc:
+                logger.error("snapshot_on_fill_error", error=str(exc))
 
     async def _handle_signal(self, payload: dict) -> None:
         """Buffer or immediately process a risk-approved signal depending on mode."""
@@ -187,11 +192,12 @@ class PortfolioAgent(BaseAgent):
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         exchange = payload.get("exchange", "")
-        strength = float(payload.get("strength", 1.0) or 1.0)
 
         try:
+            target_weight = float(payload.get("target_weight", 0.0) or 0.0)
             sizing = await self._compute_position_size(
-                symbol, direction, exchange, strength=strength
+                symbol, direction, exchange,
+                target_weight=target_weight,
             )
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
@@ -230,11 +236,12 @@ class PortfolioAgent(BaseAgent):
         symbol = payload.get("symbol", "")
         direction = payload.get("direction", 0)
         exchange = payload.get("exchange", "")
-        strength = float(payload.get("strength", 1.0) or 1.0)
 
         try:
+            target_weight = float(payload.get("target_weight", 0.0) or 0.0)
             sizing = await self._compute_position_size(
-                symbol, direction, exchange, strength=strength
+                symbol, direction, exchange,
+                target_weight=target_weight,
             )
         except Exception as exc:
             logger.error("sizing_error", symbol=symbol, error=str(exc))
@@ -293,23 +300,20 @@ class PortfolioAgent(BaseAgent):
         symbol: str,
         direction: int,
         exchange: str,
-        strength: float = 1.0,
+        target_weight: float = 0.0,
     ) -> dict:
-        """Determine how many shares/units to trade.
+        """Size to reach the sleeve's target portfolio weight.
 
-        Allocation is done in the INSTRUMENT's native currency (INR for NSE/BSE,
-        USD for US/crypto). Price stored in KV is also native — so
-        `qty = native_allocation / native_price` is dimensionally correct.
-
-        For BUY: equal-weight against target num_positions, capped by native cash.
-        For SELL: partial exit scaled by signal strength (was full dump).
+        Reads current holding for the symbol. Computes the dollar delta
+        required to bring weight to `target_weight * NAV`. Translates to
+        native-currency quantity. Always emits the delta order; the strategy
+        layer is responsible for not re-emitting if drift is below threshold.
         """
         positions = await self._load_positions()
         cash_usd, cash_inr = await self._load_cash()
         nav_usd = await self.currency.compute_unified_nav(
             cash_usd, cash_inr, positions,
         )
-
         if nav_usd <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
 
@@ -320,48 +324,63 @@ class PortfolioAgent(BaseAgent):
         is_inr = exchange in ("NSE", "BSE")
         is_crypto = exchange == "CRYPTO"
 
-        # Partial-exit SELL: reduce position proportional to signal strength.
+        # Cap target weight by configured per-position limit
+        pct_cap = settings.risk_max_position_pct / 100.0
+        target_weight = min(max(target_weight, 0.0), pct_cap, 0.25)
+
+        target_value_usd = nav_usd * target_weight
+
+        # Find current position value in USD
+        held_qty = 0.0
+        held_value_usd = 0.0
+        for p in positions:
+            if p.get("symbol") == symbol:
+                held_qty = float(p.get("quantity", 0.0))
+                mark = float(p.get("current_price", 0.0)) or price
+                val = abs(mark * held_qty)
+                if p.get("currency") == "INR":
+                    rate = await self.currency.get_usd_inr_rate()
+                    if rate > 0:
+                        val = val / rate
+                held_value_usd = val
+                break
+
+        delta_usd = target_value_usd - held_value_usd
         if direction < 0:
-            held = 0.0
-            for p in positions:
-                if p.get("symbol") == symbol:
-                    held = p.get("quantity", 0.0)
-                    break
-            if held <= 0:
+            # SELL: only honor if delta_usd is negative (we want less). Compute
+            # quantity to sell to reach target.
+            if delta_usd >= 0 or held_qty <= 0:
                 return {"quantity": 0.0, "allocation_usd": 0.0}
-
-            # Strength in [0,1] -> exit fraction in [0.25, 1.0]. Weak signals trim.
-            exit_frac = max(0.25, min(1.0, strength))
-            sell_qty = held * exit_frac
+            qty_to_sell_usd = -delta_usd
+            # Translate USD to native
+            if is_inr:
+                rate = await self.currency.get_usd_inr_rate()
+                if rate <= 0:
+                    return {"quantity": 0.0, "allocation_usd": 0.0}
+                native_value = qty_to_sell_usd * rate
+            else:
+                native_value = qty_to_sell_usd
+            qty = native_value / price
             if not is_crypto:
-                sell_qty = float(int(sell_qty))
-            if sell_qty <= 0:
+                qty = float(int(qty))
+            qty = min(qty, held_qty)
+            if qty <= 0:
                 return {"quantity": 0.0, "allocation_usd": 0.0}
-            return {
-                "quantity": sell_qty,
-                "allocation_usd": sell_qty * price,
-            }
+            return {"quantity": qty, "allocation_usd": qty * price if not is_inr
+                    else qty * price / await self.currency.get_usd_inr_rate()}
 
-        # BUY: equal-weight against a target number of positions (stable).
-        # Cap by both risk_max_position_pct and 25% of NAV as absolute ceiling
-        # to avoid concentrating when the universe is tiny.
-        target_n = max(10, len(positions) + 1)
-        target_usd = nav_usd / target_n
-        target_pct_cap = settings.risk_max_position_pct / 100.0
-        target_usd = min(target_usd, nav_usd * target_pct_cap, nav_usd * 0.25)
+        # BUY: only if delta_usd > 0
+        if delta_usd <= 0:
+            return {"quantity": 0.0, "allocation_usd": 0.0}
 
-        # Scale by signal strength — weak signals buy smaller.
-        target_usd *= max(0.25, min(1.0, strength))
-
-        # Translate USD target -> native-currency allocation.
         if is_inr:
-            usd_inr = await self.currency.get_usd_inr_rate()
-            if usd_inr <= 0:
+            rate = await self.currency.get_usd_inr_rate()
+            if rate <= 0:
                 return {"quantity": 0.0, "allocation_usd": 0.0}
-            native_target = target_usd * usd_inr
+            native_target = delta_usd * rate
             native_cash = cash_inr
         else:
-            native_target = target_usd
+            native_target = delta_usd
             native_cash = cash_usd
 
         if native_cash <= 0:
@@ -370,14 +389,15 @@ class PortfolioAgent(BaseAgent):
 
         native_alloc = min(native_target, native_cash * 0.9)
         qty = native_alloc / price
-
         if not is_crypto:
             qty = float(int(qty))
-
         if qty <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
-
-        alloc_usd = (qty * price / usd_inr) if is_inr else (qty * price)
+        if is_inr:
+            rate = await self.currency.get_usd_inr_rate()
+            alloc_usd = qty * price / rate if rate > 0 else 0.0
+        else:
+            alloc_usd = qty * price
         return {"quantity": qty, "allocation_usd": alloc_usd}
 
     # ------------------------------------------------------------------ #

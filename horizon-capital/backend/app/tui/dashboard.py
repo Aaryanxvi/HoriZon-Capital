@@ -618,3 +618,17 @@ class TerminalDashboard:
     def stop(self) -> None:
         """Signal the dashboard to stop."""
         self._running = False
+
+    # -- Public accessors (for CIO chat and other consumers) -------------
+
+    def get_risk_snapshot(self) -> dict[str, Any]:
+        """Return a copy of the latest risk metrics."""
+        return dict(self._risk)
+
+    def get_portfolio_snapshot(self) -> dict[str, Any]:
+        """Return a copy of the latest portfolio summary."""
+        return dict(self._portfolio)
+
+    def get_recent_signals(self, limit: int = 5) -> list[dict[str, Any]]:
+        """Return a copy of recent signals (most recent first)."""
+        return list(self._signals[:limit])

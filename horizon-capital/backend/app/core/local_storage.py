@@ -90,6 +90,15 @@ def _create_tables(conn) -> None:  # noqa: ANN001
         )
     """))
 
+    # --- Cash balances (source of truth; KV is mirror only) ---
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS cash_balances (
+            currency TEXT PRIMARY KEY,
+            amount REAL NOT NULL DEFAULT 0.0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """))
+
     # --- Core agent infrastructure ---
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS agent_states (

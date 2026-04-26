@@ -123,14 +123,14 @@ class CIOChat:
                 )
 
         if self._dashboard:
-            if self._dashboard._risk:
-                r = self._dashboard._risk
+            r = self._dashboard.get_risk_snapshot()
+            if r:
                 parts.append(
                     f"Risk: VaR95={r.get('var_95', 0):.4f}, "
                     f"Drawdown={r.get('current_drawdown', 0):.2f}%"
                 )
-            if self._dashboard._portfolio:
-                p = self._dashboard._portfolio
+            p = self._dashboard.get_portfolio_snapshot()
+            if p:
                 parts.append(f"Portfolio: NAV=${p.get('nav', 0):,.2f}")
 
         return "\n".join(parts) if parts else "No system data available yet."
@@ -164,9 +164,11 @@ class CIOChat:
         return "\n".join(lines)
 
     def _format_risk(self) -> str:
-        if not self._dashboard or not self._dashboard._risk:
+        if not self._dashboard:
             return "No risk data available yet."
-        r = self._dashboard._risk
+        r = self._dashboard.get_risk_snapshot()
+        if not r:
+            return "No risk data available yet."
         return (
             f"Risk Metrics:\n"
             f"  VaR (95%):     {r.get('var_95', 0):.4f}\n"
@@ -177,10 +179,13 @@ class CIOChat:
         )
 
     def _format_signals(self) -> str:
-        if not self._dashboard or not self._dashboard._signals:
+        if not self._dashboard:
+            return "No signals available yet."
+        signals = self._dashboard.get_recent_signals(limit=5)
+        if not signals:
             return "No signals available yet."
         lines = ["Recent Signals:"]
-        for sig in self._dashboard._signals[:5]:
+        for sig in signals:
             symbol = sig.get("symbol", "?")
             direction = sig.get("direction", 0)
             d = "BUY" if direction > 0 else "SELL" if direction < 0 else "HOLD"
@@ -190,7 +195,7 @@ class CIOChat:
     def _format_portfolio(self) -> str:
         if not self._dashboard:
             return "Dashboard not available."
-        p = self._dashboard._portfolio
+        p = self._dashboard.get_portfolio_snapshot()
         return (
             f"Portfolio:\n"
             f"  NAV:       ${p.get('nav', 0):,.2f}\n"

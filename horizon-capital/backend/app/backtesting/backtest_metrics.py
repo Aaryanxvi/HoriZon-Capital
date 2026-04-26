@@ -15,14 +15,20 @@ class BacktestMetrics:
     @staticmethod
     def sharpe_ratio(
         returns: list[float] | np.ndarray,
-        risk_free: float = 0.05,
+        risk_free: float | None = None,
     ) -> float:
-        """Annualized Sharpe ratio (assumes daily returns)."""
+        """Annualized Sharpe ratio (assumes daily returns).
+
+        risk_free defaults to settings.risk_free_rate so backtest and live agree.
+        """
+        from app.config import settings
+
+        rf = settings.risk_free_rate if risk_free is None else risk_free
         ret = np.asarray(returns, dtype=np.float64)
         ret = ret[~np.isnan(ret)]
         if len(ret) < 2 or np.std(ret, ddof=1) == 0:
             return 0.0
-        daily_rf = (1 + risk_free) ** (1 / 252) - 1
+        daily_rf = (1 + rf) ** (1 / 252) - 1
         excess = ret - daily_rf
         return float(np.mean(excess) / np.std(excess, ddof=1) * np.sqrt(252))
 

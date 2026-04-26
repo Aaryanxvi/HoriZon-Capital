@@ -12,6 +12,7 @@ import asyncio
 import json
 import time
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 
 from app.agents.base_agent import BaseAgent
@@ -25,6 +26,7 @@ CIO_ADVISORY_INTERVAL = 900  # 15 minutes
 CIO_OVERRIDE_CONFIDENCE_THRESHOLD = 0.85
 CIO_CIRCUIT_BREAKER_FAILURES = 3
 CIO_CIRCUIT_BREAKER_COOLDOWN = 300  # 5 minutes
+CIO_LLM_TIMEOUT_S = 60  # seconds before LLM call is abandoned
 
 
 def _get_session_factory():
@@ -45,7 +47,10 @@ Analyze the portfolio digest below and produce a strategic advisory in JSON form
 Return ONLY valid JSON with these fields:
 - "outlook": one of "bullish", "neutral", "bearish"
 - "summary": 1-3 sentence assessment of current portfolio state
-- "recommended_adjustments": list of strings (specific actions, or empty list)
+- "recommended_adjustments": list of objects with keys:
+    "symbol" (string, e.g. "AAPL" or "PORTFOLIO"),
+    "action" (string, e.g. "TRIM", "ADD", "EXIT", "HOLD"),
+    "reason" (string, 1 sentence). Empty list if no changes.
 - "risk_flags": list of strings (concerns to watch, or empty list)
 
 Portfolio digest:
@@ -83,7 +88,7 @@ class CIOAgent(BaseAgent):
             agent_type="cio",
             bus=bus,
         )
-        self._alerts: list[dict] = []
+        self._alerts: deque[dict] = deque(maxlen=256)
         self._kill_switch_active: bool = False
         self._pending_halt_confirmation: bool = False
         self._last_override: dict | None = None
@@ -92,13 +97,15 @@ class CIOAgent(BaseAgent):
         self._llm_failures: int = 0
         self._llm_circuit_open_until: float = 0
 
+        # Tracked background persistence tasks (prevents GC before completion)
+        self._persist_tasks: set[asyncio.Task] = set()
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.risk.*", self.on_message)
-        await self.bus.subscribe("horizon.settings.*", self.on_message)
 
     async def on_message(self, message: AgentMessage) -> None:
         if message.message_type == MessageType.RISK_ALERT:
@@ -106,31 +113,37 @@ class CIOAgent(BaseAgent):
             severity = message.payload.get("severity", "")
             action = message.payload.get("action", "")
 
-            if action == "KILL_SWITCH_TRIGGERED":
+            if action == "KILL_SWITCH_CLEARED":
+                self._kill_switch_active = False
+                logger.info("cio_kill_switch_cleared")
+                return
+            elif action == "KILL_SWITCH_TRIGGERED":
                 self._kill_switch_active = True
                 logger.warning("cio_kill_switch_activated")
-                await self._run_mode_b(message.payload, trigger="KILL_SWITCH")
-            elif severity in ("HIGH", "CRITICAL"):
-                await self._run_mode_b(message.payload, trigger="RISK_ALERT")
+                trigger: str | None = "KILL_SWITCH"
+            elif severity in ("HIGH", "CRITICAL", "EMERGENCY"):
+                trigger = "RISK_ALERT"
+            else:
+                trigger = None
 
-        elif message.message_type == MessageType.SETTINGS_UPDATED:
-            logger.info("cio_settings_updated", payload=message.payload)
+            if trigger is not None:
+                task = asyncio.create_task(
+                    self._run_mode_b(message.payload, trigger=trigger)
+                )
+                self._persist_tasks.add(task)
+                task.add_done_callback(self._persist_tasks.discard)
 
     async def run(self) -> None:
         """Mode A loop: publish strategic advisory every CIO_ADVISORY_INTERVAL.
 
-        Runs the first advisory after a short delay (30s) so the dashboard
-        populates quickly, then switches to the normal 15-minute cadence.
+        Initial 30s delay gives data workers time to populate prices.
         """
-        await asyncio.sleep(30)  # Let data workers populate prices first
-        first_run = True
+        await asyncio.sleep(30)
         while self._running:
             try:
                 await self._run_mode_a()
             except Exception as exc:
                 logger.error("cio_mode_a_error", error=str(exc))
-            if first_run:
-                first_run = False
             await asyncio.sleep(CIO_ADVISORY_INTERVAL)
 
     # ------------------------------------------------------------------
@@ -146,14 +159,21 @@ class CIOAgent(BaseAgent):
         digest = await self._build_portfolio_digest()
 
         try:
-            raw = await provider.complete(
-                system_prompt=MODE_A_SYSTEM_PROMPT.format(
-                    digest=json.dumps(digest, default=str),
+            raw = await asyncio.wait_for(
+                provider.complete(
+                    system_prompt=MODE_A_SYSTEM_PROMPT.format(
+                        digest=json.dumps(digest, default=str),
+                    ),
+                    messages=[{"role": "user", "content": "Produce your advisory now."}],
+                    temperature=0.4,
                 ),
-                messages=[{"role": "user", "content": "Produce your advisory now."}],
-                temperature=0.4,
+                timeout=CIO_LLM_TIMEOUT_S,
             )
             self._reset_circuit_breaker()
+        except TimeoutError:
+            logger.error("cio_mode_a_llm_timeout", timeout_s=CIO_LLM_TIMEOUT_S)
+            self._record_failure()
+            return
         except Exception as exc:
             logger.error("cio_mode_a_llm_error", error=str(exc))
             self._record_failure()
@@ -200,17 +220,26 @@ class CIOAgent(BaseAgent):
 
         digest = await self._build_portfolio_digest()
 
+        rendered_prompt = MODE_B_SYSTEM_PROMPT.format(
+            trigger=trigger,
+            payload=json.dumps(trigger_payload, default=str),
+            digest=json.dumps(digest, default=str),
+        )
+
         try:
-            raw = await provider.complete(
-                system_prompt=MODE_B_SYSTEM_PROMPT.format(
-                    trigger=trigger,
-                    payload=json.dumps(trigger_payload, default=str),
-                    digest=json.dumps(digest, default=str),
+            raw = await asyncio.wait_for(
+                provider.complete(
+                    system_prompt=rendered_prompt,
+                    messages=[{"role": "user", "content": "Assess and respond now."}],
+                    temperature=0.2,
                 ),
-                messages=[{"role": "user", "content": "Assess and respond now."}],
-                temperature=0.2,
+                timeout=CIO_LLM_TIMEOUT_S,
             )
             self._reset_circuit_breaker()
+        except TimeoutError:
+            logger.error("cio_mode_b_llm_timeout", timeout_s=CIO_LLM_TIMEOUT_S)
+            self._record_failure()
+            return
         except Exception as exc:
             logger.error("cio_mode_b_llm_error", error=str(exc))
             self._record_failure()
@@ -265,13 +294,21 @@ class CIOAgent(BaseAgent):
             and stance == "HALT"
             and confidence >= CIO_OVERRIDE_CONFIDENCE_THRESHOLD
         ):
-            await self._run_mode_c(crisis, trigger_payload, provider)
+            await self._run_mode_c(crisis, trigger_payload, provider,
+                                   rendered_prompt=rendered_prompt, raw_response=raw)
 
     # ------------------------------------------------------------------
     # Mode C: Override Directive
     # ------------------------------------------------------------------
 
-    async def _run_mode_c(self, crisis_result: dict, trigger_payload: dict, provider) -> None:
+    async def _run_mode_c(
+        self,
+        crisis_result: dict,
+        trigger_payload: dict,
+        provider,
+        rendered_prompt: str = "",
+        raw_response: str = "",
+    ) -> None:
         """Publish a CIO override directive — last-resort halt command."""
         override_id = str(uuid.uuid4())
         now = datetime.now(UTC)
@@ -298,7 +335,8 @@ class CIOAgent(BaseAgent):
         )
         await self.bus.publish(msg)
 
-        self._persist_override_sync(audit, crisis_result, trigger_payload, provider.provider_name)
+        self._persist_override_sync(audit, crisis_result, trigger_payload, provider.provider_name,
+                                    rendered_prompt=rendered_prompt, raw_response=raw_response)
 
         logger.critical(
             "cio_override_issued",
@@ -355,21 +393,15 @@ class CIOAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _build_portfolio_digest(self) -> dict:
-        """Gather portfolio state from KV store and DB for LLM context."""
+        """Gather portfolio state from KV and DB for LLM context."""
         digest: dict = {}
         try:
             from app.core.kv_store import get_kv_store
 
             kv = get_kv_store()
-            nav = await kv.get("portfolio:nav")
+            nav = await kv.get("horizon:portfolio:nav")
             if nav is not None:
                 digest["nav"] = nav
-            positions = await kv.get("portfolio:positions")
-            if positions is not None:
-                digest["positions"] = positions
-            regime = await kv.get("market:regime")
-            if regime is not None:
-                digest["regime"] = regime
         except Exception as exc:
             logger.debug("cio_digest_kv_error", error=str(exc))
 
@@ -391,47 +423,54 @@ class CIOAgent(BaseAgent):
     # JSON parsing
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _salvage_json(raw: str) -> dict | None:
+        """Parse JSON from LLM output, tolerating fences and prose preambles."""
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        first = text.find("{")
+        last = text.rfind("}")
+        if first == -1 or last == -1 or last <= first:
+            return None
+        try:
+            return json.loads(text[first:last + 1])
+        except json.JSONDecodeError:
+            return None
+
     def _parse_advisory(self, raw: str) -> dict | None:
         """Parse Mode A advisory JSON from LLM response."""
-        try:
-            # Handle markdown code fences
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-                if text.endswith("```"):
-                    text = text[:-3]
-                text = text.strip()
-            return json.loads(text)
-        except (json.JSONDecodeError, IndexError) as exc:
-            logger.error("cio_advisory_parse_error", error=str(exc), raw=raw[:200])
-            return None
+        result = self._salvage_json(raw)
+        if result is None:
+            logger.error("cio_advisory_parse_error", raw=raw[:200])
+        return result
 
     def _parse_crisis_response(self, raw: str) -> dict | None:
         """Parse Mode B crisis JSON from LLM response."""
-        try:
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-                if text.endswith("```"):
-                    text = text[:-3]
-                text = text.strip()
-            return json.loads(text)
-        except (json.JSONDecodeError, IndexError) as exc:
-            logger.error("cio_crisis_parse_error", error=str(exc), raw=raw[:200])
-            return None
+        result = self._salvage_json(raw)
+        if result is None:
+            logger.error("cio_crisis_parse_error", raw=raw[:200])
+        return result
 
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
     def _persist_advisory_sync(self, data: dict, provider: str, trigger: str) -> None:
-        """Persist advisory to cio_advisories table (fire-and-forget)."""
+        """Schedule advisory persistence as a tracked background task."""
         try:
-            asyncio.get_event_loop().create_task(
-                self._persist_advisory(data, provider, trigger)
-            )
+            task = asyncio.create_task(self._persist_advisory(data, provider, trigger))
         except RuntimeError:
-            pass
+            return
+        self._persist_tasks.add(task)
+        task.add_done_callback(self._persist_tasks.discard)
 
     async def _persist_advisory(self, data: dict, provider: str, trigger: str) -> None:
         """Write advisory to the cio_advisories table."""
@@ -469,18 +508,33 @@ class CIOAgent(BaseAgent):
             logger.error("cio_persist_advisory_error", error=str(exc))
 
     def _persist_override_sync(
-        self, audit: dict, crisis: dict, trigger_payload: dict, provider: str
+        self,
+        audit: dict,
+        crisis: dict,
+        trigger_payload: dict,
+        provider: str,
+        rendered_prompt: str = "",
+        raw_response: str = "",
     ) -> None:
-        """Persist override to cio_overrides table (fire-and-forget)."""
+        """Schedule override persistence as a tracked background task."""
         try:
-            asyncio.get_event_loop().create_task(
-                self._persist_override(audit, crisis, trigger_payload, provider)
+            task = asyncio.create_task(
+                self._persist_override(audit, crisis, trigger_payload, provider,
+                                       rendered_prompt, raw_response)
             )
         except RuntimeError:
-            pass
+            return
+        self._persist_tasks.add(task)
+        task.add_done_callback(self._persist_tasks.discard)
 
     async def _persist_override(
-        self, audit: dict, crisis: dict, trigger_payload: dict, provider: str
+        self,
+        audit: dict,
+        crisis: dict,
+        trigger_payload: dict,
+        provider: str,
+        rendered_prompt: str = "",
+        raw_response: str = "",
     ) -> None:
         """Write override to the cio_overrides table."""
         try:
@@ -506,9 +560,12 @@ class CIOAgent(BaseAgent):
                         "trigger": audit.get("trigger", "UNKNOWN"),
                         "confidence": audit.get("confidence", 0.0),
                         "actions": json.dumps(audit.get("actions", [])),
-                        "prompt": json.dumps(trigger_payload, default=str),
-                        "response": json.dumps(crisis, default=str),
-                        "snapshot": json.dumps({}),
+                        "prompt": rendered_prompt,
+                        "response": raw_response,
+                        "snapshot": json.dumps(
+                            {"trigger_payload": trigger_payload, "parsed_response": crisis},
+                            default=str,
+                        ),
                         "provider": provider,
                     },
                 )
@@ -524,7 +581,23 @@ class CIOAgent(BaseAgent):
         """Return the most recent override audit trail (for 'cio why' command)."""
         return self._last_override
 
-    def set_halt_confirmed(self) -> None:
-        """Acknowledge a pending halt (for 'cio confirm halt' command)."""
+    async def set_halt_confirmed(self) -> None:
+        """Acknowledge pending halt; broadcast CIO_OVERRIDE HALT to ExecutionAgent."""
         self._pending_halt_confirmation = False
-        logger.info("cio_halt_confirmed")
+
+        override_id = str(uuid.uuid4())
+        msg = AgentMessage(
+            sender_id=self.agent_id,
+            channel="horizon.executive.cio",
+            message_type=MessageType.CIO_OVERRIDE,
+            payload={
+                "override_id": override_id,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "trigger": "MANUAL_CONFIRM",
+                "actions": ["HALT"],
+                "confidence": 1.0,
+                "reasoning": "Manual confirmation by operator.",
+            },
+        )
+        await self.bus.publish(msg)
+        logger.info("cio_halt_confirmed", override_id=override_id)

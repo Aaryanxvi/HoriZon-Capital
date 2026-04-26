@@ -3,7 +3,7 @@
 import secrets
 from enum import StrEnum
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -182,6 +182,14 @@ class Settings(BaseSettings):
     risk_var_limit_pct: float = 3.0
     risk_daily_loss_limit_pct: float = 5.0
     risk_max_orders_per_minute: int = 10
+    risk_free_rate: float = Field(
+        default=0.0,
+        description=(
+            "Annualised risk-free rate used for Sharpe / Sortino. "
+            "Single source of truth across worker, service, backtest, quant. "
+            "Default 0 so backtest and live numbers agree without surprises."
+        ),
+    )
 
     # Trading universe — US equities only for now.
     # Leave india_symbols and crypto_symbols empty to disable those markets.

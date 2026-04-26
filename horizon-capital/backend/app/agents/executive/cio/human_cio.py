@@ -46,5 +46,15 @@ class HumanCIO:
         return self._orchestrator.get_department_statuses()
 
     def get_pending_approvals(self) -> list[dict[str, Any]]:
-        """Return list of items awaiting CIO approval."""
-        return []
+        """Return orders awaiting human CIO approval.
+
+        Reads ExecutionAgent._pending_approval through the orchestrator.
+        Returns empty list if execution is not running.
+        """
+        if not self._orchestrator:
+            return []
+        agent = getattr(self._orchestrator, "get_agent", lambda _id: None)("execution-agent")
+        if agent is None:
+            return []
+        pending = getattr(agent, "_pending_approval", {}) or {}
+        return list(pending.values())

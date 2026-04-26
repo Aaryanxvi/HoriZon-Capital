@@ -13,11 +13,20 @@ import numpy as np
 from scipy.stats import norm
 
 
-def sharpe_ratio(returns: Sequence[float], periods_per_year: int = 252) -> float:
+def sharpe_ratio(
+    returns: Sequence[float],
+    periods_per_year: int = 252,
+    risk_free: float | None = None,
+) -> float:
+    from app.config import settings
+
+    rf = settings.risk_free_rate if risk_free is None else risk_free
     r = np.asarray(returns, dtype=float)
     if r.size < 2 or r.std(ddof=1) == 0:
         return 0.0
-    return float(r.mean() / r.std(ddof=1) * math.sqrt(periods_per_year))
+    daily_rf = (1 + rf) ** (1 / periods_per_year) - 1
+    excess = r - daily_rf
+    return float(excess.mean() / excess.std(ddof=1) * math.sqrt(periods_per_year))
 
 
 def probabilistic_sharpe_ratio(
