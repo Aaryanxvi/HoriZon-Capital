@@ -226,3 +226,60 @@ async def test_update_position_shared_session_rolls_back():
             {"sym": "ROLLBACK_TEST"},
         )
     assert result.fetchone() is None, "rolled-back position should not persist"
+
+
+@pytest.mark.asyncio
+async def test_two_concurrent_buys_cash_correct():
+    """Two parallel BUY fills must deduct exactly cost_a + cost_b from cash, no race."""
+    import asyncio as _asyncio
+
+    from sqlalchemy import text
+
+    from app.agents.front_office.trading.execution_agent import ExecutionAgent
+    from app.core.cash import get_cash, set_cash
+    from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db, local_session_factory
+    from app.core.memory_bus import MemoryBus
+
+    await init_local_db()
+    async with local_session_factory() as s:
+        await s.execute(text("DELETE FROM positions"))
+        await s.execute(text("DELETE FROM orders"))
+        await s.execute(text("DELETE FROM fills"))
+        await set_cash(s, "USD", 1_000_000.0)
+        await s.commit()
+
+    kv = get_kv_store()
+    await kv.set("horizon:price:AAPL", "150.0")
+    await kv.set("horizon:price:MSFT", "300.0")
+
+    bus = MemoryBus()
+    agent = ExecutionAgent(bus)
+
+    order_a = await agent.order_manager.create_order({
+        "symbol": "AAPL", "exchange": "", "order_type": "MARKET",
+        "side": "BUY", "quantity": 100, "broker": "PAPER",
+        "mode": "PAPER_TRADING",
+    })
+    order_b = await agent.order_manager.create_order({
+        "symbol": "MSFT", "exchange": "", "order_type": "MARKET",
+        "side": "BUY", "quantity": 50, "broker": "PAPER",
+        "mode": "PAPER_TRADING",
+    })
+
+    await _asyncio.gather(
+        agent._execute_order(order_a),
+        agent._execute_order(order_b),
+    )
+
+    async with local_session_factory() as s:
+        cash = await get_cash(s, "USD")
+
+    expected_max = 1_000_000.0 - (100 * 150 + 50 * 300)  # 985_000 ignoring slippage
+    assert cash <= expected_max, (
+        f"cash {cash} not deducted enough — race likely (expected <= {expected_max})"
+    )
+    # Allow up to 3% headroom for impact + commission + Gaussian noise.
+    assert cash >= expected_max * 0.97, (
+        f"cash {cash} deducted too much (expected >= {expected_max * 0.97})"
+    )
