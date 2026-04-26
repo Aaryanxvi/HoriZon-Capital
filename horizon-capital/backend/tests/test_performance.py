@@ -76,3 +76,15 @@ def test_backtest_sharpe_default_matches_config(monkeypatch: pytest.MonkeyPatch)
     s_default = BacktestMetrics.sharpe_ratio(daily)
     s_explicit_zero = BacktestMetrics.sharpe_ratio(daily, risk_free=0.0)
     assert abs(s_default - s_explicit_zero) < 1e-9
+
+
+def test_backtest_sharpe_reads_nonzero_config_rf(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BacktestMetrics.sharpe_ratio must subtract a non-zero settings.risk_free_rate."""
+    from app.backtesting.backtest_metrics import BacktestMetrics
+
+    monkeypatch.setattr(settings, "risk_free_rate", 0.05)
+    daily_rf = (1.05) ** (1 / 252) - 1
+    daily = np.array([daily_rf] * 252, dtype=np.float64)
+    sharpe = BacktestMetrics.sharpe_ratio(daily)
+    # All returns equal daily_rf -> excess all zero -> guard returns 0.0
+    assert sharpe == 0.0, f"expected 0 Sharpe (uniform returns at rf), got {sharpe}"
