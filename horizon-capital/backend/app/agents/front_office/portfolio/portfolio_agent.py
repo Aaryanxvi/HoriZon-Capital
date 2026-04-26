@@ -79,7 +79,7 @@ class PortfolioAgent(BaseAgent):
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.risk.approved.*", self.on_message)
         await self.bus.subscribe("horizon.debate.*", self.on_message)
-
+        await self.bus.subscribe("horizon.execution.order.fill", self.on_message)
     # ------------------------------------------------------------------ #
     # Main loop -- snapshot every 60 seconds
     # ------------------------------------------------------------------ #
@@ -102,6 +102,11 @@ class PortfolioAgent(BaseAgent):
             await self._handle_signal(message.payload)
         elif message.message_type == MessageType.DEBATE_CONCLUSION:
             await self._handle_debate_conclusion(message.payload)
+        elif message.message_type == MessageType.ORDER_FILL:
+            try:
+                await self._update_snapshot()
+            except Exception as exc:
+                logger.error("snapshot_on_fill_error", error=str(exc))
 
     async def _handle_signal(self, payload: dict) -> None:
         """Buffer or immediately process a risk-approved signal depending on mode."""

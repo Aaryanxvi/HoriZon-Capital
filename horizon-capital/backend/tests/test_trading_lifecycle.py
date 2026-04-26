@@ -103,3 +103,28 @@ async def test_sizer_targets_weight_not_fixed_slot(monkeypatch, runtime):
         f"Expected 150 shares for 15% target, got {sizing['quantity']}"
     )
     assert sizing["allocation_usd"] == pytest.approx(15000.0, abs=1.0)
+
+
+@pytest.mark.asyncio
+async def test_portfolio_recomputes_nav_on_order_fill(monkeypatch, runtime):
+    from app.agents.front_office.portfolio.portfolio_agent import PortfolioAgent
+
+    bus = MemoryBus()
+    await bus.start_listening()
+    agent = PortfolioAgent(bus=bus)
+    await agent._subscribe()
+
+    called = {"count": 0}
+    async def fake_snapshot():
+        called["count"] += 1
+    monkeypatch.setattr(agent, "_update_snapshot", fake_snapshot)
+
+    await bus.publish(AgentMessage(
+        sender_id="exec", channel="horizon.execution.order.fill",
+        message_type=MessageType.ORDER_FILL,
+        payload={"order_id": "x", "symbol": "AAPL", "side": "BUY",
+                 "filled_qty": 10, "fill_price": 100.0},
+    ))
+    await asyncio.sleep(0.3)
+    assert called["count"] == 1
+    await bus.stop()
