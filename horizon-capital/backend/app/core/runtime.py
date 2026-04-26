@@ -80,24 +80,40 @@ async def startup(*, headless: bool = False) -> None:
         await init_local_db()
         logger.info("local_sqlite_initialised")
 
-        # Restore persisted KV keys from SQLite (crash recovery)
         from app.core.kv_store import get_kv_store
         kv = get_kv_store()
         if hasattr(kv, "restore"):
             await kv.restore()
 
-        # Seed capital on first run (no prior cash) OR when the persisted
-        # value is empty/zero so a fresh install actually shows balance.
-        # Also reseed when wizard explicitly changed INITIAL_CAPITAL_*.
-        existing_usd = await kv.get("horizon:cash:usd")
-        existing_inr = await kv.get("horizon:cash:inr")
-        if force_reseed or not _has_balance(existing_usd):
-            await kv.set("horizon:cash:usd", str(int(settings.initial_capital_usd)))
-            await kv.set("horizon:portfolio:nav", str(int(settings.initial_capital_usd)))
-            logger.info("initial_capital_seeded_usd", usd=settings.initial_capital_usd, forced=force_reseed)
-        if force_reseed or existing_inr is None:
-            await kv.set("horizon:cash:inr", str(int(settings.initial_capital_inr)))
-            logger.info("initial_capital_seeded_inr", inr=settings.initial_capital_inr, forced=force_reseed)
+        from app.core.cash import get_cash, mirror_to_kv, set_cash
+        from app.core.local_storage import local_session_factory
+
+        async with local_session_factory() as session:
+            existing_usd = await get_cash(session, "USD")
+            existing_inr = await get_cash(session, "INR")
+
+            if force_reseed or existing_usd <= 0:
+                await set_cash(session, "USD", float(settings.initial_capital_usd))
+                logger.info(
+                    "initial_capital_seeded_usd",
+                    usd=settings.initial_capital_usd,
+                    forced=force_reseed,
+                )
+            if force_reseed or (existing_inr <= 0 and settings.initial_capital_inr > 0):
+                await set_cash(session, "INR", float(settings.initial_capital_inr))
+                logger.info(
+                    "initial_capital_seeded_inr",
+                    inr=settings.initial_capital_inr,
+                    forced=force_reseed,
+                )
+            await session.commit()
+
+            usd = await get_cash(session, "USD")
+            inr = await get_cash(session, "INR")
+
+        await mirror_to_kv("USD", usd)
+        await mirror_to_kv("INR", inr)
+        await kv.set("horizon:portfolio:nav", str(usd))
     else:
         from app.core.redis_client import redis_client
         await redis_client.set("horizon:system:mode", settings.system_mode.value)

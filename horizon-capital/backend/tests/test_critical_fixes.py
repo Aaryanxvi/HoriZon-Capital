@@ -6,36 +6,77 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_cash_not_reset_if_already_persisted():
-    """After trading reduces cash, restart must NOT overwrite it."""
+    """After trading reduces cash, restart must NOT overwrite it.
+
+    SQL is now the source of truth.  We seed $750,000 directly into the
+    cash_balances table; startup() must leave it untouched.
+    """
+    from app.core.cash import get_cash, set_cash
     from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    # Seed SQL row with a reduced balance (simulates post-trade state).
+    await init_local_db()
+    async with local_session_factory() as session:
+        await set_cash(session, "USD", 750_000.0)
+        await set_cash(session, "INR", 5_000_000.0)
+        await session.commit()
 
     kv = get_kv_store()
-    await kv.set("horizon:cash:usd", "750000")
-    await kv.set("horizon:cash:inr", "5000000")
-    if hasattr(kv, "persist"):
-        await kv.persist("horizon:cash:usd")
-        await kv.persist("horizon:cash:inr")
     from app.core.runtime import startup
 
     await startup(headless=True)
-    usd = await kv.get("horizon:cash:usd")
-    assert usd == "750000", f"Cash was reset to {usd}, expected 750000"
+
+    # SQL must still hold 750,000 (not reset to initial_capital).
+    async with local_session_factory() as session:
+        usd = await get_cash(session, "USD")
+    assert usd == pytest.approx(750_000.0), f"Cash was reset to {usd}, expected 750000"
+
+    # KV mirror must also reflect the SQL value (as a float string).
+    kv_usd = await kv.get("horizon:cash:usd")
+    assert kv_usd is not None, "KV mirror should be set"
+    assert float(kv_usd) == pytest.approx(750_000.0), (
+        f"KV mirror has {kv_usd!r}, expected ~750000"
+    )
 
 
 @pytest.mark.asyncio
 async def test_cash_seeded_on_first_run():
-    """On first run (no persisted cash), initial capital should be seeded."""
+    """On first run (no persisted cash), initial capital should be seeded.
+
+    SQL is now the source of truth.  Clear the cash_balances row so startup()
+    treats this as a first run.
+    """
+    from sqlalchemy import text
+
+    from app.core.cash import get_cash
     from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    # Wipe the SQL row to simulate a fresh install.
+    await init_local_db()
+    async with local_session_factory() as session:
+        await session.execute(text("DELETE FROM cash_balances WHERE currency = 'USD'"))
+        await session.execute(text("DELETE FROM cash_balances WHERE currency = 'INR'"))
+        await session.commit()
 
     kv = get_kv_store()
     await kv.delete("horizon:cash:usd")
     await kv.delete("horizon:cash:inr")
+
     from app.core.runtime import startup
 
     await startup(headless=True)
-    usd = await kv.get("horizon:cash:usd")
-    assert usd is not None, "Cash should be seeded on first run"
-    assert int(usd) > 0
+
+    # SQL must now contain the initial capital.
+    async with local_session_factory() as session:
+        usd = await get_cash(session, "USD")
+    assert usd > 0, f"Cash should be seeded on first run, got {usd}"
+
+    # KV mirror must also be populated.
+    kv_usd = await kv.get("horizon:cash:usd")
+    assert kv_usd is not None, "Cash should be seeded in KV on first run"
+    assert float(kv_usd) > 0, f"KV mirror value not positive: {kv_usd!r}"
 
 
 def test_migrate_table_adds_column_not_drops():

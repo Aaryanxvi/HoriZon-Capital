@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 
 from rich.console import Console
 
@@ -438,7 +438,7 @@ class CommandHandler:
         )
 
         try:
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
             from app.backtesting.backtest_broker import SimOrder
             from app.backtesting.backtest_engine import BacktestEngine
@@ -1215,8 +1215,6 @@ class CommandHandler:
 
     async def _manual_order(self, args: list[str], side: str) -> str:
         """Execute a manual buy/sell order."""
-        from datetime import datetime
-
         from app.core.kv_store import get_kv_store
         from app.core.messaging import AgentMessage, MessageType
         from app.core.runtime import get_bus
@@ -1274,6 +1272,7 @@ class CommandHandler:
                 f"Check Alpaca credentials or wait for the data feed.[/red]"
             )
         await kv.set(f"horizon:price:{symbol}", str(price))
+        await kv.set(f"horizon:price:{symbol}:ts", datetime.now(UTC).isoformat())
 
         # Auto-size if no qty given
         if qty is None:
@@ -1283,7 +1282,10 @@ class CommandHandler:
                 from app.core.runtime import get_session_factory
                 async with get_session_factory()() as session:
                     result = await session.execute(
-                        text("SELECT quantity FROM positions WHERE symbol = :sym AND quantity > 0 LIMIT 1"),
+                        text(
+                            "SELECT quantity FROM positions"
+                            " WHERE symbol = :sym AND quantity > 0 LIMIT 1"
+                        ),
                         {"sym": symbol},
                     )
                     row = result.fetchone()

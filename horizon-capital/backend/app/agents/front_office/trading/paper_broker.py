@@ -25,6 +25,7 @@ _PERMANENT_IMPACT_GAMMA = 0.5  # permanent impact exponent (sqrt-law)
 _PERMANENT_IMPACT_ETA = 0.01  # permanent impact coefficient
 # Half-spread as FRACTION of price (1 bp = 0.0001). Liquid equities ~ 1-2 bps.
 _TEMPORARY_IMPACT_EPSILON = 0.0001
+_PRICE_MAX_AGE_SECONDS = 300  # 5 minutes — reject stale cached prices
 _TEMPORARY_IMPACT_ETA = 0.01  # temporary impact coefficient
 _TEMPORARY_IMPACT_GAMMA = 0.5  # temporary impact exponent
 
@@ -106,8 +107,9 @@ class AlmgrenChrissModel:
         direction = 1 if side == "BUY" else -1
         fill_price = price + direction * total_impact
 
-        # Add small random noise (microstructure)
-        noise = random.gauss(0, volatility * price * 0.01)
+        # Add small random noise (microstructure), clamped so it never favours the trader
+        raw_noise = random.gauss(0, volatility * price * 0.01)
+        noise = max(0.0, raw_noise) if side == "BUY" else min(0.0, raw_noise)
         fill_price += noise
 
         slippage_amount = abs(fill_price - price) * quantity
@@ -150,6 +152,9 @@ class PaperBroker:
         quantity = order["quantity"]
         order_id = order.get("id", "")
 
+        if side not in ("BUY", "SELL"):
+            return self._rejection(order_id, f"Unknown order side: {side!r}")
+
         # Get last price from Redis
         last_price = await self._get_last_price(symbol)
         if last_price <= 0:
@@ -176,6 +181,17 @@ class PaperBroker:
             volatility=volatility,
             side=side,
         )
+
+        limit_price = order.get("limit_price")
+        if limit_price is not None:
+            lp = float(limit_price)
+            fill_px = impact["fill_price"]
+            if side == "BUY" and fill_px > lp:
+                reason = f"Limit price {lp} not reachable (fill {fill_px:.4f})"
+                return self._rejection(order_id, reason)
+            if side == "SELL" and fill_px < lp:
+                reason = f"Limit price {lp} not reachable (fill {fill_px:.4f})"
+                return self._rejection(order_id, reason)
 
         # Commission model by exchange (round-trip cost retail pays).
         exchange = order.get("exchange", "")
@@ -235,12 +251,28 @@ class PaperBroker:
             if live and live > 0:
                 return live
 
-        val = await _get_kv().get(f"horizon:price:{symbol}")
+        kv = _get_kv()
+        val = await kv.get(f"horizon:price:{symbol}")
         if val is not None:
             try:
-                return float(val)
+                price = float(val)
             except (ValueError, TypeError):
-                pass
+                return 0.0
+            ts_str = await kv.get(f"horizon:price:{symbol}:ts")
+            if ts_str is not None:
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    age = (datetime.now(UTC) - ts).total_seconds()
+                    if age > _PRICE_MAX_AGE_SECONDS:
+                        logger.warning(
+                            "stale_price_rejected",
+                            symbol=symbol,
+                            age_seconds=int(age),
+                        )
+                        return 0.0
+                except (ValueError, TypeError):
+                    pass  # No valid timestamp — treat price as fresh (backward compat)
+            return price
         return 0.0
 
     @staticmethod

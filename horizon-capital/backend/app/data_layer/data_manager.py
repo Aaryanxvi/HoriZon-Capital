@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 
@@ -92,9 +93,12 @@ class DataManager:
         try:
             kv = get_kv_store()
             price_str = str(bar.close)
+            ts_str = datetime.now(UTC).isoformat()
             await kv.set(f"horizon:price:{bar.symbol}", price_str)
+            await kv.set(f"horizon:price:{bar.symbol}:ts", ts_str)
             if bar.exchange and bar.exchange != "UNKNOWN":
                 await kv.set(f"horizon:price:{bar.symbol}.{bar.exchange}", price_str)
+                await kv.set(f"horizon:price:{bar.symbol}.{bar.exchange}:ts", ts_str)
         except Exception:
             logger.warning("data_manager.price_cache_error", symbol=bar.symbol)
 
