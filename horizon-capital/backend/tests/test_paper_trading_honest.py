@@ -235,6 +235,8 @@ async def test_two_concurrent_buys_cash_correct():
 
     from sqlalchemy import text
 
+    from datetime import UTC, datetime
+
     from app.agents.front_office.trading.execution_agent import ExecutionAgent
     from app.core.cash import get_cash, set_cash
     from app.core.kv_store import get_kv_store
@@ -251,7 +253,9 @@ async def test_two_concurrent_buys_cash_correct():
 
     kv = get_kv_store()
     await kv.set("horizon:price:AAPL", "150.0")
+    await kv.set("horizon:price:AAPL:ts", datetime.now(UTC).isoformat())
     await kv.set("horizon:price:MSFT", "300.0")
+    await kv.set("horizon:price:MSFT:ts", datetime.now(UTC).isoformat())
 
     bus = MemoryBus()
     agent = ExecutionAgent(bus)
@@ -288,6 +292,7 @@ async def test_two_concurrent_buys_cash_correct():
 @pytest.mark.asyncio
 async def test_atomic_fill_rolls_back_all_four_mutations_on_failure():
     """If update_position raises mid-transaction, fill/status/cash all rollback."""
+    from datetime import UTC, datetime
     from sqlalchemy import text
 
     from app.agents.front_office.trading.execution_agent import ExecutionAgent
@@ -306,6 +311,7 @@ async def test_atomic_fill_rolls_back_all_four_mutations_on_failure():
 
     kv = get_kv_store()
     await kv.set("horizon:price:AAPL", "200.0")
+    await kv.set("horizon:price:AAPL:ts", datetime.now(UTC).isoformat())
 
     bus = MemoryBus()
     agent = ExecutionAgent(bus)
@@ -361,6 +367,7 @@ async def test_atomic_fill_rolls_back_all_four_mutations_on_failure():
 @pytest.mark.asyncio
 async def test_handle_new_order_rejects_on_atomic_failure():
     """If _execute_order raises, _handle_new_order must REJECT the order."""
+    from datetime import UTC, datetime
     from sqlalchemy import text
 
     from app.agents.front_office.trading.execution_agent import ExecutionAgent
@@ -380,6 +387,7 @@ async def test_handle_new_order_rejects_on_atomic_failure():
 
     kv = get_kv_store()
     await kv.set("horizon:price:AAPL", "200.0")
+    await kv.set("horizon:price:AAPL:ts", datetime.now(UTC).isoformat())
 
     bus = MemoryBus()
     agent = ExecutionAgent(bus)

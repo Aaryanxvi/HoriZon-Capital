@@ -1215,8 +1215,6 @@ class CommandHandler:
 
     async def _manual_order(self, args: list[str], side: str) -> str:
         """Execute a manual buy/sell order."""
-        from datetime import datetime
-
         from app.core.kv_store import get_kv_store
         from app.core.messaging import AgentMessage, MessageType
         from app.core.runtime import get_bus
