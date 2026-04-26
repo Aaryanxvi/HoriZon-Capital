@@ -100,3 +100,55 @@ def test_quant_sharpe_subtracts_rf(monkeypatch: pytest.MonkeyPatch) -> None:
     s = ma.sharpe_ratio(daily)
     # All returns equal daily_rf -> excess all zero -> Sharpe should be 0.0
     assert s == 0.0, f"expected 0 Sharpe (uniform returns at rf), got {s}"
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_alpha_keys_service_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Service reads horizon:performance:alpha_india / alpha_us. Worker MUST write them."""
+    from app.core.kv_store import get_kv_store
+    from app.workers.performance_worker import PerformanceWorker
+    from app.workers.performance_worker import PerformanceService as PS
+    import app.workers.performance_worker as pw
+
+    async def fake_snapshot(self, period: str) -> dict:
+        return {
+            "period": period,
+            "total_return": 0.0,
+            "annualized_return": 0.0,
+            "sharpe_ratio": 0.0,
+            "sortino_ratio": 0.0,
+            "calmar_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "win_rate": 0.0,
+            "profit_factor": 0.0,
+            "alpha_india": 0.0123,
+            "alpha_us": 0.0456,
+            "total_trades": 0,
+            "attribution": {},
+        }
+    monkeypatch.setattr(PS, "compute_snapshot", fake_snapshot)
+
+    class _NoOpSession:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+        async def execute(self, *a, **k):
+            return None
+        async def commit(self):
+            return None
+
+    def fake_factory():
+        return lambda: _NoOpSession()
+    monkeypatch.setattr(pw, "_get_session_factory", fake_factory)
+
+    worker = PerformanceWorker()
+    await worker._compute_and_store_all()
+
+    kv = get_kv_store()
+    india = await kv.get("horizon:performance:alpha_india")
+    us = await kv.get("horizon:performance:alpha_us")
+    assert india is not None, "alpha_india KV key was never written"
+    assert us is not None, "alpha_us KV key was never written"
+    assert float(india) == pytest.approx(0.0123)
+    assert float(us) == pytest.approx(0.0456)

@@ -479,6 +479,20 @@ class PerformanceWorker:
                 )
                 await kv.expire(redis_key, 3600)
 
+                # Service-layer alpha lookups read these top-level keys.
+                # Worker is the single writer. Use the 30d period as canonical.
+                if period == "30d":
+                    await kv.set(
+                        "horizon:performance:alpha_india",
+                        str(snapshot["alpha_india"]),
+                        ex=3600,
+                    )
+                    await kv.set(
+                        "horizon:performance:alpha_us",
+                        str(snapshot["alpha_us"]),
+                        ex=3600,
+                    )
+
                 logger.debug(
                     "performance_snapshot_stored",
                     period=period,
