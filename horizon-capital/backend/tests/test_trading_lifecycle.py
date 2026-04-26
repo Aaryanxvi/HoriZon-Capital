@@ -34,14 +34,12 @@ async def test_execution_does_not_recurse_on_own_tracked_emit(monkeypatch):
 
     monkeypatch.setattr(agent.paper_broker, "execute", fake_execute)
 
-    # Skip cash and position writes for this test — focus on recursion only
-    async def noop(*a, **kw):
+    # Short-circuit the atomic execute path — this test only verifies that the
+    # bus delivers ORDER_NEW exactly once (no self-delivery via tracked emit).
+    async def noop_execute(order):
         pass
 
-    monkeypatch.setattr(agent.order_manager, "update_position", noop)
-    monkeypatch.setattr(agent, "_update_cash_balance", noop)
-    monkeypatch.setattr(agent.order_manager, "record_fill", noop)
-    monkeypatch.setattr(agent.order_manager, "update_status", noop)
+    monkeypatch.setattr(agent, "_execute_order", noop_execute)
 
     # Send ONE order
     msg = AgentMessage(
