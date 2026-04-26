@@ -443,35 +443,27 @@ async def test_limit_buy_rejected_when_price_too_high():
 
 @pytest.mark.asyncio
 async def test_limit_buy_accepted_when_price_low_enough():
-    """BUY limit at $200 accepted when market is $100."""
+    """BUY limit far above live market price is always accepted."""
     from app.agents.front_office.trading.paper_broker import PaperBroker
-    from app.core.kv_store import get_kv_store
-
-    kv = get_kv_store()
-    await kv.set("horizon:price:AAPL", "100.0")
 
     broker = PaperBroker()
     fill = await broker.execute({
         "id": "ord-t5-2", "symbol": "AAPL", "side": "BUY",
-        "quantity": 1, "limit_price": 200.0,
+        "quantity": 1, "limit_price": 100_000.0,
     })
     assert not fill.get("rejected"), f"unexpected rejection: {fill.get('rejection_reason')}"
-    assert fill["fill_price"] <= 200.0
+    assert fill["fill_price"] <= 100_000.0
 
 
 @pytest.mark.asyncio
 async def test_limit_sell_rejected_when_price_too_low():
-    """SELL limit at $110 rejected when fill price is $100."""
+    """SELL limit at $100k rejected because no stock trades that high."""
     from app.agents.front_office.trading.paper_broker import PaperBroker
-    from app.core.kv_store import get_kv_store
-
-    kv = get_kv_store()
-    await kv.set("horizon:price:AAPL", "100.0")
 
     broker = PaperBroker()
     fill = await broker.execute({
         "id": "ord-t5-3", "symbol": "AAPL", "side": "SELL",
-        "quantity": 100, "limit_price": 110.0,
+        "quantity": 100, "limit_price": 100_000.0,
     })
     assert fill.get("rejected") is True
     assert "not reachable" in fill.get("rejection_reason", "")
@@ -531,20 +523,24 @@ async def test_limit_sell_accepted_when_price_high_enough():
 
 @pytest.mark.asyncio
 async def test_stale_price_rejected():
-    """Order rejected when cached price is older than 5 minutes."""
+    """Order rejected when cached price is older than 5 minutes.
+
+    Uses a .NSE symbol so Alpaca (US-only) is bypassed and the KV staleness
+    check is the sole gatekeeper.
+    """
     from datetime import UTC, datetime, timedelta
 
     from app.agents.front_office.trading.paper_broker import PaperBroker
     from app.core.kv_store import get_kv_store
 
     kv = get_kv_store()
-    await kv.set("horizon:price:AAPL", "150.0")
+    await kv.set("horizon:price:RELIANCE.NSE", "2800.0")
     stale_ts = (datetime.now(UTC) - timedelta(minutes=6)).isoformat()
-    await kv.set("horizon:price:AAPL:ts", stale_ts)
+    await kv.set("horizon:price:RELIANCE.NSE:ts", stale_ts)
 
     broker = PaperBroker()
     fill = await broker.execute({
-        "id": "ord-t7-1", "symbol": "AAPL", "side": "BUY", "quantity": 10,
+        "id": "ord-t7-1", "symbol": "RELIANCE.NSE", "side": "BUY", "quantity": 10,
     })
     assert fill.get("rejected") is True
     assert "No price available" in fill.get("rejection_reason", "")

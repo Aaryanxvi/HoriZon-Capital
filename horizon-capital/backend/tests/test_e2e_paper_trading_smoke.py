@@ -93,13 +93,14 @@ async def test_stale_price_rejected_smoke():
     from app.core.kv_store import get_kv_store
 
     kv = get_kv_store()
-    await kv.set("horizon:price:TSLA", "180.0")
+    # Use .NSE symbol so Alpaca (US-only feed) is bypassed; KV staleness is sole gatekeeper.
+    await kv.set("horizon:price:RELIANCE.NSE", "2800.0")
     stale = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
-    await kv.set("horizon:price:TSLA:ts", stale)
+    await kv.set("horizon:price:RELIANCE.NSE:ts", stale)
 
     broker = PaperBroker()
     fill = await broker.execute({
-        "id": "e2e-stale-1", "symbol": "TSLA", "side": "BUY", "quantity": 1,
+        "id": "e2e-stale-1", "symbol": "RELIANCE.NSE", "side": "BUY", "quantity": 1,
     })
     assert fill.get("rejected") is True
     assert "No price available" in fill.get("rejection_reason", "")
