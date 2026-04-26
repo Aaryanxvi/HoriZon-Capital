@@ -157,22 +157,28 @@ class PerformanceService:
         return float((1 + total) ** (1 / years) - 1)
 
     @classmethod
-    def _sharpe_ratio(cls, equity: np.ndarray, risk_free_rate: float = 0.0) -> float:
+    def _sharpe_ratio(cls, equity: np.ndarray, risk_free_rate: float | None = None) -> float:
+        from app.config import settings
+        rf = settings.risk_free_rate if risk_free_rate is None else risk_free_rate
         returns = cls._compute_returns(equity)
         if len(returns) < 2:
             return 0.0
-        excess = returns - risk_free_rate / TRADING_DAYS_PER_YEAR
+        daily_rf = (1.0 + rf) ** (1 / TRADING_DAYS_PER_YEAR) - 1
+        excess = returns - daily_rf
         std = float(np.std(excess, ddof=1))
         if std == 0:
             return 0.0
         return float(np.mean(excess) / std * np.sqrt(TRADING_DAYS_PER_YEAR))
 
     @classmethod
-    def _sortino_ratio(cls, equity: np.ndarray, risk_free_rate: float = 0.0) -> float:
+    def _sortino_ratio(cls, equity: np.ndarray, risk_free_rate: float | None = None) -> float:
+        from app.config import settings
+        rf = settings.risk_free_rate if risk_free_rate is None else risk_free_rate
         returns = cls._compute_returns(equity)
         if len(returns) < 2:
             return 0.0
-        excess = returns - risk_free_rate / TRADING_DAYS_PER_YEAR
+        daily_rf = (1.0 + rf) ** (1 / TRADING_DAYS_PER_YEAR) - 1
+        excess = returns - daily_rf
         downside_diff = np.minimum(excess, 0.0)
         downside_std = float(np.sqrt(np.mean(downside_diff ** 2)))
         if downside_std == 0:
