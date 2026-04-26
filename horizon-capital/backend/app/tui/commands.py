@@ -438,7 +438,7 @@ class CommandHandler:
         )
 
         try:
-            from datetime import datetime, timedelta
+            from datetime import timedelta
 
             from app.backtesting.backtest_broker import SimOrder
             from app.backtesting.backtest_engine import BacktestEngine
