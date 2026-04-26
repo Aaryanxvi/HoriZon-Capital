@@ -63,3 +63,43 @@ async def test_execution_does_not_recurse_on_own_tracked_emit(monkeypatch):
     )
 
     await bus.stop()
+
+
+@pytest_asyncio.fixture
+async def runtime():
+    """Fixture: initialize runtime for tests that need startup/shutdown."""
+    from app.core.runtime import startup, shutdown
+    await startup()
+    yield
+    await shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sizer_targets_weight_not_fixed_slot(monkeypatch, runtime):
+    from app.agents.front_office.portfolio.portfolio_agent import PortfolioAgent
+    from app.core.memory_bus import MemoryBus
+    from app.core.kv_store import get_kv_store
+    from app.config import settings
+
+    bus = MemoryBus()
+    agent = PortfolioAgent(bus=bus)
+
+    # Raise the position cap to allow 15% target weight
+    monkeypatch.setattr(settings, "risk_max_position_pct", 25.0)
+
+    # NAV 100k cash, no positions
+    kv = get_kv_store()
+    await kv.set("horizon:cash:usd", "100000")
+    await kv.set("horizon:cash:inr", "0")
+    await kv.set("horizon:price:AAPL", "100")
+
+    sizing = await agent._compute_position_size(
+        symbol="AAPL", direction=1, exchange="NASDAQ",
+        target_weight=0.15, strength=0.05,
+    )
+
+    # 15% of 100k = $15k. At $100/share = 150 shares.
+    assert sizing["quantity"] == 150, (
+        f"Expected 150 shares for 15% target, got {sizing['quantity']}"
+    )
+    assert sizing["allocation_usd"] == pytest.approx(15000.0, abs=1.0)
