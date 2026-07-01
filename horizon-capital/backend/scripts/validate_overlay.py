@@ -194,6 +194,14 @@ def main() -> None:
     p.add_argument("--capital", type=float, default=100_000.0)
     args = p.parse_args()
 
+    # ---- ETF sample fetch FIRST --------------------------------------------
+    # fetch_batch caches per symbol ignoring period; if the 10y PIT fetch ran
+    # first, this 20y call would silently return 10y frames and the 2008-2017
+    # window would be empty (run 1 artifact: SPY 08-17 "vol 2.8%"). Fetching the
+    # ETFs first caches their full 20y history; the PIT pass reuses it (longer
+    # history is harmless there).
+    ebars = asyncio.run(fetch_batch(ETFS, period="20y"))
+
     # ---- PIT sample --------------------------------------------------------
     members = union_members(args.start, args.end)
     tickers = sorted(members | {"SPY"})
@@ -215,7 +223,6 @@ def main() -> None:
     spy_pit = spy_pit / spy_pit.iloc[0] * args.capital
 
     # ---- ETF sample --------------------------------------------------------
-    ebars = asyncio.run(fetch_batch(ETFS, period="20y"))
     ec = pd.DataFrame({t: ebars[t]["close"] for t in ETFS if t in ebars}).sort_index()
     eo = pd.DataFrame({t: ebars[t]["open"] for t in ETFS if t in ebars}).sort_index()
     cal_08_17 = ec.index[(ec.index >= "2008-01-01") & (ec.index <= "2017-12-31")]
