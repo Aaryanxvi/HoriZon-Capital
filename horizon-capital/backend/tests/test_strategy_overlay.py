@@ -1,10 +1,9 @@
-"""StrategyAgent wiring: new sleeve mix, ETF fetch union, overlay hook."""
+"""StrategyAgent wiring: validated sleeve mix + overlay hook (flag-gated)."""
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-from app.agents.front_office.strategy.sleeves.dual_momentum import DualMomentumSleeve
 from app.agents.front_office.strategy.strategy_agent import StrategyAgent
 from app.config import settings
 from app.core.memory_bus import MemoryBus
@@ -24,25 +23,18 @@ def _spy_bars(start: float, end: float, n: int = 300) -> dict[str, pd.DataFrame]
     return {"SPY.NYSE": df}
 
 
-def test_live_mix_weights_sum_to_one():
+def test_live_mix_is_the_validated_configuration():
+    # The mix validate_fix_ab measured at Sharpe 0.67 (PIT 2018-24). dual_momentum
+    # and the overlay failed their ship gate (2026-07-02) and must NOT be wired.
     weights = {s.name: s.target_weight for s in _agent()._sleeves}
     assert weights == {
-        "breadth_alpha": 0.30,
-        "research_stack": 0.25,
-        "dual_momentum": 0.30,
-        "momentum_rank": 0.15,
+        "breadth_alpha": 0.40,
+        "research_stack": 0.30,
+        "trend_filter": 0.20,
+        "momentum_rank": 0.10,
     }
     assert abs(sum(weights.values()) - 1.0) < 1e-9
-
-
-def test_universe_includes_dual_momentum_etfs(monkeypatch):
-    agent = _agent()
-    monkeypatch.setattr(
-        "app.data_layer.universe.get_universe", lambda source: ["AAPL.NASDAQ"]
-    )
-    symbols = agent._ensure_symbols()
-    assert DualMomentumSleeve.UNIVERSE <= set(symbols)
-    assert "AAPL.NASDAQ" in symbols
+    assert "dual_momentum" not in weights
 
 
 def test_overlay_disabled_is_identity(monkeypatch):
