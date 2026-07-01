@@ -110,15 +110,23 @@ class PortfolioAgent(BaseAgent):
 
     async def _handle_signal(self, payload: dict) -> None:
         """Buffer or immediately process a risk-approved signal depending on mode."""
-        # Kill switch enforcement — hard stop, no orders when halted
+        direction = payload.get("direction", 0)
+        if direction == 0:
+            return
+
+        # Stop-loss is a risk-REDUCING exit, not a discretionary trade. It must
+        # bypass the halt block, signal dedup, the 120s cooldown, and the debate
+        # gate — none of those should ever delay or veto closing a losing
+        # position. Size a full exit and emit straight to execution.
+        if payload.get("strategy_name") == "stop_loss":
+            await self._size_and_emit(payload, debate_id=None)
+            return
+
+        # Kill switch enforcement — hard stop, no new orders when halted
         halted = await self.redis.get("horizon:system:halted")
         if halted == "1":
             logger.warning("signal_blocked_system_halted",
                            symbol=payload.get("symbol"))
-            return
-
-        direction = payload.get("direction", 0)
-        if direction == 0:
             return
 
         # Signal-id dedup (idempotency): if upstream re-delivers the same
@@ -150,9 +158,11 @@ class PortfolioAgent(BaseAgent):
         elif mode == "HUMAN_APPROVAL":
             emitted = await self._size_and_emit_pending(payload)
         else:
-            if symbol not in self._pending_signals:
-                self._pending_signals[symbol] = []
-            self._pending_signals[symbol].append(payload)
+            # Keep only the LATEST signal per symbol. Appending let a burst of
+            # in-window signals pile up and then flush all at once on the next
+            # debate conclusion — sized against stale prices. One symbol, one
+            # pending intent.
+            self._pending_signals[symbol] = [payload]
             logger.info("signal_buffered_for_debate", symbol=symbol)
             emitted = True
 

@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> PENDING : ORDER_NEW received
+    PENDING --> OPEN : guards passed, sent to broker
+    PENDING --> REJECTED : naked-short / kill-switch / CIO HALT
+    PENDING --> CANCELLED : pre-broker cancel
+    OPEN --> FILLED : broker returns full fill
+    OPEN --> PARTIAL : broker returns partial
+    OPEN --> CANCELLED : stale > 60s
+    OPEN --> REJECTED : limit unreachable / no price
+    PARTIAL --> FILLED : remaining qty filled
+    PARTIAL --> CANCELLED : timeout
+    FILLED --> [*]
+    CANCELLED --> [*]
+    REJECTED --> [*]

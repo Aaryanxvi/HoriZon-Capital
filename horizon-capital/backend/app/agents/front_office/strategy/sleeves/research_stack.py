@@ -23,21 +23,23 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pandas as pd
 
 from app.agents.front_office.strategy.sleeves.base import BaseSleeve, SleeveSignal
 from app.quant.hrp import hrp_weights
 from app.quant.kelly import kelly_size_per_asset
-from app.quant.regime_hmm import detect_regime
 from app.quant.quality import cross_section_quality
+from app.quant.regime_hmm import detect_regime
 
 # Universe split: risk vs defense. Symbols use the repo's <ticker>.<exchange>
 # notation; the agent strips suffix for yfinance.
 _RISK_UNIVERSE = [
     "SPY.NYSE", "QQQ.NASDAQ", "AAPL.NASDAQ", "MSFT.NASDAQ", "NVDA.NASDAQ",
     "GOOGL.NASDAQ", "AMZN.NASDAQ", "META.NASDAQ", "TSLA.NASDAQ",
-    "JPM.NYSE", "AVGO.NASDAQ", "XLE.NYSE",
+    "AVGO.NASDAQ", "NFLX.NASDAQ", "COST.NASDAQ", "ORCL.NYSE",
+    "V.NYSE", "MA.NYSE", "UNH.NYSE", "LLY.NYSE", "JPM.NYSE",
+    "XOM.NYSE", "XLE.NYSE", "XLK.NYSE", "XLF.NYSE",
+    "XLV.NYSE", "XLY.NYSE", "XLI.NYSE",
 ]
 _DEFENSE_UNIVERSE = ["TLT.NASDAQ", "GLD.NYSE"]
 

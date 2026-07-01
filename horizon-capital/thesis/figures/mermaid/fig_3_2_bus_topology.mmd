@@ -1,0 +1,39 @@
+graph LR
+    classDef pub fill:#fff4d6,stroke:#b08400,color:#000
+    classDef sub fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef chan fill:#e8f1ff,stroke:#3a6ea5,color:#000
+
+    SA[StrategyAgent]:::pub -->|publish SIGNAL| C1["horizon.signal.*"]:::chan
+    C1 --> RA[RiskAgent]:::sub
+
+    RA -->|publish APPROVED| C2["horizon.risk.approved.*"]:::chan
+    C2 --> PA[PortfolioAgent]:::sub
+    C2 --> DA[DebateAgent]:::sub
+
+    DA -->|publish CONCLUSION| C3["horizon.debate.conclusion"]:::chan
+    C3 --> PA
+
+    PA -->|publish ORDER_NEW| C4["horizon.execution.order.new"]:::chan
+    C4 --> EA[ExecutionAgent]:::sub
+
+    EA -->|publish ORDER_FILL| C5["horizon.execution.order.fill"]:::chan
+    C5 --> PA
+    C5 --> AM[AlphaMonitor]:::sub
+    C5 --> ACA[AccountingAgent]:::sub
+
+    PA -->|publish PORTFOLIO_UPDATE| C6["horizon.portfolio.update"]:::chan
+    C6 --> CIO[CIOAgent]:::sub
+    C6 --> IRA[IRAgent]:::sub
+    C6 --> TUI[TerminalDashboard]:::sub
+
+    RA -->|publish RISK_ALERT| C7["horizon.risk.alert"]:::chan
+    C7 --> CIO
+    C7 --> TUI
+
+    CIO -->|publish CIO_OVERRIDE| C8["horizon.executive.cio"]:::chan
+    C8 --> EA
+
+    DI[DataIngestion]:::pub -->|publish OHLCV| C9["horizon.market.ohlcv.*"]:::chan
+    C9 --> FC[FeatureComp]:::sub
+    FC --> C10["horizon.features.*"]:::chan
+    C10 --> SA

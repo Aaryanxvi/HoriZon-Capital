@@ -1348,7 +1348,9 @@ class TestPersistentKVStore:
     async def test_persist_keys_defined(self):
         from app.core.kv_store import PersistentKVStore
         assert "horizon:cash:usd" in PersistentKVStore._PERSIST_KEYS
-        assert "horizon:system:kill_switch" in PersistentKVStore._PERSIST_KEYS
+        # Kill switch must persist so a halt survives restart. The real key is
+        # "horizon:system:halted" (the old "kill_switch" key had no writer).
+        assert "horizon:system:halted" in PersistentKVStore._PERSIST_KEYS
 
 
 class TestOrderSplitterAutoSelect:

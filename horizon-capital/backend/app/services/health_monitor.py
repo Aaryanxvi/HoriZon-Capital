@@ -264,7 +264,7 @@ class HealthMonitor:
         kill_switch = False
         try:
             from app.core.kv_store import get_kv_store
-            val = await get_kv_store().get("horizon:system:kill_switch")
+            val = await get_kv_store().get("horizon:system:halted")
             kill_switch = val == "1"
         except Exception:
             pass

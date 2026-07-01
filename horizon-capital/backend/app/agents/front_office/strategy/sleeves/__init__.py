@@ -5,18 +5,23 @@ portfolio holds them in fixed target weights; their combined low correlation
 is what historically delivers positive risk-adjusted returns at retail scale.
 
 Sleeves:
-- ``research_stack``: HRP + Half-Kelly + GMM regime + Quality tilt (60% target).
-- ``trend_filter``:   Faber 200d SMA regime gate on SPY (20%).
-- ``gap_fade``:       Buy QQQ on open after gap-down, exit at close (10%).
-- ``momentum_rank``:  Monthly 12-1 momentum top-3 (10%).
+- ``breadth_alpha``:  Multi-signal cross-sectional top-K over the universe (live
+                      wiring of the validated breadth engine).
+- ``research_stack``: HRP + Half-Kelly + GMM regime + Quality tilt.
+- ``trend_filter``:   Faber 200d SMA regime gate on SPY.
+- ``momentum_rank``:  Monthly 12-1 momentum top-3.
+- ``gap_fade``:       Buy QQQ on open after gap-down (intraday thesis; NOT used
+                      live — degenerate on daily bars. Kept for reference only).
 """
 
+from app.agents.front_office.strategy.sleeves.breadth_alpha import BreadthAlphaSleeve
 from app.agents.front_office.strategy.sleeves.gap_fade import GapFadeSleeve
 from app.agents.front_office.strategy.sleeves.momentum_rank import MomentumRankSleeve
 from app.agents.front_office.strategy.sleeves.research_stack import ResearchStackSleeve
 from app.agents.front_office.strategy.sleeves.trend_filter import TrendFilterSleeve
 
 __all__ = [
+    "BreadthAlphaSleeve",
     "GapFadeSleeve",
     "MomentumRankSleeve",
     "ResearchStackSleeve",

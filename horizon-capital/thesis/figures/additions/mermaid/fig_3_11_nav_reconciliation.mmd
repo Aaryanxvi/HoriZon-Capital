@@ -1,0 +1,27 @@
+graph LR
+    classDef cash fill:#fff4d6,stroke:#b08400,color:#000
+    classDef pos fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef fx fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef out fill:#f3d6f5,stroke:#6a1b9a,color:#000
+
+    CUSD[c_USD<br/>cash USD]:::cash
+    CINR[c_INR<br/>cash INR]:::cash
+    PUSD[Σ pos USD<br/>equities + crypto]:::pos
+    PINR[Σ pos INR<br/>NSE/BSE]:::pos
+
+    FX[r_FX = USD/INR<br/>Yahoo INR=X<br/>fallback 83.0]:::fx
+
+    NCASH[N_cash = c_USD + c_INR / r_FX]:::out
+    NPOS[N_pos = Σ pos_USD + Σ pos_INR / r_FX]:::out
+    NAV[NAV N = N_cash + N_pos]:::out
+
+    CUSD --> NCASH
+    CINR --> NCASH
+    FX --> NCASH
+    PUSD --> NPOS
+    PINR --> NPOS
+    FX --> NPOS
+    NCASH --> NAV
+    NPOS --> NAV
+    NAV --> SNAP[(portfolio_snapshots)]
+    NAV --> KV[(horizon:portfolio:nav)]

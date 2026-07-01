@@ -77,7 +77,12 @@ class PersistentKVStore(MemoryKVStore):
         "horizon:portfolio:nav",
         "horizon:forex:usd_inr",
         "horizon:system:mode",
-        "horizon:system:kill_switch",
+        # Kill switch must survive restart — a crash/deploy while halted must
+        # NOT come back trading. risk_agent writes "horizon:system:halted";
+        # the human ack clears it. (Old dead key "horizon:system:kill_switch"
+        # had no writer and is removed.)
+        "horizon:system:halted",
+        "horizon:system:halted:ack",
     }
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:

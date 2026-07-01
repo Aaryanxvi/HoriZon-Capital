@@ -1,0 +1,96 @@
+graph TB
+    classDef ext fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef agent fill:#fff4d6,stroke:#b08400,color:#000
+    classDef worker fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef store fill:#f3d6f5,stroke:#6a1b9a,color:#000
+    classDef ui fill:#ffe0d6,stroke:#bf360c,color:#000
+
+    subgraph EXT["External Sources"]
+        Y[Yahoo Finance]:::ext
+        CG[CoinGecko]:::ext
+        AL[Alpaca]:::ext
+        ZD[Zerodha]:::ext
+    end
+
+    subgraph WORKERS["Workers (background)"]
+        DI[DataIngestion 30s]:::worker
+        FC[FeatureComputation event]:::worker
+        PM[PositionMonitor 30s]:::worker
+        PERF[Performance 15min]:::worker
+        ORCH[AgentOrchestrator]:::worker
+    end
+
+    subgraph BUS["Message Bus (asyncio.Queue / Redis)"]
+        MB[(MemoryBus)]
+    end
+
+    subgraph FRONT["Front Office"]
+        SA[StrategyAgent 60s]:::agent
+        PA[PortfolioAgent 60s]:::agent
+        EA[ExecutionAgent 5s]:::agent
+        IRA[IRAgent]:::agent
+    end
+
+    subgraph MID["Middle Office"]
+        RA[RiskAgent 30s]:::agent
+        CA[ComplianceAgent]:::agent
+        DA[DebateAgent]:::agent
+        AM[AlphaMonitor]:::agent
+        OA[OperationsAgent]:::agent
+    end
+
+    subgraph BACK["Back Office"]
+        ACA[AccountingAgent]:::agent
+        QA[QuantAgent]:::agent
+        ITA[ITAgent]:::agent
+    end
+
+    subgraph EXEC["Executive"]
+        CIO[CIOAgent 15min]:::agent
+    end
+
+    subgraph TRADE["Trading Sim"]
+        PB[PaperBroker AC-impact]:::agent
+    end
+
+    subgraph STORE["Persistence"]
+        DB[(SQLite 28 tables)]:::store
+        KV[(KV cache)]:::store
+    end
+
+    subgraph UI["Presentation"]
+        TUI[Rich Terminal Dashboard]:::ui
+        REPL[REPL 30+ commands]:::ui
+    end
+
+    Y --> DI
+    CG --> DI
+    AL --> DI
+    ZD --> DI
+    DI --> KV
+    DI --> FC
+    FC --> SA
+    SA --> MB
+    MB --> RA
+    RA --> MB
+    MB --> PA
+    PA --> MB
+    MB --> EA
+    EA --> PB
+    PB --> EA
+    EA --> DB
+    EA --> KV
+    PM --> KV
+    PM --> DB
+    PM --> MB
+    PERF --> DB
+    ORCH -.supervise.-> SA
+    ORCH -.supervise.-> EA
+    ORCH -.supervise.-> RA
+    DA --> MB
+    AM --> MB
+    CIO --> MB
+    DB --> TUI
+    KV --> TUI
+    REPL --> MB
+    TUI -.fed by.-> MB

@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 
 from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
+from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 
@@ -42,6 +44,8 @@ class DebateAgent(BaseAgent):
         )
         self._pending_signals: asyncio.Queue[dict] = asyncio.Queue()
         self._last_debate: dict[str, float] = {}  # symbol -> timestamp
+        # Cost gate: timestamps of debates run in the last 24h (rolling budget).
+        self._debate_budget: deque[float] = deque()
 
     # ------------------------------------------------------------------
     # BaseAgent hooks
@@ -72,15 +76,67 @@ class DebateAgent(BaseAgent):
             symbol = payload.get("symbol", "")
             now = datetime.now(UTC).timestamp()
 
-            # Debounce
+            # Debounce: don't re-debate the same symbol within the window. But we
+            # MUST still emit a conclusion — PortfolioAgent buffers every approved
+            # signal awaiting a DEBATE_CONCLUSION, so a silent skip orphans that
+            # buffered signal forever (and the buffer grows unbounded). Emit a
+            # DEBOUNCED conclusion so the buffer is cleared (signal discarded; the
+            # strategy re-emits next bar).
             if now - self._last_debate.get(symbol, 0) < DEBOUNCE_SECONDS:
+                await self.emit(
+                    channel=f"horizon.debate.{symbol}",
+                    message_type=MessageType.DEBATE_CONCLUSION,
+                    payload={
+                        "session_id": str(uuid.uuid4()),
+                        "symbol": symbol,
+                        "decision": "DEBOUNCED",
+                        "consensus_score": 0.0,
+                        "mode": "debounce",
+                        "reason": f"Debounced — debated within {DEBOUNCE_SECONDS}s",
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    },
+                )
                 continue
             self._last_debate[symbol] = now
+
+            # Cost gate: a full debate is ~8 LLM calls. Only spend the budget on
+            # strong signals, capped per rolling 24h. Gated signals pass through
+            # APPROVED — they trade on the quant signal without an LLM (so nothing
+            # orphans and trading never stalls; raise the cap for more AI coverage).
+            strength = float(payload.get("strength", 0.0) or 0.0)
+            if strength < settings.debate_min_strength or not self._within_budget(now):
+                await self._emit_passthrough(symbol)
+                continue
+            self._debate_budget.append(now)
 
             try:
                 await self._debate_signal(payload)
             except Exception as exc:
                 logger.error("debate_error", symbol=symbol, error=str(exc))
+
+    def _within_budget(self, now: float) -> bool:
+        """True if we're under the rolling-24h debate cap (prunes old entries)."""
+        cutoff = now - 86400
+        while self._debate_budget and self._debate_budget[0] < cutoff:
+            self._debate_budget.popleft()
+        return len(self._debate_budget) < settings.debate_max_per_day
+
+    async def _emit_passthrough(self, symbol: str) -> None:
+        """Release a cost-gated signal without an LLM debate (trades on quant)."""
+        await self.emit(
+            channel=f"horizon.debate.{symbol}",
+            message_type=MessageType.DEBATE_CONCLUSION,
+            payload={
+                "session_id": str(uuid.uuid4()),
+                "symbol": symbol,
+                "decision": "APPROVED",
+                "consensus_score": 0.0,
+                "mode": "gated_passthrough",
+                "reason": "Cost-gate: daily debate budget reached / low strength",
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        logger.debug("debate_gated_passthrough", symbol=symbol)
 
     # ------------------------------------------------------------------
     # Debate logic

@@ -1,0 +1,42 @@
+graph LR
+    classDef data fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef train fill:#fff4d6,stroke:#b08400,color:#000
+    classDef art fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef reg fill:#f3d6f5,stroke:#6a1b9a,color:#000
+    classDef live fill:#ffe0d6,stroke:#bf360c,color:#000
+
+    subgraph DATA["Offline data"]
+        OHLCV[(ohlcv table)]:::data
+        FS[(feature_snapshots)]:::data
+    end
+
+    subgraph TRAIN["ml_training/"]
+        HMM[train_hmm_regime.py<br/>Gaussian-mixture HMM]:::train
+        DRL[train_drl_strategies.py<br/>PPO multi-asset]:::train
+    end
+
+    subgraph ART["artifacts/"]
+        H1[hmm_regime.pkl]:::art
+        D1[drl_policy_vN.zip]:::art
+    end
+
+    REG[(model_versions table)]:::reg
+
+    subgraph LIVE["Inference @ runtime"]
+        RD[RegimeDetector<br/>quant/]:::live
+        SS[(strategy_selections<br/>Thompson bandit)]:::live
+        AM[AlphaMonitor]:::live
+    end
+
+    OHLCV --> HMM
+    OHLCV --> DRL
+    FS --> DRL
+    HMM --> H1
+    DRL --> D1
+    H1 --> REG
+    D1 --> REG
+    REG --> RD
+    REG --> SS
+    RD --> SA[StrategyAgent]
+    SS --> AM
+    AM --> SA

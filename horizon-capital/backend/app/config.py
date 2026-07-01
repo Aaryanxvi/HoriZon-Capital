@@ -193,9 +193,33 @@ class Settings(BaseSettings):
 
     # Trading universe — US equities only for now.
     # Leave india_symbols and crypto_symbols empty to disable those markets.
+    # ~36 liquid names so breadth_alpha has a real cross-section to rank; suffixes
+    # match research_stack's universe so that sleeve keeps working. Includes the
+    # TLT/GLD defense pair + sector ETFs the research stack rotates into.
     india_symbols: str = ""
-    us_symbols: str = "SPY.NYSE,QQQ.NASDAQ,AAPL.NASDAQ,MSFT.NASDAQ,GOOGL.NASDAQ,AMZN.NASDAQ,META.NASDAQ,NVDA.NASDAQ,JPM.NYSE,XOM.NYSE"
+    us_symbols: str = (
+        "SPY.NYSE,QQQ.NASDAQ,TLT.NASDAQ,GLD.NYSE,"
+        "AAPL.NASDAQ,MSFT.NASDAQ,NVDA.NASDAQ,GOOGL.NASDAQ,AMZN.NASDAQ,META.NASDAQ,"
+        "TSLA.NASDAQ,AVGO.NASDAQ,NFLX.NASDAQ,COST.NASDAQ,ORCL.NYSE,"
+        "V.NYSE,MA.NYSE,JPM.NYSE,UNH.NYSE,LLY.NYSE,"
+        "XOM.NYSE,XLE.NYSE,XLK.NYSE,XLF.NYSE,XLV.NYSE,XLY.NYSE,XLI.NYSE,"
+        "JNJ.NYSE,ABBV.NYSE,MRK.NYSE,PG.NYSE,KO.NYSE,WMT.NYSE,HD.NYSE,CAT.NYSE,CVX.NYSE"
+    )
     crypto_symbols: str = ""
+
+    # Universe source for the live strategy agent:
+    #   "config" -> the static us/india/crypto_symbols lists above (respects .env)
+    #   "sp500"  -> dynamic current S&P 500 constituents (+ anchors), batched fetch
+    # Default "config" so an explicit .env US_SYMBOLS is honored. Set
+    # UNIVERSE_SOURCE=sp500 to trade the full ~500-name breadth universe.
+    universe_source: str = "config"
+
+    # LLM-debate cost gate. Each debate is ~8 LLM calls, so cap how many run per
+    # rolling 24h — the strongest signals get the AI debate; the rest pass through
+    # and trade on the quant signal (no LLM). Raise for more AI coverage, lower to
+    # save tokens. debate_min_strength skips debate for weak signals entirely.
+    debate_max_per_day: int = 15
+    debate_min_strength: float = 0.0
 
     @property
     def all_symbols(self) -> list[str]:

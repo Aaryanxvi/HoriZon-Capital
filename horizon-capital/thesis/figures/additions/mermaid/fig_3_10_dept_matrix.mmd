@@ -1,0 +1,41 @@
+graph TB
+    classDef front fill:#fff4d6,stroke:#b08400,color:#000
+    classDef mid fill:#d6e8f5,stroke:#1565c0,color:#000
+    classDef back fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef exec fill:#f3d6f5,stroke:#6a1b9a,color:#000
+
+    subgraph FO["Front Office"]
+        SA[StrategyAgent<br/>60s]:::front
+        PA[PortfolioAgent<br/>60s]:::front
+        EA[ExecutionAgent<br/>5s]:::front
+        RES[ResearchAgent<br/>15min]:::front
+        IR[IRAgent<br/>event]:::front
+    end
+
+    subgraph MO["Middle Office"]
+        RA[RiskAgent<br/>30s]:::mid
+        CA[ComplianceAgent<br/>event]:::mid
+        OA[OperationsAgent<br/>event]:::mid
+        AM[AlphaMonitor<br/>5min]:::mid
+        DA[DebateAgent<br/>event]:::mid
+    end
+
+    subgraph BO["Back Office"]
+        ACA[AccountingAgent<br/>1h]:::back
+        QA[QuantAgent<br/>event]:::back
+        ITA[ITAgent<br/>health]:::back
+    end
+
+    subgraph EX["Executive"]
+        CIO[CIOAgent<br/>15min + crisis]:::exec
+    end
+
+    SA --> RA
+    RA --> PA
+    PA --> EA
+    EA --> ACA
+    RA -.alert.-> CIO
+    AM -.alpha decay.-> CIO
+    CIO -.override.-> EA
+    DA --- RA
+    DA --- PA

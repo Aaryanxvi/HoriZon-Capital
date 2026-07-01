@@ -1,0 +1,31 @@
+flowchart LR
+    classDef ext fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef proc fill:#fff4d6,stroke:#b08400,color:#000
+    classDef store fill:#f3d6f5,stroke:#6a1b9a,color:#000
+    classDef ui fill:#ffe0d6,stroke:#bf360c,color:#000
+
+    YF[Yahoo / CoinGecko]:::ext --> DI[DataIngestion 30-60s]:::proc
+    DI --> KV1[(kv: horizon:price:SYM)]:::store
+    DI --> OHLCV[(ohlcv table)]:::store
+    OHLCV --> FE[FeatureEngine 23 indicators]:::proc
+    FE --> FS[(feature_snapshots)]:::store
+    FS --> SA[StrategyAgent 4 sleeves]:::proc
+    SA -->|SIGNAL| RA[RiskAgent gates]:::proc
+    RA -->|approved| PA[PortfolioAgent sizing]:::proc
+    PA -->|ORDER_NEW| EA[ExecutionAgent]:::proc
+    EA --> PB[PaperBroker AC-impact]:::proc
+    KV1 --> PB
+    PB -->|fill| EA
+    EA --> ATX[Atomic txn]:::proc
+    ATX --> ORD[(orders)]:::store
+    ATX --> FIL[(fills)]:::store
+    ATX --> POS[(positions)]:::store
+    ATX --> CASH[(cash_balances)]:::store
+    POS --> PM[PositionMonitor 30s mark-to-market]:::proc
+    PM --> POS
+    PA --> SNAP[NAV snapshot 60s]:::proc
+    SNAP --> PSNP[(portfolio_snapshots)]:::store
+    PSNP --> TUI[Terminal Dashboard]:::ui
+    POS --> TUI
+    FIL --> TUI
+    PM -->|stop-loss SIGNAL| RA

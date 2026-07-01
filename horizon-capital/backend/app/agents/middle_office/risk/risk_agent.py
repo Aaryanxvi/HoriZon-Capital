@@ -397,25 +397,41 @@ class RiskAgent(BaseAgent):
     # Data loaders
     # ------------------------------------------------------------------ #
 
-    async def _load_portfolio_returns(self) -> list[float]:
-        """Load recent portfolio daily returns from portfolio_snapshots."""
+    async def _load_daily_navs(self) -> list[float]:
+        """Load one NAV close per UTC day, oldest→newest, last ~253 trading days.
+
+        portfolio_snapshots are written every 60s AND on every fill, so the raw
+        rows are irregular sub-minute samples. Collapsing to the last snapshot of
+        each day yields a genuine daily series — required so that VaR/CVaR are
+        actually 1-day figures (the columns are labeled var_1d_*) and drawdown is
+        a real day-over-day peak-to-trough, not drawdown-since-session-start.
+        """
         async with _get_session_factory()() as session:
             result = await session.execute(
                 text(
                     """
                     SELECT total_value
                     FROM portfolio_snapshots
-                    ORDER BY created_at DESC
+                    WHERE created_at IN (
+                        SELECT MAX(created_at)
+                        FROM portfolio_snapshots
+                        GROUP BY date(created_at)
+                    )
+                    ORDER BY created_at ASC
                     LIMIT 253
                     """
                 )
             )
             rows = result.fetchall()
 
-        if len(rows) < 2:
+        return [r.total_value for r in rows if r.total_value is not None]
+
+    async def _load_portfolio_returns(self) -> list[float]:
+        """Daily returns from the daily NAV-close series."""
+        values = await self._load_daily_navs()
+        if len(values) < 2:
             return []
 
-        values = [r.total_value for r in reversed(rows)]
         returns = []
         for i in range(1, len(values)):
             prev = values[i - 1]
@@ -424,21 +440,5 @@ class RiskAgent(BaseAgent):
         return returns
 
     async def _load_equity_curve(self) -> list[float]:
-        """Load the equity curve for drawdown calculation."""
-        async with _get_session_factory()() as session:
-            result = await session.execute(
-                text(
-                    """
-                    SELECT total_value
-                    FROM portfolio_snapshots
-                    ORDER BY created_at DESC
-                    LIMIT 253
-                    """
-                )
-            )
-            rows = result.fetchall()
-
-        if not rows:
-            return []
-
-        return [r.total_value for r in reversed(rows)]
+        """Daily NAV-close equity curve for drawdown calculation."""
+        return await self._load_daily_navs()

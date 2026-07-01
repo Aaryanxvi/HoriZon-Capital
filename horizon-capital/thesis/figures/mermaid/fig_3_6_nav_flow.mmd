@@ -1,0 +1,25 @@
+flowchart TB
+    classDef src fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef calc fill:#fff4d6,stroke:#b08400,color:#000
+    classDef out fill:#d6f5d6,stroke:#2e7d32,color:#000
+
+    A1[cash_balances.amount USD]:::src
+    A2[cash_balances.amount INR]:::src
+    A3[positions: qty x current_price USD]:::src
+    A4[positions: qty x current_price INR]:::src
+    A5[FX rate: horizon:forex:usdinr fallback 83.0]:::src
+
+    A1 --> B1[N_cash_USD = c_USD + c_INR / r_FX]:::calc
+    A2 --> B1
+    A5 --> B1
+
+    A3 --> B2[N_pos_USD = sum equity_value_i]:::calc
+    A4 --> B2
+    A5 --> B2
+
+    B1 --> C[Total NAV = N_cash + N_pos]:::calc
+    B2 --> C
+
+    C --> D1[(portfolio_snapshots row)]:::out
+    C --> D2[(KV: horizon:portfolio:nav)]:::out
+    C --> D3[Dashboard NAV panel]:::out

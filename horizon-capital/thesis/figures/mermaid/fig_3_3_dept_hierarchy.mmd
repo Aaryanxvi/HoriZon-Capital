@@ -1,0 +1,29 @@
+graph TB
+    classDef exec fill:#ffd6d6,stroke:#a13e3e,color:#000
+    classDef front fill:#fff4d6,stroke:#b08400,color:#000
+    classDef mid fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef back fill:#e8d6f5,stroke:#6a1b9a,color:#000
+
+    HC[Horizon Capital — 13 Agents]
+
+    HC --> EXEC[Executive]
+    HC --> FO[Front Office]
+    HC --> MO[Middle Office]
+    HC --> BO[Back Office]
+
+    EXEC --> CIO[CIOAgent — 15 min + crisis]:::exec
+
+    FO --> SA[StrategyAgent — 60s]:::front
+    FO --> PA[PortfolioAgent — 60s]:::front
+    FO --> EA[ExecutionAgent — 5s]:::front
+    FO --> IRA[IRAgent — message-driven]:::front
+
+    MO --> RA[RiskAgent — 30s]:::mid
+    MO --> CA[ComplianceAgent — message-driven]:::mid
+    MO --> DA[DebateAgent — message-driven]:::mid
+    MO --> AM[AlphaMonitor — 5 min]:::mid
+    MO --> OA[OperationsAgent — message-driven]:::mid
+
+    BO --> ACA[AccountingAgent — 1 hr]:::back
+    BO --> QA[QuantAgent — message-driven]:::back
+    BO --> ITA[ITAgent — health monitor]:::back

@@ -59,9 +59,15 @@ class ExecutionAgent(BaseAgent):
         # Orders awaiting human CIO approval: order_id -> order dict
         self._pending_approval: dict[str, dict] = {}
         self._cio_halt_active: bool = False
+        # Per-symbol locks. update_position does a read-modify-write across its
+        # own session; two overlapping fills on the same symbol would otherwise
+        # both read the old qty and the second UPDATE would clobber the first.
+        self._symbol_locks: dict[str, asyncio.Lock] = {}
 
     async def _subscribe(self) -> None:
-        await self.bus.subscribe("horizon.execution.order.*", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.new", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.pending", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.cancel", self.on_message)
         await self.bus.subscribe("horizon.executive.cio", self.on_message)
 
     async def run(self) -> None:
@@ -231,6 +237,34 @@ class ExecutionAgent(BaseAgent):
                            order_id=order_id, symbol=order["symbol"])
             return
 
+        # Hard cash guard — reject BUY if it would push USD cash negative.
+        # Prevents runaway over-trading regardless of upstream sizing bugs.
+        if order.get("side") == "BUY" and order.get("exchange", "") not in ("NSE", "BSE"):
+            from app.core.cash import get_cash
+            from app.core.runtime import get_session_factory
+            try:
+                price = await kv.get(f"horizon:price:{order['symbol']}")
+                px = float(price) if price else 0.0
+                notional = px * float(order["quantity"])
+                async with get_session_factory()() as s:
+                    cash_usd = await get_cash(s, "USD")
+                if notional > max(cash_usd, 0.0):
+                    await self.order_manager.update_status(
+                        order_id, "REJECTED",
+                        rejection_reason=(
+                            f"Insufficient cash: need ${notional:,.0f}, "
+                            f"have ${cash_usd:,.0f}"
+                        ),
+                    )
+                    logger.warning(
+                        "order_blocked_cash_guard",
+                        order_id=order_id, symbol=order["symbol"],
+                        notional=notional, cash=cash_usd,
+                    )
+                    return
+            except Exception as exc:
+                logger.error("cash_guard_error", order_id=order_id, error=str(exc))
+
         # Block naked shorts: reject SELL if no open position exists
         if order.get("side") == "SELL":
             has_position = await self._has_open_position(
@@ -261,6 +295,12 @@ class ExecutionAgent(BaseAgent):
         for attempt in range(3):
             fill = await self.paper_broker.execute(order)
             if fill is not None:
+                break
+            # Only retry the paper broker. A live order that returned None may
+            # have already been accepted by the broker before the connection
+            # dropped — a blind re-POST would double-fire. Live retries must go
+            # through an idempotency key + status check, not this loop.
+            if order.get("broker") != "PAPER":
                 break
             if attempt < 2:
                 logger.warning("broker_retry", order_id=order_id, attempt=attempt + 1)
@@ -299,30 +339,32 @@ class ExecutionAgent(BaseAgent):
         else:
             new_status = "PARTIAL"
 
+        lock = self._symbol_locks.setdefault(order["symbol"], asyncio.Lock())
         try:
-            async with _get_session_factory()() as session:
-                await self.order_manager.record_fill(
-                    order_id=order_id,
-                    qty=qty,
-                    price=price,
-                    commission=commission,
-                    slippage=slippage,
-                    session=session,
-                )
-                await self.order_manager.update_status(
-                    order_id, new_status, session=session,
-                )
-                await self.order_manager.update_position(
-                    symbol=order["symbol"],
-                    exchange=exchange,
-                    side=side,
-                    qty=qty,
-                    price=price,
-                    stop_loss_price=order.get("stop_loss"),
-                    session=session,
-                )
-                new_cash = await adjust_cash(session, currency, delta)
-                await session.commit()
+            async with lock:
+                async with _get_session_factory()() as session:
+                    await self.order_manager.record_fill(
+                        order_id=order_id,
+                        qty=qty,
+                        price=price,
+                        commission=commission,
+                        slippage=slippage,
+                        session=session,
+                    )
+                    await self.order_manager.update_status(
+                        order_id, new_status, session=session,
+                    )
+                    await self.order_manager.update_position(
+                        symbol=order["symbol"],
+                        exchange=exchange,
+                        side=side,
+                        qty=qty,
+                        price=price,
+                        stop_loss_price=order.get("stop_loss"),
+                        session=session,
+                    )
+                    new_cash = await adjust_cash(session, currency, delta)
+                    await session.commit()
         except Exception:
             logger.exception("atomic_fill_rollback", order_id=order_id)
             raise

@@ -1,0 +1,31 @@
+flowchart TD
+    classDef trig fill:#ffd6d6,stroke:#b71c1c,color:#000
+    classDef gate fill:#fff4d6,stroke:#b08400,color:#000
+    classDef act fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef out fill:#e8f1ff,stroke:#3a6ea5,color:#000
+
+    T1[Drawdown > 7%]:::trig
+    T2[Drawdown > 10%]:::trig
+    T3[VaR99 breach × 3]:::trig
+    T4[Feed outage > 5min]:::trig
+    T5[30d Sharpe < 0]:::trig
+
+    G{CIO mode}:::gate
+
+    T1 --> G
+    T2 --> G
+    T3 --> G
+    T4 --> G
+    T5 --> G
+
+    G -- HUMAN --> ADV[CIO_ADVISORY<br/>read-only]:::act
+    G -- AI --> LLM[Claude Opus 4.7<br/>structured JSON]:::act
+
+    LLM --> A1[action = HALT]:::out
+    LLM --> A2[action = REDUCE]:::out
+    LLM --> A3[action = RESUME]:::out
+
+    A1 --> EA[ExecutionAgent Guard C]
+    A2 --> EA
+    A3 --> EA
+    ADV --> DASH[Dashboard panel]

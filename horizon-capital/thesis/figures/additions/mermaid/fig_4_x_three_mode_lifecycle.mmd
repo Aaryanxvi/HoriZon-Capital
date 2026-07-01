@@ -1,0 +1,26 @@
+flowchart TD
+    classDef sig fill:#fff4d6,stroke:#b08400,color:#000
+    classDef gate fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef ord fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef term fill:#f3d6f5,stroke:#6a1b9a,color:#000
+    classDef rej fill:#ffd6d6,stroke:#b71c1c,color:#000
+
+    S[Signal emitted by sleeve]:::sig --> RA{RiskAgent<br/>pre-trade gate}:::gate
+    RA -- reject --> R1[REJECTED]:::rej
+    RA -- approve --> M{HORIZON_MODE}:::gate
+
+    M -- PAPER --> O1[ORDER_NEW → OPEN]:::ord
+    M -- HUMAN_APPROVAL --> P[PENDING_APPROVAL]:::ord
+    M -- FULLY_AUTONOMOUS --> DA{DebateAgent<br/>N reasoners}:::gate
+
+    P -- approve cmd --> O2[ORDER_APPROVE → OPEN]:::ord
+    P -- reject cmd --> R2[ORDER_REJECT → REJECTED]:::rej
+
+    DA -- consensus ≥ 0.6 --> O3[DEBATE_CONCLUSION APPROVED → OPEN]:::ord
+    DA -- consensus < 0.6 --> R3[REJECTED + RISK_ALERT INFO]:::rej
+    DA -- timeout --> R3
+
+    O1 --> EX[ExecutionAgent → PaperBroker]:::term
+    O2 --> EX
+    O3 --> EX
+    EX --> F[FILLED]:::term

@@ -1,0 +1,19 @@
+flowchart TB
+    classDef proc fill:#fff4d6,stroke:#b08400,color:#000
+    classDef io fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef bad fill:#f5d6d6,stroke:#a13e3e,color:#000
+
+    A[Tick — every 30s] --> B[SELECT * FROM positions]:::io
+    B --> C{For each pos}:::proc
+    C --> D[Lookup price keys:<br/>horizon:price:SYM,<br/>:sym, :SYM.EXCH]:::io
+    D --> E{price found?}:::proc
+    E -- no --> F[skip pos — silent]:::bad
+    E -- yes --> G[unrealized = LONG?<br/>(price - avg) * qty :<br/>(avg - price) * qty]:::proc
+    G --> H[UPDATE positions SET<br/>current_price, unrealized_pnl]:::io
+    H --> I{stop_loss set AND<br/>price <= stop_loss AND<br/>side = LONG?}:::proc
+    I -- yes --> J[Emit synthetic SELL SIGNAL<br/>dir=-1, strength=1.0]:::bad
+    I -- no --> K[continue]:::proc
+    F --> C
+    J --> C
+    K --> C
+    C -. all done .-> L[publish PORTFOLIO_UPDATE]:::proc

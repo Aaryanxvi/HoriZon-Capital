@@ -1,0 +1,23 @@
+flowchart TD
+    classDef gate fill:#fff4d6,stroke:#b08400,color:#000
+    classDef ok fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef bad fill:#f5d6d6,stroke:#a13e3e,color:#000
+
+    S[Incoming SIGNAL] --> Q1{Direction = SELL?}:::gate
+    Q1 -- yes --> APP[Approve always — risk reduction]:::ok
+    Q1 -- no --> Q2{kill-switch active?}:::gate
+    Q2 -- yes --> R1[REJECT — system halted]:::bad
+    Q2 -- no --> Q3{post-trade weight > 5% NAV?}:::gate
+    Q3 -- yes --> R2[REJECT — position-limit breach]:::bad
+    Q3 -- no --> Q4{day P&L < -5% start NAV?}:::gate
+    Q4 -- yes --> R3[REJECT — daily-loss limit]:::bad
+    Q4 -- no --> APP
+
+    subgraph CONT["Continuous monitor — every 30s"]
+        M1[Compute VaR_95, VaR_99, CVaR_95 over 253d]
+        M2[Compute current drawdown]
+        M3{drawdown >= 10%?}:::gate
+        M3 -- yes --> KS[Set horizon:system:halted = 1<br/>Emit RISK_ALERT CRITICAL]:::bad
+        M3 -- no --> ID[Idle until next tick]:::ok
+        M1 --> M2 --> M3
+    end

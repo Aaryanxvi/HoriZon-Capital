@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant FE as React SPA
+    participant API as FastAPI /v1/auth
+    participant WS as WebSocket /v1/ws
+    participant BUS as MemoryBus
+    participant DB as SQLite
+
+    FE->>API: POST /login (email, pw)
+    API->>DB: bcrypt verify
+    DB-->>API: user
+    API-->>FE: JWT (access + refresh)
+
+    FE->>WS: upgrade ws + Bearer JWT
+    WS->>WS: verify JWT
+    WS->>BUS: subscribe horizon.portfolio.* + horizon.order.fill.*
+
+    par live push
+        BUS-->>WS: PORTFOLIO_UPDATE
+        WS-->>FE: {nav, cash, positions}
+    and
+        BUS-->>WS: ORDER_FILL
+        WS-->>FE: {fill_id, symbol, qty, price}
+    end
+
+    FE->>FE: Zustand store update
+    FE->>FE: re-render NAV/blotter

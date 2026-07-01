@@ -1,0 +1,16 @@
+stateDiagram-v2
+    [*] --> INITIATED: signal Δw ≥ Δw_debate
+    INITIATED --> ROUND_1: spawn N reasoners
+    ROUND_1 --> ROUND_2: no consensus
+    ROUND_2 --> ROUND_3: no consensus
+    ROUND_1 --> CONCLUDED: consensus ≥ 0.6
+    ROUND_2 --> CONCLUDED: consensus ≥ 0.6
+    ROUND_3 --> CONCLUDED: consensus ≥ 0.6 OR max rounds
+    ROUND_1 --> TIMEOUT: τ_LLM exceeded
+    ROUND_2 --> TIMEOUT: τ_LLM exceeded
+    ROUND_3 --> TIMEOUT: τ_LLM exceeded
+    INITIATED --> ERRORED: provider failure
+    ROUND_1 --> ERRORED: provider failure
+    CONCLUDED --> [*]: emit DEBATE_CONCLUSION
+    TIMEOUT --> [*]: default REJECT
+    ERRORED --> [*]: default REJECT + alert

@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant SA as StrategyAgent
+    participant Bus as MessageBus
+    participant RA as RiskAgent
+    participant PA as PortfolioAgent
+    participant EA as ExecutionAgent
+    participant PB as PaperBroker
+    participant DB as SQLite
+    participant TUI as Dashboard
+
+    SA->>Bus: SIGNAL {symbol, weight, dir}
+    Bus->>RA: deliver SIGNAL
+    RA->>RA: check pos-limit, daily-loss, kill-switch
+    RA->>Bus: APPROVED (or RISK_ALERT)
+    Bus->>PA: deliver APPROVED
+    PA->>PA: size: V_target = NAV * w
+    PA->>Bus: ORDER_NEW
+    Bus->>EA: deliver ORDER_NEW
+    EA->>EA: kill-switch / naked-short / CIO HALT guards
+    EA->>PB: execute(order)
+    PB->>PB: AC impact F = P + d*(I_perm + I_temp) + nu
+    PB->>EA: fill {price, qty, commission, slippage}
+    EA->>DB: BEGIN TXN: insert fill, update order, update position, adjust cash
+    EA->>Bus: ORDER_FILL
+    Bus->>PA: deliver ORDER_FILL
+    Bus->>TUI: deliver ORDER_FILL
+    TUI-->>TUI: refresh fills + NAV panels

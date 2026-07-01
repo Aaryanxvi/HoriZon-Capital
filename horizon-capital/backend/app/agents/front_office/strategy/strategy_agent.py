@@ -24,7 +24,7 @@ from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.strategy.sleeves import (
-    GapFadeSleeve,
+    BreadthAlphaSleeve,
     MomentumRankSleeve,
     ResearchStackSleeve,
     TrendFilterSleeve,
@@ -74,6 +74,17 @@ def _exchange_from_symbol(symbol: str) -> str:
     return ""
 
 
+def _weighted(sleeve, weight: float):
+    """Set a sleeve instance's portfolio weight (overrides the class default).
+
+    The class-level target_weight is the sleeve's documented standalone weight;
+    the live agent allocates its own mix without mutating those defaults (the
+    validation scripts rely on them).
+    """
+    sleeve.target_weight = weight
+    return sleeve
+
+
 class StrategyAgent(BaseAgent):
     """Sleeve-driven strategy agent — replaces RSI/MACD/BB indicators."""
 
@@ -84,13 +95,19 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
+        # Live sleeve allocation. gap_fade removed — its overnight-reversal thesis
+        # is degenerate on daily bars (validated). breadth_alpha is the new
+        # multi-signal cross-sectional engine. Weights sum to 1.0; tune freely.
         self._sleeves = [
-            ResearchStackSleeve(),  # 60% — HRP + Half-Kelly + GMM regime + Quality
-            TrendFilterSleeve(),    # 20% — Faber 200d SMA gate on SPY
-            GapFadeSleeve(),        # 10% — overnight gap reversal on QQQ
-            MomentumRankSleeve(),   # 10% — 12-1 cross-sectional momentum
+            _weighted(BreadthAlphaSleeve(), 0.40),   # multi-signal top-K breadth
+            _weighted(ResearchStackSleeve(), 0.30),  # HRP + Kelly + regime + quality
+            _weighted(TrendFilterSleeve(), 0.20),    # Faber 200d SMA gate on SPY
+            _weighted(MomentumRankSleeve(), 0.10),   # 12-1 cross-sectional momentum
         ]
-        self._symbols = self._load_symbols()
+        # Universe resolved lazily on first tick — "sp500" hits the network, so
+        # we don't want it firing at construction time (tests, --setup, etc.).
+        self._universe_source = settings.universe_source
+        self._symbols: list[str] = []
         # sleeve name -> last signal list cached until next cadence refresh
         self._sleeve_cache: dict[str, list] = {}
         # sleeve name -> last bar timestamp when sleeve was refreshed
@@ -102,12 +119,15 @@ class StrategyAgent(BaseAgent):
         self._last_emitted_weight: dict[str, float] = {}
         self._bar_count = 0  # increments per completed poll
 
-    @staticmethod
-    def _load_symbols() -> list[str]:
-        symbols: list[str] = []
-        for csv in [settings.india_symbols, settings.us_symbols, settings.crypto_symbols]:
-            symbols.extend(s.strip() for s in csv.split(",") if s.strip())
-        return symbols
+    def _ensure_symbols(self) -> list[str]:
+        """Resolve the trading universe once (lazy — may hit the network)."""
+        if not self._symbols:
+            from app.data_layer.universe import get_universe
+            self._symbols = get_universe(self._universe_source)
+            logger.info(
+                "universe_loaded", source=self._universe_source, n=len(self._symbols)
+            )
+        return self._symbols
 
     # ------------------------------------------------------------------
     # BaseAgent hooks
@@ -126,7 +146,7 @@ class StrategyAgent(BaseAgent):
 
     async def run(self) -> None:
         await asyncio.sleep(15)
-        logger.info("strategy_agent_starting", symbols=self._symbols)
+        logger.info("strategy_agent_starting", universe_source=self._universe_source)
 
         while self._running:
             try:
@@ -160,16 +180,15 @@ class StrategyAgent(BaseAgent):
         self._bar_count += 1
 
     async def _fetch_all_bars(self) -> dict[str, pd.DataFrame]:
-        """Fetch daily OHLCV for every configured symbol."""
-        bars: dict[str, pd.DataFrame] = {}
-        for symbol in self._symbols:
-            try:
-                df = await self._get_ohlcv(symbol)
-                if df is not None and not df.empty:
-                    bars[symbol] = df
-            except Exception as exc:
-                logger.warning("ohlcv_fetch_error", symbol=symbol, error=str(exc))
-        return bars
+        """Fetch daily OHLCV for the whole universe in one batched, cached call."""
+        from app.data_layer.batch_bars import fetch_batch
+
+        symbols = self._ensure_symbols()
+        try:
+            return await fetch_batch(symbols)
+        except Exception as exc:
+            logger.error("batch_fetch_error", error=str(exc))
+            return {}
 
     async def _publish_ticks(self, bars: dict[str, pd.DataFrame]) -> None:
         """Write latest price to KV and emit TICK per symbol for the dashboard."""
@@ -255,10 +274,16 @@ class StrategyAgent(BaseAgent):
         against current cash + positions.
         """
         # Include symbols that previously had a non-zero target but are now
-        # absent so we emit exits.
+        # absent so we emit exits. Emit biggest weight changes first so the
+        # downstream debate cost-budget is spent on the strongest signals.
         union = set(targets) | set(self._last_emitted_weight)
+        ordered = sorted(
+            union,
+            key=lambda s: abs(targets.get(s, 0.0) - self._last_emitted_weight.get(s, 0.0)),
+            reverse=True,
+        )
 
-        for symbol in union:
+        for symbol in ordered:
             new_w = targets.get(symbol, 0.0)
             old_w = self._last_emitted_weight.get(symbol, 0.0)
             if abs(new_w - old_w) < MIN_WEIGHT_DELTA:

@@ -692,10 +692,11 @@ class CommandHandler:
 
     async def _cmd_agents(self, args: list[str]) -> str:
         """Show agent configuration."""
-        from app.llm.agent_config import DEFAULT_AGENT_CONFIGS
+        from app.llm.agent_config import get_agent_configs
         from app.llm.provider_registry import provider_registry
 
         available_llms = provider_registry.list_available()
+        agent_configs = get_agent_configs()
         llm_list = ", ".join(available_llms) if available_llms else "none configured"
         lines = [
             "[bold]Agent Configuration:[/bold]",
@@ -712,7 +713,7 @@ class CommandHandler:
         }
 
         for dept in dept_order:
-            configs = [c for c in DEFAULT_AGENT_CONFIGS if c.department == dept]
+            configs = [c for c in agent_configs if c.department == dept]
             if not configs:
                 continue
             lines.append(f"  [bold cyan]{dept_labels[dept]}[/]")

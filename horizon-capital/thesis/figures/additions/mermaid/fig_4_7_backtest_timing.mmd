@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    participant U as REPL: backtest run
+    participant BE as BacktestEngine
+    participant CK as SyntheticClock
+    participant KV as KV (mocked)
+    participant SA as StrategyAgent
+    participant RA as RiskAgent
+    participant PB as PaperBroker
+    participant DB as backtest_runs
+
+    U->>BE: start(symbol, dates, strategy)
+    BE->>CK: init(start_date)
+    loop each bar t in [start, end]
+        CK->>KV: write horizon:price:{S} = bar.close
+        BE->>SA: tick(t)
+        SA->>RA: SIGNAL
+        RA->>PB: ORDER_NEW (approved)
+        PB-->>RA: FILL (AC slippage)
+        BE->>BE: update virtual NAV
+    end
+    BE->>DB: persist run metrics
+    DB-->>U: run_id + Sharpe + DD

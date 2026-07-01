@@ -14,6 +14,13 @@ def _isolated_horizon_data_dir(tmp_path, monkeypatch):
     """
     monkeypatch.setenv("HORIZON_DATA_DIR", str(tmp_path))
 
+    # Force test-mode defaults so the suite is independent of the developer's
+    # real .env (which may be FULLY_AUTONOMOUS / CIO=AI for live trading). Tests
+    # that need another mode patch it themselves.
+    from app.config import CIOMode, SystemMode, settings
+    monkeypatch.setattr(settings, "system_mode", SystemMode.PAPER_TRADING, raising=False)
+    monkeypatch.setattr(settings, "cio_mode", CIOMode.HUMAN, raising=False)
+
     # Drop cached modules so they pick up the new env var.
     import sys
     for mod in list(sys.modules):

@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    participant B as Browser (React)
+    participant CORS as CORS Middleware
+    participant JWT as JWT Auth Middleware
+    participant R as v1 Router
+    participant H as Route Handler
+    participant S as Service Layer
+    participant DB as SQLite / KV
+
+    B->>CORS: GET /v1/portfolio/nav (Bearer JWT)
+    CORS->>JWT: pass-through
+    JWT->>JWT: verify signature + expiry
+    alt valid
+        JWT->>R: forward request
+        R->>H: dispatch portfolio.nav
+        H->>S: PortfolioService.get_nav()
+        S->>DB: SELECT FROM portfolio_snapshots
+        DB-->>S: row
+        S-->>H: NAVResponse(pydantic)
+        H-->>R: 200 JSON
+        R-->>B: response
+    else invalid
+        JWT-->>B: 401 Unauthorized
+    end

@@ -96,6 +96,11 @@ class AlpacaBroker:
             "time_in_force": "day",
         }
 
+        # Idempotency: Alpaca rejects a duplicate client_order_id, so a retry
+        # after a timeout-that-already-landed cannot double-fire the order.
+        if order_id:
+            payload["client_order_id"] = str(order_id)
+
         if order_type == "limit" and order.get("limit_price"):
             payload["limit_price"] = str(order["limit_price"])
 

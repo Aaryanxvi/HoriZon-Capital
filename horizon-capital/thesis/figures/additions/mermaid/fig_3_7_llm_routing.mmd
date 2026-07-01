@@ -1,0 +1,44 @@
+graph LR
+    classDef agent fill:#fff4d6,stroke:#b08400,color:#000
+    classDef reg fill:#d6f5d6,stroke:#2e7d32,color:#000
+    classDef provider fill:#e8f1ff,stroke:#3a6ea5,color:#000
+    classDef model fill:#f3d6f5,stroke:#6a1b9a,color:#000
+
+    subgraph CONSUMERS["LLM Consumers"]
+        SA[StrategyAgent]:::agent
+        DA[DebateAgent]:::agent
+        CIO[CIOAgent]:::agent
+        IR[IRAgent]:::agent
+    end
+
+    PR[ProviderRegistry<br/>+ AgentModelOverrides]:::reg
+
+    subgraph PROVIDERS["Providers"]
+        CL[ClaudeProvider]:::provider
+        GE[GeminiProvider]:::provider
+        OA[OpenAIProvider]:::provider
+    end
+
+    subgraph MODELS["Models"]
+        CH[claude-haiku-4-5]:::model
+        CO[claude-opus-4-7]:::model
+        GP[gemini-pro]:::model
+        G4[gpt-4o]:::model
+    end
+
+    SA --> PR
+    DA --> PR
+    CIO --> PR
+    IR --> PR
+
+    PR -- "STRATEGY_LLM_MODEL" --> CL
+    PR -- "CIO_LLM_MODEL" --> CL
+    PR -- "IR_LLM_MODEL" --> GE
+    PR -- "DEBATE reasoners" --> CL
+    PR -. fallback .-> GE
+    PR -. fallback .-> OA
+
+    CL --> CH
+    CL --> CO
+    GE --> GP
+    OA --> G4
