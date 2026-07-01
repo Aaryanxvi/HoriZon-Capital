@@ -51,7 +51,9 @@ from scripts.validate_pit import (  # noqa: E402
 )
 
 ETFS = ["SPY", "EFA", "TLT", "GLD", "DBC", "BIL"]
-RISK_ETFS = ["SPY", "EFA", "TLT", "GLD", "DBC"]
+# Canonical Antonacci GEM risk menu: US vs intl equities ONLY. First cut had
+# TLT/GLD/DBC in the risk menu and bought the 2008 commodity-bubble top.
+RISK_ETFS = ["SPY", "EFA"]
 MONTHLY = 21
 MOMRANK_TOP = 3
 

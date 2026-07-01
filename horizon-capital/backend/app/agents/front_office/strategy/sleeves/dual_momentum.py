@@ -1,11 +1,15 @@
 """Dual-momentum sleeve: Antonacci GEM over asset-class ETFs.
 
-Reference: Antonacci, "Dual Momentum Investing" (2014). Rule, verbatim, no
-tuning:
-  1. Rank risk assets (SPY, EFA, TLT, GLD, DBC) by 12-month return.
-  2. If the top asset's 12m return beats the cash proxy's (BIL), hold it at
-     100% of the sleeve.
-  3. Otherwise hold the defensive asset (TLT).
+Reference: Antonacci, "Dual Momentum Investing" (2014) — GEM, canonical menu:
+  1. Rank the two RISK assets (US equities SPY vs intl equities EFA) by
+     12-month return (relative momentum).
+  2. If the top one beats the cash proxy's (BIL) 12m return (absolute
+     momentum), hold it at 100% of the sleeve.
+  3. Otherwise hold the defensive bond asset (TLT).
+
+Gold/commodities are deliberately NOT in the risk menu — a first cut included
+GLD/DBC and promptly bought the 2008 commodity-bubble top in backtest (−55%
+maxDD 2008-17 vs GEM's published crash-dodging record). Canonical menu only.
 
 ETF prices carry no survivorship bias, so free data validates this sleeve
 honestly (see scripts/validate_overlay.py). Monthly cadence — the documented
@@ -17,7 +21,7 @@ import pandas as pd
 
 from app.agents.front_office.strategy.sleeves.base import BaseSleeve, SleeveSignal
 
-_RISK_ASSETS = ["SPY.NYSE", "EFA.NYSE", "TLT.NASDAQ", "GLD.NYSE", "DBC.NYSE"]
+_RISK_ASSETS = ["SPY.NYSE", "EFA.NYSE"]
 _CASH_PROXY = "BIL.NYSE"
 _DEFENSIVE = "TLT.NASDAQ"
 _LOOKBACK = 252  # 12 months
@@ -30,7 +34,10 @@ class DualMomentumSleeve(BaseSleeve):
 
     # StrategyAgent unions this into its fetch list so the ETFs always have bars
     # even when the trading universe (US_SYMBOLS / sp500) doesn't include them.
-    UNIVERSE = frozenset(_RISK_ASSETS) | {_CASH_PROXY}
+    # _DEFENSIVE must be in here: it's both a fetch requirement and the emission
+    # set — without it the RISK_OFF branch decided "hold TLT" but never emitted
+    # the TLT signal, leaving the sleeve's 30% in cash during crashes.
+    UNIVERSE = frozenset(_RISK_ASSETS) | {_CASH_PROXY, _DEFENSIVE}
 
     def compute(
         self, bars: dict[str, pd.DataFrame], as_of: pd.Timestamp
@@ -61,3 +68,33 @@ class DualMomentumSleeve(BaseSleeve):
             for s in sorted(self.UNIVERSE)
             if s in bars or s == winner
         ]
+
+
+def _demo() -> None:
+    """Self-check: risk-on holds top risk asset; risk-off actually emits TLT=1.0."""
+    import numpy as np
+
+    idx = pd.date_range("2020-01-01", periods=300, freq="B")
+
+    def mk(mult: float) -> pd.DataFrame:
+        px = np.linspace(100, 100 * mult, len(idx))
+        return pd.DataFrame({"open": px, "high": px, "low": px,
+                             "close": px, "volume": 1e6}, index=idx)
+
+    sleeve = DualMomentumSleeve()
+    # Risk-on: SPY strongest, beats cash -> SPY=1.0.
+    bars = {"SPY.NYSE": mk(1.3), "EFA.NYSE": mk(1.1),
+            "BIL.NYSE": mk(1.0), "TLT.NASDAQ": mk(1.05)}
+    w = {s.symbol: s.target_weight for s in sleeve.compute(bars, idx[-1])}
+    assert w.get("SPY.NYSE") == 1.0 and w.get("TLT.NASDAQ") == 0.0, w
+    # Risk-off: both risk assets below cash -> defensive TLT=1.0 (the bug this
+    # demo exists to catch: TLT missing from the emission set).
+    bars = {"SPY.NYSE": mk(0.7), "EFA.NYSE": mk(0.65),
+            "BIL.NYSE": mk(1.0), "TLT.NASDAQ": mk(1.1)}
+    w = {s.symbol: s.target_weight for s in sleeve.compute(bars, idx[-1])}
+    assert w.get("TLT.NASDAQ") == 1.0 and w.get("SPY.NYSE") == 0.0, w
+    print("dual_momentum demo OK:", w)
+
+
+if __name__ == "__main__":
+    _demo()
