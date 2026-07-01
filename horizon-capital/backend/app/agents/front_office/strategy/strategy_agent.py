@@ -25,9 +25,9 @@ from sqlalchemy import text
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.strategy.sleeves import (
     BreadthAlphaSleeve,
+    DualMomentumSleeve,
     MomentumRankSleeve,
     ResearchStackSleeve,
-    TrendFilterSleeve,
 )
 from app.config import settings
 from app.core.kv_store import get_kv_store
@@ -95,14 +95,14 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
-        # Live sleeve allocation. gap_fade removed — its overnight-reversal thesis
-        # is degenerate on daily bars (validated). breadth_alpha is the new
-        # multi-signal cross-sectional engine. Weights sum to 1.0; tune freely.
+        # Live sleeve allocation. trend_filter removed — superseded by the
+        # portfolio-level overlay (200d gate) + dual momentum, which cover the
+        # same defensive mechanism. Weights sum to 1.0; tune freely.
         self._sleeves = [
-            _weighted(BreadthAlphaSleeve(), 0.40),   # multi-signal top-K breadth
-            _weighted(ResearchStackSleeve(), 0.30),  # HRP + Kelly + regime + quality
-            _weighted(TrendFilterSleeve(), 0.20),    # Faber 200d SMA gate on SPY
-            _weighted(MomentumRankSleeve(), 0.10),   # 12-1 cross-sectional momentum
+            _weighted(BreadthAlphaSleeve(), 0.30),   # multi-signal top-K breadth
+            _weighted(DualMomentumSleeve(), 0.30),   # GEM asset-class rotation
+            _weighted(ResearchStackSleeve(), 0.25),  # HRP + Kelly + regime + quality
+            _weighted(MomentumRankSleeve(), 0.15),   # 12-1 cross-sectional momentum
         ]
         # Universe resolved lazily on first tick — "sp500" hits the network, so
         # we don't want it firing at construction time (tests, --setup, etc.).
@@ -124,6 +124,9 @@ class StrategyAgent(BaseAgent):
         if not self._symbols:
             from app.data_layer.universe import get_universe
             self._symbols = get_universe(self._universe_source)
+            # Dual-momentum ETFs must always have bars, whatever the universe.
+            extra = sorted(DualMomentumSleeve.UNIVERSE - set(self._symbols))
+            self._symbols.extend(extra)
             logger.info(
                 "universe_loaded", source=self._universe_source, n=len(self._symbols)
             )
@@ -251,7 +254,35 @@ class StrategyAgent(BaseAgent):
             for sig in self._sleeve_cache.get(sleeve.name, []):
                 share = sig.target_weight * sleeve.target_weight
                 combined[sig.symbol] = combined.get(sig.symbol, 0.0) + share
-        return combined
+        return self._apply_overlay(combined, bars)
+
+    def _apply_overlay(
+        self, targets: dict[str, float], bars: dict[str, pd.DataFrame]
+    ) -> dict[str, float]:
+        """Scale aggregated weights by the risk-overlay exposure multiplier.
+
+        Fail-open: overlay disabled, no targets, or no SPY bars -> unchanged.
+        Freed weight is implicit cash; the drift check downstream turns overlay
+        moves into normal rebalance signals.
+        """
+        if not settings.overlay_enabled or not targets:
+            return targets
+        spy = bars.get("SPY.NYSE")
+        if spy is None:
+            spy = bars.get("SPY")
+        if spy is None:
+            return targets
+
+        from app.quant.risk_overlay import overlay_scalar
+
+        closes = pd.DataFrame({s: df["close"] for s, df in bars.items()})
+        scalar = overlay_scalar(
+            closes, targets, spy["close"], target=settings.overlay_vol_target
+        )
+        if scalar >= 0.999:
+            return targets
+        logger.info("overlay_applied", scalar=round(scalar, 3))
+        return {s: w * scalar for s, w in targets.items()}
 
     def _should_refresh(self, sleeve, as_of: pd.Timestamp) -> bool:
         """Per-sleeve cadence gate based on business-day delta since last refresh."""

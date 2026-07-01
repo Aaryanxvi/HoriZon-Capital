@@ -221,6 +221,13 @@ class Settings(BaseSettings):
     debate_max_per_day: int = 15
     debate_min_strength: float = 0.0
 
+    # Portfolio risk overlay (Moreira-Muir vol targeting + Faber 200d trend gate).
+    # Applied by StrategyAgent to aggregated sleeve weights. OFF by default until
+    # the ship gate in scripts/validate_overlay.py passes. Fail-open: any missing
+    # data means scalar 1.0 (today's behavior exactly).
+    overlay_enabled: bool = False
+    overlay_vol_target: float = 0.15
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []
