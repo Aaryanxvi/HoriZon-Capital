@@ -54,10 +54,14 @@ to main yet). All work committed; tree clean at handoff.
   **OVERLAY_ENABLED stays false.** Open question: retest overlay on top of NEW
   config; owner may deliberately re-weigh gate toward DD-control (product thesis)
   — that's a product decision, flag overfit risk.
-- **GEM**: first backtest invalid (wrong menu). Final rerun with canonical menu
-  was IN FLIGHT at session close — rerun: `cd horizon-capital/backend &&
-  python -m scripts.validate_overlay` (~4 min). Gate: gem 08-17 Sharpe > 0 AND
-  blend beats baseline on Sharpe+maxDD.
+- **GEM FINAL (canonical menu)**: implementation now correct — gem 08-17 Sharpe
+  0.36 / maxDD −26.8 (beats SPY 0.30 / −49.9 same window, dodges GFC ✓). But
+  gem 18-24 Sharpe −0.03 (dual-momentum drought; 2022 killed TLT defense too);
+  blend 0.16 < baseline 0.28 → **gate FAILED. Live mix REVERTED to the
+  validated config** (breadth .40 / research .30 / trend_filter .20 /
+  momrank .10 — the validate_fix_ab 0.67 configuration). Overlay +
+  DualMomentumSleeve remain in the codebase as flag-gated research artifacts;
+  do not re-wire without a fresh gate pass. Suite: 417 pass after revert.
 - Run 1 harness bug (fixed): fetch_batch caches per-symbol ignoring period → ETF
   20y fetch after PIT 10y fetch returned 10y frames → 2008-16 empty. ETFs now
   fetched first.
