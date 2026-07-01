@@ -51,8 +51,12 @@ def _normalize(df: pd.DataFrame) -> pd.DataFrame | None:
     return out
 
 
-async def fetch_batch(symbols: list[str], period: str = "400d") -> dict[str, pd.DataFrame]:
-    """Return {suffixed_symbol -> OHLCV df} for ``symbols``, batched + cached."""
+async def fetch_batch(symbols: list[str], period: str = "1200d") -> dict[str, pd.DataFrame]:
+    """Return {suffixed_symbol -> OHLCV df} for ``symbols``, batched + cached.
+
+    1200d ≈ 820 trading days: covers multi_signal's 756-bar ltr lookback and
+    regime_hmm's 277-bar minimum ("400d" left both silently dead in live).
+    """
     now = time.monotonic()
     fresh: dict[str, pd.DataFrame] = {
         s: _cache[s][0] for s in symbols if s in _cache and now - _cache[s][1] < _TTL

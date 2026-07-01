@@ -18,8 +18,8 @@ import pandas as pd
 from app.agents.front_office.strategy.sleeves.base import BaseSleeve, SleeveSignal
 from app.quant.multi_signal import score_universe, select_for_llm
 
-_TOP_K = 12
-_MIN_CONVICTION = 0.3   # skip weak longs; also keeps a future LLM gate cheap
+_TOP_K = 25             # the validated config (validate_pit.py: K=25, conv=0.5)
+_MIN_CONVICTION = 0.5   # skip weak longs; also keeps a future LLM gate cheap
 _MARKET = "SPY"         # used as beta reference, not ranked as a candidate
 
 

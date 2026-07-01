@@ -95,9 +95,12 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
-        # Live sleeve allocation. gap_fade removed — its overnight-reversal thesis
-        # is degenerate on daily bars (validated). breadth_alpha is the new
-        # multi-signal cross-sectional engine. Weights sum to 1.0; tune freely.
+        # Live sleeve allocation — the configuration validated by the 4-way
+        # attribution run (validate_fix_ab: Sharpe 0.67 on PIT 2018-24 with the
+        # patched params). DualMomentumSleeve and the risk overlay FAILED their
+        # pre-registered ship gate on this window (validate_overlay 2026-07-02:
+        # blend 0.16 vs baseline 0.28) and are kept as research artifacts only —
+        # do not re-wire without a fresh gate pass. Weights sum to 1.0.
         self._sleeves = [
             _weighted(BreadthAlphaSleeve(), 0.40),   # multi-signal top-K breadth
             _weighted(ResearchStackSleeve(), 0.30),  # HRP + Kelly + regime + quality
@@ -244,14 +247,44 @@ class StrategyAgent(BaseAgent):
                         n_signals=len(self._sleeve_cache[sleeve.name]),
                     )
                 except Exception as exc:
+                    # Fall through to the cached signals below — `continue` here
+                    # zeroed the sleeve's targets for a tick, emitting exits for
+                    # the whole sleeve (then rebuying) on any transient error.
                     logger.warning(
                         "sleeve_compute_error", sleeve=sleeve.name, error=str(exc)
                     )
-                    continue
             for sig in self._sleeve_cache.get(sleeve.name, []):
                 share = sig.target_weight * sleeve.target_weight
                 combined[sig.symbol] = combined.get(sig.symbol, 0.0) + share
-        return combined
+        return self._apply_overlay(combined, bars)
+
+    def _apply_overlay(
+        self, targets: dict[str, float], bars: dict[str, pd.DataFrame]
+    ) -> dict[str, float]:
+        """Scale aggregated weights by the risk-overlay exposure multiplier.
+
+        Fail-open: overlay disabled, no targets, or no SPY bars -> unchanged.
+        Freed weight is implicit cash; the drift check downstream turns overlay
+        moves into normal rebalance signals.
+        """
+        if not settings.overlay_enabled or not targets:
+            return targets
+        spy = bars.get("SPY.NYSE")
+        if spy is None:
+            spy = bars.get("SPY")
+        if spy is None:
+            return targets
+
+        from app.quant.risk_overlay import overlay_scalar
+
+        closes = pd.DataFrame({s: df["close"] for s, df in bars.items()})
+        scalar = overlay_scalar(
+            closes, targets, spy["close"], target=settings.overlay_vol_target
+        )
+        if scalar >= 0.999:
+            return targets
+        logger.info("overlay_applied", scalar=round(scalar, 3))
+        return {s: w * scalar for s, w in targets.items()}
 
     def _should_refresh(self, sleeve, as_of: pd.Timestamp) -> bool:
         """Per-sleeve cadence gate based on business-day delta since last refresh."""
@@ -274,13 +307,17 @@ class StrategyAgent(BaseAgent):
         against current cash + positions.
         """
         # Include symbols that previously had a non-zero target but are now
-        # absent so we emit exits. Emit biggest weight changes first so the
-        # downstream debate cost-budget is spent on the strongest signals.
+        # absent so we emit exits. Sells first (most-negative delta first) so
+        # their proceeds fund the buys — buys emitted before funding sells hit
+        # the execution cash guard and were silently dropped. Within each side,
+        # biggest deltas first so the debate cost-budget goes to the strongest.
         union = set(targets) | set(self._last_emitted_weight)
         ordered = sorted(
             union,
-            key=lambda s: abs(targets.get(s, 0.0) - self._last_emitted_weight.get(s, 0.0)),
-            reverse=True,
+            key=lambda s: (
+                (d := targets.get(s, 0.0) - self._last_emitted_weight.get(s, 0.0)) >= 0,
+                -abs(d),
+            ),
         )
 
         for symbol in ordered:

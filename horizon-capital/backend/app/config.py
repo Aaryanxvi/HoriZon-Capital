@@ -175,9 +175,14 @@ class Settings(BaseSettings):
     # LLM rate limits
     llm_max_calls_per_minute: int = 60
 
-    # Risk defaults
-    risk_max_drawdown_pct: float = 10.0
-    risk_max_position_pct: float = 5.0
+    # Risk defaults.
+    # max_drawdown 25: disaster brake, not the primary DD control (vol targeting
+    # + trend gates are). 10% froze the book inside the honest backtest's normal
+    # drawdown range (maxDD −36.5%) — live could never track the backtest.
+    # max_position 20: sleeve design puts 20% in SPY and 18%/12% in TLT/GLD;
+    # a 5% cap stranded 15-30% of NAV in cash (clipped weight is discarded).
+    risk_max_drawdown_pct: float = 25.0
+    risk_max_position_pct: float = 20.0
     risk_max_leverage: float = 1.0
     risk_var_limit_pct: float = 3.0
     risk_daily_loss_limit_pct: float = 5.0
@@ -210,9 +215,10 @@ class Settings(BaseSettings):
     # Universe source for the live strategy agent:
     #   "config" -> the static us/india/crypto_symbols lists above (respects .env)
     #   "sp500"  -> dynamic current S&P 500 constituents (+ anchors), batched fetch
-    # Default "config" so an explicit .env US_SYMBOLS is honored. Set
-    # UNIVERSE_SOURCE=sp500 to trade the full ~500-name breadth universe.
-    universe_source: str = "config"
+    # Default "sp500": the breadth engine was validated on ~500 names (K=25,
+    # conviction 0.5) — a 36-name cross-section is an unvalidated, weaker
+    # strategy. Set UNIVERSE_SOURCE=config to honor an explicit .env US_SYMBOLS.
+    universe_source: str = "sp500"
 
     # LLM-debate cost gate. Each debate is ~8 LLM calls, so cap how many run per
     # rolling 24h — the strongest signals get the AI debate; the rest pass through
@@ -220,6 +226,13 @@ class Settings(BaseSettings):
     # save tokens. debate_min_strength skips debate for weak signals entirely.
     debate_max_per_day: int = 15
     debate_min_strength: float = 0.0
+
+    # Portfolio risk overlay (Moreira-Muir vol targeting + Faber 200d trend gate).
+    # Applied by StrategyAgent to aggregated sleeve weights. OFF by default until
+    # the ship gate in scripts/validate_overlay.py passes. Fail-open: any missing
+    # data means scalar 1.0 (today's behavior exactly).
+    overlay_enabled: bool = False
+    overlay_vol_target: float = 0.15
 
     @property
     def all_symbols(self) -> list[str]:

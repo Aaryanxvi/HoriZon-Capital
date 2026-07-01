@@ -417,14 +417,16 @@ class RiskAgent(BaseAgent):
                         FROM portfolio_snapshots
                         GROUP BY date(created_at)
                     )
-                    ORDER BY created_at ASC
+                    ORDER BY created_at DESC
                     LIMIT 253
                     """
                 )
             )
             rows = result.fetchall()
 
-        return [r.total_value for r in rows if r.total_value is not None]
+        # DESC+LIMIT grabs the newest 253 days (ASC froze the window on the
+        # oldest year forever); reverse back to oldest→newest for the callers.
+        return [r.total_value for r in reversed(rows) if r.total_value is not None]
 
     async def _load_portfolio_returns(self) -> list[float]:
         """Daily returns from the daily NAV-close series."""
