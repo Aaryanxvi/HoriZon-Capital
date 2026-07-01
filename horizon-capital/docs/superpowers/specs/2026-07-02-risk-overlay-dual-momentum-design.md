@@ -67,9 +67,10 @@ ETF prices have no survivorship bias — free data is fully honest for this slee
 | momentum_rank | 10% | 15% |
 | trend_filter | 20% | **deleted** |
 
-TrendFilterSleeve is removed: portfolio-level trend gate + dual momentum cover the
-same mechanism. Its tests are removed/updated with it. Weights stay config-driven,
-so reverting is config-only.
+TrendFilterSleeve is unwired from the live agent: portfolio-level trend gate +
+dual momentum cover the same mechanism. The file itself stays (reference-only,
+same precedent as gap_fade) because `scripts/backtest_sleeves.py` and
+`scripts/validate_sleeves_oos.py` import it. Reverting is config/wiring-only.
 
 ## Component 4 — Validation (`scripts/validate_overlay.py`, new)
 
