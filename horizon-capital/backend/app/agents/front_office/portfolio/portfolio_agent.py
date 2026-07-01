@@ -71,6 +71,13 @@ class PortfolioAgent(BaseAgent):
         # Skip emit if next sizing matches — kills 60s-loop spam.
         self._last_emitted_qty: dict[tuple[str, str], float] = {}
         self._order_cooldown = timedelta(seconds=120)  # fallback cooldown
+        # Reconciliation: symbol -> (latest sleeve target_weight, exchange).
+        # The strategy agent marks a target as emitted the moment it fires the
+        # signal, with no feedback — any order dropped downstream (cash guard,
+        # debate veto, stale price) left the position off-target until the
+        # target itself moved >=50bps. This dict + _reconcile() closes the loop.
+        self._sleeve_targets: dict[str, tuple[float, str]] = {}
+        self._last_reconcile = datetime.now(UTC)
 
     # ------------------------------------------------------------------ #
     # Subscriptions
@@ -90,6 +97,10 @@ class PortfolioAgent(BaseAgent):
                 await self._update_snapshot()
             except Exception as exc:
                 logger.error("snapshot_error", error=str(exc))
+            try:
+                await self._reconcile()
+            except Exception as exc:
+                logger.error("reconcile_error", error=str(exc))
             await asyncio.sleep(60)
 
     # ------------------------------------------------------------------ #
@@ -128,6 +139,15 @@ class PortfolioAgent(BaseAgent):
             logger.warning("signal_blocked_system_halted",
                            symbol=payload.get("symbol"))
             return
+
+        # Record the latest sleeve target for reconciliation, even if the
+        # signal is later deduped or its order dropped downstream.
+        symbol_key = payload.get("symbol", "")
+        if symbol_key and "target_weight" in payload:
+            self._sleeve_targets[symbol_key] = (
+                float(payload.get("target_weight", 0.0) or 0.0),
+                payload.get("exchange", ""),
+            )
 
         # Signal-id dedup (idempotency): if upstream re-delivers the same
         # signal_id, drop it. This prevents duplicate parent orders.
@@ -302,6 +322,71 @@ class PortfolioAgent(BaseAgent):
         return abs(prev - qty) < 1.0
 
     # ------------------------------------------------------------------ #
+    # Reconciliation
+    # ------------------------------------------------------------------ #
+
+    async def _reconcile(self) -> None:
+        """Re-issue orders for positions that drifted from their sleeve target.
+
+        Closes the strategy->execution feedback gap: the strategy agent never
+        re-emits an unchanged target, so any dropped order (cash guard, debate
+        veto, stale price, risk block) stranded the position off-target forever.
+        Every 15 min, compare actual weights to the recorded targets and re-size
+        the delta through the normal path (idempotent — an aligned position
+        sizes to qty 0 and emits nothing).
+
+        ponytail: PAPER_TRADING only — other modes route orders through human
+        approval / the debate gate, which this would bypass.
+        """
+        if settings.system_mode.value != "PAPER_TRADING":
+            return
+        now = datetime.now(UTC)
+        if (now - self._last_reconcile) < timedelta(minutes=15):
+            return
+        if not self._sleeve_targets:
+            return
+        halted = await self.redis.get("horizon:system:halted")
+        if halted == "1":
+            return
+        self._last_reconcile = now
+
+        positions = await self._load_positions()
+        cash_usd, cash_inr = await self._load_cash()
+        nav = await self.currency.compute_unified_nav(cash_usd, cash_inr, positions)
+        if nav <= 0:
+            return
+        held: dict[str, float] = {}
+        for p in positions:
+            val = abs(float(p.get("current_price", 0.0)) * float(p.get("quantity", 0.0)))
+            if p.get("currency") == "INR":
+                rate = await self.currency.get_usd_inr_rate()
+                if rate > 0:
+                    val /= rate
+            held[p.get("symbol", "")] = held.get(p.get("symbol", ""), 0.0) + val
+
+        # Clear qty dedup so a legitimately re-sized identical order isn't
+        # blocked because a previous emit of the same qty was rejected downstream.
+        self._last_emitted_qty.clear()
+
+        for symbol, (target_w, exchange) in list(self._sleeve_targets.items()):
+            actual_w = held.get(symbol, 0.0) / nav
+            if target_w <= 0 and symbol not in held:
+                self._sleeve_targets.pop(symbol, None)  # fully exited — done
+                continue
+            if abs(target_w - actual_w) < 0.005:  # aligned within 50bps
+                continue
+            logger.info("reconcile_drift", symbol=symbol,
+                        target=round(target_w, 4), actual=round(actual_w, 4))
+            await self._size_and_emit({
+                "symbol": symbol,
+                "exchange": exchange,
+                "direction": 1 if target_w > actual_w else -1,
+                "target_weight": target_w,
+                "strategy_name": "reconcile",
+                "signal_id": str(uuid.uuid4()),
+            }, debate_id=None)
+
+    # ------------------------------------------------------------------ #
     # Position sizing
     # ------------------------------------------------------------------ #
 
@@ -332,7 +417,6 @@ class PortfolioAgent(BaseAgent):
             return {"quantity": 0.0, "allocation_usd": 0.0}
 
         is_inr = exchange in ("NSE", "BSE")
-        is_crypto = exchange == "CRYPTO"
 
         # Cap target weight by configured per-position limit
         pct_cap = settings.risk_max_position_pct / 100.0
@@ -371,8 +455,10 @@ class PortfolioAgent(BaseAgent):
             else:
                 native_value = qty_to_sell_usd
             qty = native_value / price
-            if not is_crypto:
-                qty = float(int(qty))
+            # Fractional shares for US (paper broker + Alpaca both support them);
+            # whole shares only where the venue requires it (NSE/BSE). int()
+            # flooring stranded 2-5% of NAV on a $100k book of high-priced names.
+            qty = float(int(qty)) if is_inr else round(qty, 4)
             qty = min(qty, held_qty)
             if qty <= 0:
                 return {"quantity": 0.0, "allocation_usd": 0.0}
@@ -399,8 +485,7 @@ class PortfolioAgent(BaseAgent):
 
         native_alloc = min(native_target, native_cash * 0.9)
         qty = native_alloc / price
-        if not is_crypto:
-            qty = float(int(qty))
+        qty = float(int(qty)) if is_inr else round(qty, 4)  # fractional for US
         if qty <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
         if is_inr:

@@ -247,10 +247,12 @@ class StrategyAgent(BaseAgent):
                         n_signals=len(self._sleeve_cache[sleeve.name]),
                     )
                 except Exception as exc:
+                    # Fall through to the cached signals below — `continue` here
+                    # zeroed the sleeve's targets for a tick, emitting exits for
+                    # the whole sleeve (then rebuying) on any transient error.
                     logger.warning(
                         "sleeve_compute_error", sleeve=sleeve.name, error=str(exc)
                     )
-                    continue
             for sig in self._sleeve_cache.get(sleeve.name, []):
                 share = sig.target_weight * sleeve.target_weight
                 combined[sig.symbol] = combined.get(sig.symbol, 0.0) + share
@@ -305,13 +307,17 @@ class StrategyAgent(BaseAgent):
         against current cash + positions.
         """
         # Include symbols that previously had a non-zero target but are now
-        # absent so we emit exits. Emit biggest weight changes first so the
-        # downstream debate cost-budget is spent on the strongest signals.
+        # absent so we emit exits. Sells first (most-negative delta first) so
+        # their proceeds fund the buys — buys emitted before funding sells hit
+        # the execution cash guard and were silently dropped. Within each side,
+        # biggest deltas first so the debate cost-budget goes to the strongest.
         union = set(targets) | set(self._last_emitted_weight)
         ordered = sorted(
             union,
-            key=lambda s: abs(targets.get(s, 0.0) - self._last_emitted_weight.get(s, 0.0)),
-            reverse=True,
+            key=lambda s: (
+                (d := targets.get(s, 0.0) - self._last_emitted_weight.get(s, 0.0)) >= 0,
+                -abs(d),
+            ),
         )
 
         for symbol in ordered:
