@@ -75,7 +75,7 @@ class PersistentKVStore(MemoryKVStore):
         "horizon:cash:usd",
         "horizon:cash:inr",
         "horizon:portfolio:nav",
-        "horizon:forex:usd_inr",
+        "horizon:forex:usdinr",  # must match currency.FOREX_KEY
         "horizon:system:mode",
         # Kill switch must survive restart — a crash/deploy while halted must
         # NOT come back trading. risk_agent writes "horizon:system:halted";

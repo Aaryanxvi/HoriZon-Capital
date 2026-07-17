@@ -8,7 +8,6 @@ from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.portfolio.currency import CurrencyConverter
-from app.agents.front_office.portfolio.optimizer import PortfolioOptimizer
 from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
@@ -53,7 +52,6 @@ class PortfolioAgent(BaseAgent):
             agent_type="portfolio",
             bus=bus,
         )
-        self.optimizer = PortfolioOptimizer()
         self.currency = CurrencyConverter(redis=_get_kv())
         self.redis = _get_kv()
         # Buffer: symbol -> list of pending signal payloads awaiting debate

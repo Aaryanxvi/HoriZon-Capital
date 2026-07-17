@@ -175,6 +175,10 @@ class Settings(BaseSettings):
     # LLM rate limits
     llm_max_calls_per_minute: int = 60
 
+    # agent_messages grows unbounded (every bus publish is persisted) — ITAgent
+    # prunes rows older than this on its periodic health-check loop.
+    agent_messages_retention_days: int = 7
+
     # Risk defaults.
     # max_drawdown 25: disaster brake, not the primary DD control (vol targeting
     # + trend gates are). 10% froze the book inside the honest backtest's normal
