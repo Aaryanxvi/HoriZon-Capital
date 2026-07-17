@@ -342,6 +342,7 @@ async def test_poll_skips_settle_when_filled_without_price(monkeypatch):
 async def test_reconciliation_reports_mismatch_without_mutating_local(monkeypatch):
     from sqlalchemy import text
 
+    from app.core.kv_store import get_kv_store
     from app.core.local_storage import init_local_db, local_session_factory
 
     _set_alpaca_settings(monkeypatch)
@@ -349,6 +350,10 @@ async def test_reconciliation_reports_mismatch_without_mutating_local(monkeypatc
     await init_local_db()
     agent = _make_agent()
     assert agent.broker_name == "ALPACA"
+
+    # KV is a process-wide singleton (not reset per test) — pin NAV so the
+    # equity check passes and only the position mismatch below is exercised.
+    await get_kv_store().set("horizon:portfolio:nav", "100000")
 
     async with local_session_factory() as s:
         await s.execute(text("DELETE FROM positions WHERE symbol = 'MSFT.NASDAQ'"))
@@ -414,3 +419,78 @@ async def test_reconciliation_falls_back_to_paper_when_unreachable(monkeypatch):
     assert agent.broker_name == "PAPER"
     assert agent.broker is agent.paper_broker
     assert any(p.get("reason") == "alpaca_unreachable" for p in alerts)
+
+
+# --------------------------------------------------------------------------- #
+# Equity sync: refuse ALPACA when broker equity diverges from local NAV
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.asyncio
+async def test_reconciliation_stays_alpaca_when_equity_matches(monkeypatch):
+    from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db
+
+    _set_alpaca_settings(monkeypatch)
+
+    await init_local_db()
+    agent = _make_agent()
+    assert agent.broker_name == "ALPACA"
+
+    kv = get_kv_store()
+    await kv.set("horizon:portfolio:nav", "100000")
+
+    async def fake_account():
+        return {"equity": 100500.0}  # within 2%
+    monkeypatch.setattr(agent.alpaca_broker, "get_account", fake_account)
+
+    async def fake_positions():
+        return []
+    monkeypatch.setattr(agent.alpaca_broker, "get_positions", fake_positions)
+
+    alerts = []
+    async def fake_emit(channel, message_type, payload, receiver_id="*"):
+        alerts.append(payload)
+    monkeypatch.setattr(agent, "emit", fake_emit)
+
+    await agent._reconcile_alpaca_startup()
+
+    assert agent.broker_name == "ALPACA"
+    assert not any(p.get("reason") == "alpaca_equity_mismatch" for p in alerts)
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_falls_back_to_paper_on_equity_mismatch(monkeypatch):
+    """Local NAV 10x the broker's real equity — the exact shape of the live
+    3.5x-leverage incident (sizing off a wrong capital base)."""
+    from app.core.kv_store import get_kv_store
+    from app.core.local_storage import init_local_db
+
+    _set_alpaca_settings(monkeypatch)
+
+    await init_local_db()
+    agent = _make_agent()
+    assert agent.broker_name == "ALPACA"
+
+    kv = get_kv_store()
+    await kv.set("horizon:portfolio:nav", "1000000")
+
+    async def fake_account():
+        return {"equity": 100000.0}
+    monkeypatch.setattr(agent.alpaca_broker, "get_account", fake_account)
+
+    alerts = []
+    async def fake_emit(channel, message_type, payload, receiver_id="*"):
+        alerts.append(payload)
+    monkeypatch.setattr(agent, "emit", fake_emit)
+
+    await agent._reconcile_alpaca_startup()
+
+    assert agent.broker_name == "PAPER"
+    assert agent.broker is agent.paper_broker
+    mismatch_alerts = [p for p in alerts if p.get("reason") == "alpaca_equity_mismatch"]
+    assert len(mismatch_alerts) == 1
+    assert mismatch_alerts[0]["severity"] == "CRITICAL"
+
+    # KV is a process-wide singleton, not reset per test — restore the
+    # default NAV so later tests aren't affected by this one's mismatch value.
+    await kv.set("horizon:portfolio:nav", "100000")

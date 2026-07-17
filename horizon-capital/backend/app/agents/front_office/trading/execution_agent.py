@@ -141,6 +141,31 @@ class ExecutionAgent(BaseAgent):
             self.broker, self.broker_name = self.paper_broker, "PAPER"
             return
 
+        equity = float(account.get("equity", 0))
+        local_nav_raw = await _get_kv().get("horizon:portfolio:nav")
+        local_nav = float(local_nav_raw) if local_nav_raw else settings.initial_capital_usd
+        pct = abs(local_nav - equity) / max(equity, 1)
+        if pct > 0.02:
+            logger.error(
+                "alpaca_equity_mismatch", local=local_nav, broker=equity, pct=pct,
+            )
+            await self.emit(
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "reason": "alpaca_equity_mismatch",
+                    "local_nav": local_nav,
+                    "broker_equity": equity,
+                    "pct": pct,
+                    "action": "falling back to PAPER for this session",
+                    "severity": "CRITICAL",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            self.broker, self.broker_name = self.paper_broker, "PAPER"
+            return
+        logger.info("alpaca_equity_ok", local=local_nav, broker=equity)
+
         broker_positions = await self.alpaca_broker.get_positions()
         # Alpaca symbols have no exchange suffix; local symbols do (AAPL.NASDAQ).
         broker_qty = {p["symbol"]: p["qty"] for p in broker_positions}
