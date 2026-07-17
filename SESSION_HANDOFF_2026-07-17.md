@@ -39,6 +39,21 @@ Supersedes SESSION_HANDOFF_2026-07-02.md. Branch work on `feat/launch-hardening`
    (with EXECUTION_BROKER=ALPACA in .env, 5 tests were silently hitting the REAL Alpaca API).
 6. `c6ead80` — docs: the plan (`docs/plans/2026-07-17-launch-hardening.md`).
 
+## LATE-SESSION: attribution + holdout gate → LIVE MIX REWEIGHTED (`a3091c0` on main)
+Owner asked "which engines aren't good enough" — measured properly:
+- Per-sleeve attribution (worktree `8e5e5a4`, PIT 2018-24, pre-registered LOO rules): breadth_alpha
+  DRAGS (LOO Sharpe 0.77 vs mix 0.67; worst solo 0.33, corr 0.63 to momrank); research_stack
+  CARRIES hardest (LOO 0.51, best diversifier); momrank CARRIES; trend NEUTRAL (insurance).
+- Pre-registered holdout gate (worktree `fb4939c`, PIT 2008-17, window untouched by selection,
+  71% coverage GFC-era): candidate research .500/trend .333/momrank .167 → Sharpe 0.70 vs
+  current 0.63, maxDD −19.1 vs −26.9, same CAGR. G1+G2 PASS.
+- **SHIPPED `a3091c0`**: StrategyAgent live mix now research .500 / trend_filter .333 /
+  momentum_rank .167; BreadthAlphaSleeve dropped from live set (class kept, research artifact,
+  same convention as DualMomentum/GapFade). Composition test updated. 432 tests green.
+- Caveats on record: QMJ still stubbed both arms (candidate leans harder on research — live may
+  differ); 71%/85% coverage flatters absolutes both arms; one candidate, one holdout.
+- Note: sleeves/__init__.py docstring pre-existing stale ("trend_filter NOT used live" — wrong).
+
 ## momrank verdict (gate test, worktree, NOT shipped)
 Pre-registered gates on PIT 2018-24, live config (cap 20%/K25/conv.5): top-10 full-mix Sharpe
 0.63 vs top-3's 0.67 → **G1 FAIL** (G2 passed, −37.6% vs −49% bar). **Keep `_TOP_N=3`.**
