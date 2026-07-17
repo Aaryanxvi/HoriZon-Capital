@@ -263,7 +263,8 @@ class PerformanceService:
                 text(
                     """
                     SELECT s.strategy_name,
-                           SUM((f.fill_price - p.avg_entry_price) * f.filled_qty) AS realized_pnl
+                           SUM((f.fill_price - p.avg_entry_price) * f.filled_qty
+                               - COALESCE(f.commission, 0)) AS realized_pnl
                     FROM fills f
                     JOIN orders o ON o.id = f.order_id
                     LEFT JOIN signals s ON s.id = o.signal_id

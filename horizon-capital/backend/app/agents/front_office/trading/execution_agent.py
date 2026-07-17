@@ -361,6 +361,7 @@ class ExecutionAgent(BaseAgent):
                         qty=qty,
                         price=price,
                         stop_loss_price=order.get("stop_loss"),
+                        commission=commission,
                         session=session,
                     )
                     new_cash = await adjust_cash(session, currency, delta)

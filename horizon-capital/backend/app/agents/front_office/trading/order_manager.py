@@ -267,6 +267,7 @@ class OrderManager:
         price: float,
         stop_loss_price: float | None = None,
         *,
+        commission: float = 0.0,
         session=None,
     ) -> None:
         """Upsert into the positions table after a fill.
@@ -278,6 +279,10 @@ class OrderManager:
         side:  ``BUY`` or ``SELL``.
         qty:  Filled quantity.
         price:  Fill price.
+        commission:
+            Commission paid on this fill. Reduces realized_pnl on every fill
+            (opening legs included), so lifetime realized_pnl == gross
+            trading P&L minus all commissions paid — matching cash exactly.
         session:
             Optional caller-owned session.  When provided, the method does NOT
             commit.
@@ -311,7 +316,7 @@ class OrderManager:
                              created_at, updated_at)
                         VALUES
                             (:id, :symbol, :exchange, :side, :qty,
-                             :price, :price, 0.0, 0.0,
+                             :price, :price, 0.0, :realized,
                              0.0, :currency, :stop_loss,
                              :now, :now)
                         """
@@ -323,6 +328,7 @@ class OrderManager:
                         "side": pos_side,
                         "qty": qty,
                         "price": price,
+                        "realized": -commission,
                         "currency": currency,
                         "stop_loss": stop_loss_price,
                         "now": now,
@@ -375,7 +381,7 @@ class OrderManager:
                 else:
                     return
 
-                new_realized = old_realized + realized_delta
+                new_realized = old_realized + realized_delta - commission
 
                 await s.execute(
                     text(
