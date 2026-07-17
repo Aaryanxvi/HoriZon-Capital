@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
+from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
 from app.agents.front_office.trading.order_manager import OrderManager
 from app.agents.front_office.trading.paper_broker import PaperBroker
 from app.config import settings
@@ -33,6 +34,20 @@ def _get_kv():
 
 
 logger = get_logger("agent.execution")
+
+
+def _alpaca_guard_ok() -> bool:
+    """Hard safety guard: ALPACA routing requires paper-mode + a paper-api URL.
+
+    Independent of ``execution_broker`` — this must hold even if someone sets
+    EXECUTION_BROKER=ALPACA against a misconfigured live-money URL.
+    """
+    return bool(
+        settings.alpaca_api_key
+        and settings.alpaca_api_secret
+        and settings.alpaca_paper_mode
+        and "paper-api" in settings.alpaca_base_url
+    )
 
 
 class ExecutionAgent(BaseAgent):
@@ -56,6 +71,8 @@ class ExecutionAgent(BaseAgent):
         )
         self.order_manager = OrderManager()
         self.paper_broker = PaperBroker()
+        self.alpaca_broker = AlpacaBroker()
+        self.broker, self.broker_name = self._resolve_broker()
         # Orders awaiting human CIO approval: order_id -> order dict
         self._pending_approval: dict[str, dict] = {}
         self._cio_halt_active: bool = False
@@ -64,6 +81,24 @@ class ExecutionAgent(BaseAgent):
         # both read the old qty and the second UPDATE would clobber the first.
         self._symbol_locks: dict[str, asyncio.Lock] = {}
 
+    def _resolve_broker(self) -> tuple[object, str]:
+        """Pick the live broker for this session (called once at startup).
+
+        ALPACA is only selected if the safety guard passes; any other
+        misconfiguration falls back to PAPER without raising.
+        """
+        if settings.execution_broker.upper() == "ALPACA":
+            if _alpaca_guard_ok():
+                return self.alpaca_broker, "ALPACA"
+            logger.error(
+                "alpaca_guard_failed_falling_back_paper",
+                has_key=bool(settings.alpaca_api_key),
+                has_secret=bool(settings.alpaca_api_secret),
+                paper_mode=settings.alpaca_paper_mode,
+                base_url=settings.alpaca_base_url,
+            )
+        return self.paper_broker, "PAPER"
+
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.execution.order.new", self.on_message)
         await self.bus.subscribe("horizon.execution.order.pending", self.on_message)
@@ -71,13 +106,91 @@ class ExecutionAgent(BaseAgent):
         await self.bus.subscribe("horizon.executive.cio", self.on_message)
 
     async def run(self) -> None:
-        """Periodically poll for any stale open orders."""
+        """Reconcile against the broker once at startup, then poll for stale orders."""
+        if self.broker_name == "ALPACA":
+            await self._reconcile_alpaca_startup()
+
         while self._running:
             try:
                 await self._poll_open_orders()
             except Exception as exc:
                 logger.error("execution_loop_error", error=str(exc))
             await asyncio.sleep(5)
+
+    async def _reconcile_alpaca_startup(self) -> None:
+        """One-time startup check when routing through ALPACA.
+
+        Reports mismatches (broker unreachable, position drift) via
+        RISK_ALERT — never mutates local state. Local orders left OPEN with
+        a broker_order_id from a previous run are polled once immediately so
+        they don't sit stale until the next 5s loop.
+        """
+        account = await self.alpaca_broker.get_account()
+        if account is None:
+            logger.error("alpaca_unreachable_at_startup")
+            await self.emit(
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "reason": "alpaca_unreachable",
+                    "action": "falling back to PAPER for this session",
+                    "severity": "HIGH",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            self.broker, self.broker_name = self.paper_broker, "PAPER"
+            return
+
+        broker_positions = await self.alpaca_broker.get_positions()
+        # Alpaca symbols have no exchange suffix; local symbols do (AAPL.NASDAQ).
+        broker_qty = {p["symbol"]: p["qty"] for p in broker_positions}
+
+        async with _get_session_factory()() as session:
+            result = await session.execute(
+                text("SELECT symbol, quantity FROM positions WHERE side = 'LONG' AND quantity > 0")
+            )
+            local_positions = result.fetchall()
+
+        mismatches = []
+        for row in local_positions:
+            local_symbol = row.symbol.split(".")[0] if "." in row.symbol else row.symbol
+            broker_side_qty = broker_qty.get(local_symbol, 0.0)
+            if abs(broker_side_qty - row.quantity) > 1e-6:
+                mismatches.append(
+                    {"symbol": row.symbol, "local_qty": row.quantity, "broker_qty": broker_side_qty}
+                )
+                logger.warning(
+                    "alpaca_position_mismatch",
+                    symbol=row.symbol, local_qty=row.quantity, broker_qty=broker_side_qty,
+                )
+
+        if mismatches:
+            await self.emit(
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "reason": "alpaca_position_mismatch",
+                    "mismatches": mismatches,
+                    "severity": "HIGH",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+
+        async with _get_session_factory()() as session:
+            result = await session.execute(
+                text("""
+                    SELECT id, symbol, exchange, side, quantity, stop_price,
+                           broker_order_id, created_at
+                    FROM orders
+                    WHERE status IN ('OPEN', 'PARTIAL')
+                      AND broker = 'ALPACA'
+                      AND broker_order_id IS NOT NULL
+                """)
+            )
+            stuck_rows = result.fetchall()
+
+        for row in stuck_rows:
+            await self._poll_alpaca_order(row)
 
     async def on_message(self, message: AgentMessage) -> None:
         """Handle new order requests and approval/rejection."""
@@ -124,7 +237,7 @@ class ExecutionAgent(BaseAgent):
             "signal_id": payload.get("signal_id"),
             "debate_id": payload.get("debate_id"),
             "stop_loss": payload.get("stop_loss"),
-            "broker": "PAPER",
+            "broker": self.broker_name,
             "mode": settings.system_mode.value,
         }
 
@@ -293,7 +406,7 @@ class ExecutionAgent(BaseAgent):
 
         fill = None
         for attempt in range(3):
-            fill = await self.paper_broker.execute(order)
+            fill = await self.broker.execute(order)
             if fill is not None:
                 break
             # Only retry the paper broker. A live order that returned None may
@@ -323,7 +436,33 @@ class ExecutionAgent(BaseAgent):
             )
             return
 
-        # Atomic transaction: fill + status + position + cash
+        # Alpaca orders aren't filled instantly. If the broker accepted the
+        # order but hasn't filled it yet (filled_qty == 0), persist the
+        # broker_order_id and leave it OPEN for _poll_open_orders to settle —
+        # never fabricate a fill price here.
+        if order.get("broker") == "ALPACA" and float(fill.get("filled_qty") or 0) <= 0:
+            broker_order_id = fill.get("broker_order_id", "")
+            order["broker_order_id"] = broker_order_id
+            await self.order_manager.set_broker_order_id(order_id, broker_order_id)
+            logger.info(
+                "alpaca_order_accepted_pending_fill",
+                order_id=order_id, broker_order_id=broker_order_id,
+                symbol=order["symbol"],
+            )
+            return
+
+        await self._settle_fill(order, fill)
+
+    async def _settle_fill(self, order: dict, fill: dict) -> None:
+        """Atomically record a real fill: fill row + status + position + cash.
+
+        Shared by the instant-fill path (PAPER, or an Alpaca order filled on
+        the initial POST) and the polling path (Alpaca fills discovered via
+        ``get_order_status``). Re-checks the order's DB status inside the
+        per-symbol lock so a race between the two paths cannot double-settle
+        the same order.
+        """
+        order_id = order["id"]
         side = order["side"]
         qty = float(fill["filled_qty"])
         price = float(fill["fill_price"])
@@ -343,6 +482,15 @@ class ExecutionAgent(BaseAgent):
         try:
             async with lock:
                 async with _get_session_factory()() as session:
+                    current_status = await self.order_manager._get_status(
+                        order_id, session=session
+                    )
+                    if current_status in ("FILLED", "CANCELLED", "REJECTED"):
+                        logger.info(
+                            "settle_fill_noop_already_terminal",
+                            order_id=order_id, status=current_status,
+                        )
+                        return
                     await self.order_manager.record_fill(
                         order_id=order_id,
                         qty=qty,
@@ -383,7 +531,7 @@ class ExecutionAgent(BaseAgent):
                 "fill_price": price,
                 "commission": commission,
                 "slippage": slippage,
-                "broker": "PAPER",
+                "broker": order.get("broker", self.broker_name),
                 "status": new_status,
                 "timestamp": datetime.now(UTC).isoformat(),
             },
@@ -400,11 +548,14 @@ class ExecutionAgent(BaseAgent):
         )
 
     async def _poll_open_orders(self) -> None:
-        """Cancel stale OPEN orders that weren't filled within 60 seconds.
+        """Cancel stale PAPER orders; poll and settle open ALPACA orders.
 
-        Paper broker fills are instant, so any OPEN order older than 60s
-        is stuck due to an error. Mark it CANCELLED instead of re-executing
-        (re-execution without position/cash updates causes infinite fills).
+        Paper broker fills are instant, so any PAPER order still OPEN after
+        60s is stuck due to an error — cancel it (re-executing without
+        position/cash updates would cause infinite fills). Alpaca orders can
+        legitimately sit OPEN for hours (market closed, limit not touched),
+        so those are only force-cancelled after 24h; otherwise we just poll
+        their live status.
         """
         async with _get_session_factory()() as session:
             result = await session.execute(
@@ -418,9 +569,23 @@ class ExecutionAgent(BaseAgent):
                     LIMIT 20
                 """)
             )
-            rows = result.fetchall()
+            paper_rows = result.fetchall()
 
-        for row in rows:
+            result = await session.execute(
+                text("""
+                    SELECT id, symbol, exchange, side, quantity, stop_price,
+                           broker_order_id, created_at
+                    FROM orders
+                    WHERE status IN ('OPEN', 'PARTIAL')
+                      AND broker = 'ALPACA'
+                      AND broker_order_id IS NOT NULL
+                    ORDER BY created_at ASC
+                    LIMIT 20
+                """)
+            )
+            alpaca_rows = result.fetchall()
+
+        for row in paper_rows:
             try:
                 await self.order_manager.update_status(
                     str(row.id), "CANCELLED",
@@ -435,6 +600,89 @@ class ExecutionAgent(BaseAgent):
                     "poll_order_error",
                     order_id=str(row.id), error=str(exc),
                 )
+
+        for row in alpaca_rows:
+            await self._poll_alpaca_order(row)
+
+    async def _poll_alpaca_order(self, row) -> None:  # noqa: ANN001
+        """Poll one Alpaca order's status and settle/cancel as appropriate."""
+        order_id = str(row.id)
+        try:
+            status = await self.alpaca_broker.get_order_status(row.broker_order_id)
+        except Exception as exc:
+            logger.error("alpaca_poll_error", order_id=order_id, error=str(exc))
+            return
+
+        if status is None:
+            return
+
+        alpaca_status = status.get("status")
+        filled_qty = float(status.get("filled_qty") or 0)
+
+        if alpaca_status == "filled" and filled_qty > 0:
+            order = {
+                "id": order_id,
+                "symbol": row.symbol,
+                "exchange": row.exchange,
+                "side": row.side,
+                "quantity": row.quantity,
+                "stop_loss": None,
+                "broker": "ALPACA",
+            }
+            fill = {
+                "filled_qty": filled_qty,
+                "fill_price": status.get("filled_avg_price", 0.0),
+                "commission": 0.0,
+                "slippage": 0.0,
+            }
+            await self._settle_fill(order, fill)
+        elif alpaca_status in ("canceled", "rejected", "expired"):
+            await self.order_manager.update_status(
+                order_id, "CANCELLED",
+                rejection_reason=f"Alpaca reported status={alpaca_status}",
+            )
+            await self.emit(
+                channel="horizon.execution.order.update",
+                message_type=MessageType.ORDER_CANCEL,
+                payload={
+                    "order_id": order_id,
+                    "status": "CANCELLED",
+                    "reason": f"Alpaca reported status={alpaca_status}",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+            logger.warning(
+                "alpaca_order_cancelled", order_id=order_id, alpaca_status=alpaca_status,
+            )
+        elif alpaca_status not in ("new", "accepted", "pending_new", "partially_filled"):
+            # Unknown/terminal-ish state we don't specifically handle — leave
+            # OPEN and let the 24h staleness check below sweep it eventually.
+            logger.warning(
+                "alpaca_order_unhandled_status",
+                order_id=order_id, alpaca_status=alpaca_status,
+            )
+
+        # Force-cancel Alpaca orders stuck OPEN for >24h (market orders queue
+        # while the market is closed; 60s staleness does not apply here).
+        async with _get_session_factory()() as session:
+            result = await session.execute(
+                text("""
+                    SELECT status FROM orders
+                    WHERE id = :id AND created_at < datetime('now', '-24 hours')
+                """),
+                {"id": order_id},
+            )
+            stale = result.fetchone()
+        if stale and stale.status in ("OPEN", "PARTIAL"):
+            try:
+                await self.alpaca_broker.cancel_order(row.broker_order_id)
+            except Exception as exc:
+                logger.error("alpaca_cancel_error", order_id=order_id, error=str(exc))
+            await self.order_manager.update_status(
+                order_id, "CANCELLED",
+                rejection_reason="Stale Alpaca order — not filled within 24h",
+            )
+            logger.warning("stale_alpaca_order_cancelled", order_id=order_id)
 
     async def _has_open_position(self, symbol: str, exchange: str) -> bool:
         """Check if there is an open position for this symbol."""

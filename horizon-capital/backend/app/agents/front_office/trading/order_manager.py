@@ -187,6 +187,29 @@ class OrderManager:
         logger.info("order_status_updated", order_id=order_id, status=new_status)
         return True
 
+    async def set_broker_order_id(
+        self, order_id: str, broker_order_id: str, *, session=None,
+    ) -> None:
+        """Attach a broker order id without a status transition.
+
+        Used when a broker (e.g. Alpaca) accepts an order but hasn't filled
+        it yet — the order stays OPEN, so ``update_status``'s state-machine
+        check (OPEN -> OPEN is not a valid transition) doesn't apply here.
+        """
+        now = datetime.now(UTC)
+
+        async def _do(s):
+            await s.execute(
+                text(
+                    "UPDATE orders SET broker_order_id = :boid, updated_at = :now"
+                    " WHERE id = :id"
+                ),
+                {"id": order_id, "boid": broker_order_id, "now": now},
+            )
+
+        await self._run_in_session(_do, session)
+        logger.info("broker_order_id_set", order_id=order_id, broker_order_id=broker_order_id)
+
     # ------------------------------------------------------------------ #
     # Fill recording
     # ------------------------------------------------------------------ #

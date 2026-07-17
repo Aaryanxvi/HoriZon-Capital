@@ -125,6 +125,11 @@ class Settings(BaseSettings):
     alpaca_base_url: str = "https://paper-api.alpaca.markets"
     alpaca_paper_mode: bool = True
 
+    # Execution routing: PAPER (default, in-process simulator) | ALPACA (real
+    # paper-trading REST API). ExecutionAgent falls back to PAPER if the
+    # Alpaca guard fails regardless of this value — see execution_agent.py.
+    execution_broker: str = "PAPER"
+
     # Data providers
     polygon_api_key: str = ""
     newsapi_api_key: str = ""
