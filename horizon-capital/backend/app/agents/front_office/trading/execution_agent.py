@@ -437,10 +437,14 @@ class ExecutionAgent(BaseAgent):
             return
 
         # Alpaca orders aren't filled instantly. If the broker accepted the
-        # order but hasn't filled it yet (filled_qty == 0), persist the
-        # broker_order_id and leave it OPEN for _poll_open_orders to settle —
-        # never fabricate a fill price here.
-        if order.get("broker") == "ALPACA" and float(fill.get("filled_qty") or 0) <= 0:
+        # order but hasn't returned a COMPLETE fill (filled_qty < quantity —
+        # this covers 0 and any partial), persist the broker_order_id and
+        # leave it OPEN for _poll_open_orders to settle from Alpaca's final
+        # cumulative fill — settling a partial here too would double-count
+        # once the poll later reports the completed cumulative qty.
+        if order.get("broker") == "ALPACA" and float(fill.get("filled_qty") or 0) < order.get(
+            "quantity", 0
+        ):
             broker_order_id = fill.get("broker_order_id", "")
             order["broker_order_id"] = broker_order_id
             await self.order_manager.set_broker_order_id(order_id, broker_order_id)
@@ -618,8 +622,16 @@ class ExecutionAgent(BaseAgent):
 
         alpaca_status = status.get("status")
         filled_qty = float(status.get("filled_qty") or 0)
+        fill_price = float(status.get("filled_avg_price") or 0)
 
-        if alpaca_status == "filled" and filled_qty > 0:
+        if alpaca_status == "filled" and filled_qty > 0 and fill_price <= 0:
+            # API edge case: reported filled but no price yet. Never settle
+            # at price 0 — wait for the next poll cycle to see a real price.
+            logger.error(
+                "alpaca_filled_without_price", order_id=order_id, filled_qty=filled_qty,
+            )
+            return
+        elif alpaca_status == "filled" and filled_qty > 0:
             order = {
                 "id": order_id,
                 "symbol": row.symbol,
@@ -631,7 +643,7 @@ class ExecutionAgent(BaseAgent):
             }
             fill = {
                 "filled_qty": filled_qty,
-                "fill_price": status.get("filled_avg_price", 0.0),
+                "fill_price": fill_price,
                 "commission": 0.0,
                 "slippage": 0.0,
             }

@@ -190,6 +190,150 @@ async def test_accepted_then_filled_settles_once_via_poll(monkeypatch):
     assert fills.n == 1
 
 
+@pytest.mark.asyncio
+async def test_partial_fill_on_post_defers_to_poll_settles_once(monkeypatch):
+    """POST returns a PARTIAL fill (5 of 10) — must NOT settle immediately;
+    only the poll's final cumulative fill (qty 10) settles, exactly once."""
+    from sqlalchemy import text
+
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    _set_alpaca_settings(monkeypatch)
+
+    await init_local_db()
+    agent = _make_agent()
+
+    async with local_session_factory() as s:
+        await s.execute(text("DELETE FROM cash_balances"))
+        await s.execute(
+            text("INSERT INTO cash_balances (currency, amount) VALUES ('USD', 100000)")
+        )
+        await s.commit()
+
+    from app.core import kv_store
+    kv = kv_store.get_kv_store()
+    await kv.set("horizon:price:AAPL.NASDAQ", "100.0")
+
+    async def fake_execute(order):
+        return {
+            "order_id": order.get("id", ""),
+            "broker_order_id": "bo-partial",
+            "filled_qty": 5.0,
+            "fill_price": 100.5,
+            "commission": 0.0,
+            "slippage": 0.0,
+            "broker": "ALPACA",
+            "alpaca_status": "partially_filled",
+        }
+    monkeypatch.setattr(agent.alpaca_broker, "execute", fake_execute)
+
+    order = await agent.order_manager.create_order({
+        "symbol": "AAPL.NASDAQ", "exchange": "NASDAQ", "order_type": "MARKET",
+        "side": "BUY", "quantity": 10, "broker": "ALPACA", "mode": "PAPER_TRADING",
+    })
+
+    await agent._execute_order(order)
+
+    async with local_session_factory() as s:
+        row = (await s.execute(
+            text("SELECT status, broker_order_id FROM orders WHERE id = :id"),
+            {"id": order["id"]},
+        )).fetchone()
+        pos = (await s.execute(
+            text("SELECT quantity FROM positions WHERE symbol = 'AAPL.NASDAQ'"),
+        )).fetchone()
+    assert row.status == "OPEN"
+    assert row.broker_order_id == "bo-partial"
+    assert pos is None  # no settle on the partial POST response
+
+    # Poll later reports the completed cumulative fill.
+    async def fake_status(broker_order_id):
+        return {
+            "broker_order_id": broker_order_id,
+            "status": "filled",
+            "filled_qty": 10.0,
+            "filled_avg_price": 100.8,
+            "filled_at": "2026-01-01T00:00:00Z",
+        }
+    monkeypatch.setattr(agent.alpaca_broker, "get_order_status", fake_status)
+
+    await agent._poll_open_orders()
+
+    async with local_session_factory() as s:
+        row = (await s.execute(
+            text("SELECT status FROM orders WHERE id = :id"), {"id": order["id"]},
+        )).fetchone()
+        pos = (await s.execute(
+            text("SELECT quantity FROM positions WHERE symbol = 'AAPL.NASDAQ'"),
+        )).fetchone()
+        cash = (await s.execute(
+            text("SELECT amount FROM cash_balances WHERE currency = 'USD'"),
+        )).fetchone()
+        fills = (await s.execute(
+            text("SELECT COUNT(*) AS n FROM fills WHERE order_id = :id"), {"id": order["id"]},
+        )).fetchone()
+
+    assert row.status == "FILLED"
+    assert pos.quantity == pytest.approx(10.0)
+    assert cash.amount == pytest.approx(100000 - 10 * 100.8)
+    assert fills.n == 1  # settled exactly once, at the final cumulative qty/price
+
+
+@pytest.mark.asyncio
+async def test_poll_skips_settle_when_filled_without_price(monkeypatch):
+    """Alpaca reports status=filled but filled_avg_price is 0/None — must not
+    settle at price 0; wait for a later poll to see a real price."""
+    from sqlalchemy import text
+
+    from app.core.local_storage import init_local_db, local_session_factory
+
+    _set_alpaca_settings(monkeypatch)
+
+    await init_local_db()
+    agent = _make_agent()
+
+    async with local_session_factory() as s:
+        await s.execute(text("DELETE FROM cash_balances"))
+        await s.execute(
+            text("INSERT INTO cash_balances (currency, amount) VALUES ('USD', 100000)")
+        )
+        await s.commit()
+
+    order = await agent.order_manager.create_order({
+        "symbol": "AAPL.NASDAQ", "exchange": "NASDAQ", "order_type": "MARKET",
+        "side": "BUY", "quantity": 10, "broker": "ALPACA", "mode": "PAPER_TRADING",
+    })
+    await agent.order_manager.update_status(order["id"], "OPEN")
+    await agent.order_manager.set_broker_order_id(order["id"], "bo-nopricce")
+
+    async def fake_status(broker_order_id):
+        return {
+            "broker_order_id": broker_order_id,
+            "status": "filled",
+            "filled_qty": 10.0,
+            "filled_avg_price": 0.0,
+            "filled_at": "2026-01-01T00:00:00Z",
+        }
+    monkeypatch.setattr(agent.alpaca_broker, "get_order_status", fake_status)
+
+    await agent._poll_open_orders()
+
+    async with local_session_factory() as s:
+        row = (await s.execute(
+            text("SELECT status FROM orders WHERE id = :id"), {"id": order["id"]},
+        )).fetchone()
+        pos = (await s.execute(
+            text("SELECT quantity FROM positions WHERE symbol = 'AAPL.NASDAQ'"),
+        )).fetchone()
+        cash = (await s.execute(
+            text("SELECT amount FROM cash_balances WHERE currency = 'USD'"),
+        )).fetchone()
+
+    assert row.status == "OPEN"  # not settled
+    assert pos is None
+    assert cash.amount == pytest.approx(100000)
+
+
 # --------------------------------------------------------------------------- #
 # Reconciliation: mismatch reported, local positions never mutated
 # --------------------------------------------------------------------------- #
