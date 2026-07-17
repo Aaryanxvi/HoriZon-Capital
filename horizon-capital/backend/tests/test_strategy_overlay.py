@@ -24,17 +24,19 @@ def _spy_bars(start: float, end: float, n: int = 300) -> dict[str, pd.DataFrame]
 
 
 def test_live_mix_is_the_validated_configuration():
-    # The mix validate_fix_ab measured at Sharpe 0.67 (PIT 2018-24). dual_momentum
-    # and the overlay failed their ship gate (2026-07-02) and must NOT be wired.
+    # Holdout gate (PIT 2008-17): Sharpe 0.70 vs 0.63, maxDD -19.1 vs -26.9, same
+    # CAGR. breadth_alpha dropped 2026-07-17 (failed attribution + this gate).
+    # dual_momentum and the overlay failed their own ship gate (2026-07-02) and
+    # must NOT be wired.
     weights = {s.name: s.target_weight for s in _agent()._sleeves}
     assert weights == {
-        "breadth_alpha": 0.40,
-        "research_stack": 0.30,
-        "trend_filter": 0.20,
-        "momentum_rank": 0.10,
+        "research_stack": 0.500,
+        "trend_filter": 0.333,
+        "momentum_rank": 0.167,
     }
     assert abs(sum(weights.values()) - 1.0) < 1e-9
     assert "dual_momentum" not in weights
+    assert "breadth_alpha" not in weights
 
 
 def test_overlay_disabled_is_identity(monkeypatch):

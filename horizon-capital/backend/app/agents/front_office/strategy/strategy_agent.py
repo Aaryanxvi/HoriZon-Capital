@@ -24,7 +24,6 @@ from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.strategy.sleeves import (
-    BreadthAlphaSleeve,
     MomentumRankSleeve,
     ResearchStackSleeve,
     TrendFilterSleeve,
@@ -95,17 +94,18 @@ class StrategyAgent(BaseAgent):
             bus=bus,
             department="front_office",
         )
-        # Live sleeve allocation — the configuration validated by the 4-way
-        # attribution run (validate_fix_ab: Sharpe 0.67 on PIT 2018-24 with the
-        # patched params). DualMomentumSleeve and the risk overlay FAILED their
-        # pre-registered ship gate on this window (validate_overlay 2026-07-02:
-        # blend 0.16 vs baseline 0.28) and are kept as research artifacts only —
-        # do not re-wire without a fresh gate pass. Weights sum to 1.0.
+        # Live sleeve allocation — reweighted per the pre-registered holdout gate
+        # (PIT 2008-17: Sharpe 0.70 vs 0.63, maxDD -19.1 vs -26.9, same CAGR).
+        # breadth_alpha removed from live mix 2026-07-17 — failed attribution +
+        # 2008-17 holdout gate (see docs/plans + exp/momrank-topn). DualMomentumSleeve
+        # and the risk overlay FAILED their own pre-registered ship gate
+        # (validate_overlay 2026-07-02: blend 0.16 vs baseline 0.28) and are kept
+        # as research artifacts only — do not re-wire without a fresh gate pass.
+        # Weights sum to 1.0.
         self._sleeves = [
-            _weighted(BreadthAlphaSleeve(), 0.40),   # multi-signal top-K breadth
-            _weighted(ResearchStackSleeve(), 0.30),  # HRP + Kelly + regime + quality
-            _weighted(TrendFilterSleeve(), 0.20),    # Faber 200d SMA gate on SPY
-            _weighted(MomentumRankSleeve(), 0.10),   # 12-1 cross-sectional momentum
+            _weighted(ResearchStackSleeve(), 0.500),  # HRP + Kelly + regime + quality
+            _weighted(TrendFilterSleeve(), 0.333),    # Faber 200d SMA gate on SPY
+            _weighted(MomentumRankSleeve(), 0.167),   # 12-1 cross-sectional momentum
         ]
         # Universe resolved lazily on first tick — "sp500" hits the network, so
         # we don't want it firing at construction time (tests, --setup, etc.).
