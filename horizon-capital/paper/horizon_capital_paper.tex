@@ -10,7 +10,8 @@
 \begin{document}
 
 \title{Horizon Capital: An Autonomous Multi-Agent Hedge-Fund Terminal with
-LLM Debate Gating and Pre-Registered Strategy Validation}
+LLM Debate Gating and Pre-Registered Strategy Validation\\
+{\large --- Draft 1 (LLM-integration experiment pending, Sec.~\ref{sec:aitest}) ---}}
 
 \author{Aaryan~Baadkar\\
 \textit{Horizon Capital Project}\\
@@ -453,6 +454,55 @@ fill, kill-switch event, and debate conclusion to a daily Markdown file
 independent of any LLM. The codebase carries 467 automated tests, including
 regression pins on the validated mix weights and on cash/P\&L consistency.
 
+\section{Planned Experiment: Isolating the Debate Gate}
+\label{sec:aitest}
+
+\emph{[Reserved for Draft 2 --- to be completed after AI integration testing.]}
+
+The results above isolate the rule-based signal layer. What they do not yet
+measure is the marginal contribution of the LLM debate gate itself. Once LLM
+providers are re-integrated, we will run the following pre-registered A/B
+experiment and report it here:
+
+\textbf{Design.} Two arms consume the \emph{identical} live signal stream in
+paper-trading mode over the same window: (A) debate gate disabled ---
+every risk-approved signal executes; (B) debate gate binding --- signals
+execute only on \textsc{approved} conclusions from the multi-model debate of
+Sec.~\ref{sec:debate}. Both arms share sizing, risk limits, and execution
+models, so any divergence in outcomes is attributable to the gate.
+
+\textbf{Pre-registered metrics.} (i) approval/rejection/abstention rates and
+per-role vote distributions; (ii) counterfactual P\&L of rejected trades
+(would the vetoed trades have made or lost money?); (iii) arm-level Sharpe,
+maximum drawdown, and turnover deltas; (iv) provider-disagreement rate and
+its correlation with subsequent realized volatility; (v) gate latency and
+cost per decision.
+
+\textbf{Acceptance criterion (fixed in advance).} The gate earns a permanent
+place in the autonomous pipeline if arm~B's risk-adjusted return is at least
+equal to arm~A's \emph{and} the counterfactual P\&L of rejected trades is
+non-positive; otherwise the gate reverts to advisory-only. Consistent with
+Sec.~\ref{sec:method}, an adverse result will be reported, not hidden.
+
+\begin{table}[t]
+\caption{Debate-gate A/B results. \emph{[To be completed in Draft 2 after
+AI integration testing.]}}
+\label{tab:abtest}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Metric & Arm A (no gate) & Arm B (gate on) \\
+\midrule
+Trades executed & --- & --- \\
+Rejection rate & n/a & --- \\
+Counterfactual P\&L of rejections & n/a & --- \\
+Sharpe ratio & --- & --- \\
+Max drawdown & --- & --- \\
+Turnover & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Limitations}
 
 The validated results are backtests on daily bars plus a live
@@ -460,8 +510,9 @@ The validated results are backtests on daily bars plus a live
 estimates on a single historical path overstate certainty
 \cite{bailey2014deflated}; our gates mitigate but cannot eliminate this.
 The debate gate's marginal contribution to portfolio outcomes --- as opposed
-to its audit value --- has not yet been isolated in a controlled A/B
-experiment, and LLM judgments inherit the biases of their training corpora.
+to its audit value --- has not yet been isolated; Sec.~\ref{sec:aitest}
+pre-registers that experiment for Draft~2. LLM judgments inherit the biases
+of their training corpora.
 The prediction-market study covers few markets over a short window.
 
 \section{Conclusion}
