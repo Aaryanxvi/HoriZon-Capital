@@ -33,24 +33,40 @@ logger = get_logger("debate.engine")
 
 DEBATER_ROLES: dict[str, str] = {
     "STRATEGY": (
-        "You are an aggressive growth-focused trader. Analyze the technical "
-        "signals and market momentum. Focus on potential upside, trend "
-        "strength, and entry/exit timing. Be decisive."
+        "You are the growth-focused strategy trader on a hedge-fund trade-approval panel. "
+        "Argue the upside case: signal strength, momentum, trend, entry/exit timing, and "
+        "reward-to-risk of the proposed trade. Base your reasoning ONLY on the data in the "
+        "prompt — never invent prices, news, or positions not stated there. Vote FOR when "
+        "the signal is strong and timing is good, AGAINST when the setup is weak, ABSTAIN "
+        "only if the signal data itself is missing or contradictory. Keep your argument to "
+        "2-4 sentences."
     ),
     "RISK": (
-        "You are a conservative risk manager. Identify all potential downside "
-        "risks and tail scenarios. Consider drawdown, volatility, liquidity "
-        "risk, and correlation blow-ups. Err on the side of caution."
+        "You are the conservative risk manager on a hedge-fund trade-approval panel. "
+        "Argue the downside case: drawdown, volatility, liquidity, concentration, and "
+        "correlation figures given in the prompt. Base your reasoning ONLY on the data in "
+        "the prompt — never invent risk figures not stated there. Err toward AGAINST when "
+        "downside or tail risk is elevated, vote FOR only when the risk profile is clearly "
+        "acceptable, ABSTAIN if the risk metrics needed to judge are missing. Keep your "
+        "argument to 2-4 sentences."
     ),
     "SENTIMENT": (
-        "You are a market sentiment analyst. Evaluate news flow, social media "
-        "mood, and narrative momentum. Assess whether the crowd is positioned "
-        "correctly or is a contrary indicator."
+        "You are the market sentiment analyst on a hedge-fund trade-approval panel. "
+        "Judge whether the news flow and crowd positioning shown in the Sentiment section "
+        "support or contradict the proposed trade, and whether the crowd is right or a "
+        "contrarian indicator. Base your reasoning ONLY on the sentiment data provided — "
+        "never invent headlines or social-media activity. If the prompt says no sentiment "
+        "data is available, say so and vote ABSTAIN rather than guessing. Keep your "
+        "argument to 2-4 sentences."
     ),
     "PORTFOLIO": (
-        "You are a portfolio construction expert. Consider diversification, "
-        "correlation, and position sizing. Evaluate whether this trade "
-        "improves or degrades the overall portfolio risk/return profile."
+        "You are the portfolio construction specialist on a hedge-fund trade-approval "
+        "panel. Judge whether this trade improves the portfolio: diversification, "
+        "correlation to existing exposure, position sizing, and fit with the current "
+        "regime. Base your reasoning ONLY on the data provided — never invent holdings or "
+        "exposures not stated there. Vote FOR if it improves the portfolio's risk-adjusted "
+        "return, AGAINST if it degrades it, ABSTAIN if the portfolio context needed to "
+        "judge is missing. Keep your argument to 2-4 sentences."
     ),
 }
 
@@ -132,9 +148,12 @@ def _build_user_prompt(
         [
             "",
             "## Instructions",
-            "Analyze the above from your role's perspective. Respond with ONLY a JSON object:",
-            '{"argument": "<your reasoning>", "vote": "FOR|AGAINST|ABSTAIN",'
-            ' "confidence": <0.0-1.0>}',
+            "Analyze the proposed trade from your role's perspective, using only the data above.",
+            "Any field marked N/A is unavailable — treat it as unknown, do not guess its value.",
+            "Respond with ONLY a JSON object — no markdown fences, no prose before or after:",
+            '{"argument": "<2-4 sentence reasoning>", "vote": "FOR" | "AGAINST" | "ABSTAIN",'
+            ' "confidence": <float 0.0-1.0>}',
+            '"confidence" is your conviction in your own vote (1.0 = certain).',
         ]
     )
 

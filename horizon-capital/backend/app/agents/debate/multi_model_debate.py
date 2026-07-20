@@ -15,47 +15,15 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+# Role prompts + user-prompt builder single-sourced from debate_engine so the two
+# engines can never drift apart. (Also brings in the Risk Metrics and target/stop
+# sections this file's old duplicated builder silently lacked.)
+from app.agents.debate.debate_engine import DEBATER_ROLES, _build_user_prompt
 from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
 from app.llm.base_provider import BaseLLMProvider
 from app.llm.provider_registry import ProviderRegistry
-
-
-# Lazy import to avoid pulling in anthropic at module load time
-def _get_debate_engine():
-    from app.agents.debate.debate_engine import (
-        DEBATER_ROLES,
-        DebateArgument,
-        DebateResult,
-        _build_user_prompt,
-    )
-    return DEBATER_ROLES, DebateArgument, DebateResult, _build_user_prompt
-
-
-# Debater role definitions (mirrors debate_engine.py for lazy-import compatibility)
-DEBATER_ROLES: dict[str, str] = {
-    "STRATEGY": (
-        "You are an aggressive growth-focused trader. Analyze the technical "
-        "signals and market momentum. Focus on potential upside, trend "
-        "strength, and entry/exit timing. Be decisive."
-    ),
-    "RISK": (
-        "You are a conservative risk manager. Identify all potential downside "
-        "risks and tail scenarios. Consider drawdown, volatility, liquidity "
-        "risk, and correlation blow-ups. Err on the side of caution."
-    ),
-    "SENTIMENT": (
-        "You are a market sentiment analyst. Evaluate news flow, social media "
-        "mood, and narrative momentum. Assess whether the crowd is positioned "
-        "correctly or is a contrary indicator."
-    ),
-    "PORTFOLIO": (
-        "You are a portfolio construction expert. Consider diversification, "
-        "correlation, and position sizing. Evaluate whether this trade "
-        "improves or degrades the overall portfolio risk/return profile."
-    ),
-}
 
 
 @dataclass
@@ -80,40 +48,6 @@ class DebateResult:
     against_count: int = 0
     abstain_count: int = 0
 
-
-def _build_user_prompt(
-    symbol: str,
-    action: str,
-    signal_data: dict[str, Any],
-    regime: str | None,
-    sentiment: dict[str, Any] | None,
-    risk_metrics: dict[str, Any] | None,
-) -> str:
-    """Build the shared market context prompt that every debater receives."""
-    lines = [
-        "## Proposed Trade",
-        f"- Symbol: {symbol}",
-        f"- Action: {action}",
-        f"- Signal strength: {signal_data.get('strength', 'N/A')}",
-        f"- Strategy: {signal_data.get('strategy_name', 'N/A')}",
-        "",
-        f"## Market Regime: {regime or 'UNKNOWN'}",
-        "",
-        "## Sentiment",
-    ]
-    if sentiment:
-        lines.append(f"- Average sentiment (24h): {sentiment.get('avg_sentiment_24h', 'N/A')}")
-        lines.append(f"- Lifecycle stage: {sentiment.get('lifecycle_stage', 'N/A')}")
-        lines.append(f"- Article count (14d): {sentiment.get('article_count_14d', 'N/A')}")
-    else:
-        lines.append("- No sentiment data available")
-    lines += [
-        "",
-        "## Instructions",
-        "Analyze the above from your role's perspective. Respond with ONLY a JSON object:",
-        '{"argument": "<your reasoning>", "vote": "FOR|AGAINST|ABSTAIN", "confidence": <0.0-1.0>}',
-    ]
-    return "\n".join(lines)
 
 logger = get_logger("debate.multi_model")
 
@@ -510,11 +444,14 @@ class MultiModelDebateEngine:
                 )
             round_prompt += (
                 "\n## Instructions for This Round\n"
-                "You have now seen the other debaters' arguments. "
-                "Reconsider your position and provide an updated analysis. "
-                "You may change your vote if the evidence warrants it.\n"
-                'Respond with ONLY: {"argument": "<reasoning>", "vote": "FOR|AGAINST|ABSTAIN",'
-                ' "confidence": <0.0-1.0>}'
+                "You have now seen the other debaters' arguments, and you have been "
+                "assigned a NEW role for this round (see your role instructions). Argue "
+                "from that new perspective, engaging with the strongest opposing argument "
+                "above. Change your vote if the evidence warrants it — do not repeat your "
+                "previous round.\n"
+                "Respond with ONLY a JSON object — no markdown fences, no prose:\n"
+                '{"argument": "<2-4 sentence reasoning>", "vote": "FOR" | "AGAINST" |'
+                ' "ABSTAIN", "confidence": <float 0.0-1.0>}'
             )
 
         async def _run_debater(role: str) -> MultiModelArgument:

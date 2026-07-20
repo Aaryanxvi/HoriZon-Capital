@@ -130,15 +130,23 @@ class LLMSentimentScorer:
     def _score_claude(self, symbol: str, news_items: list[str]) -> SentimentResult:
         joined = "\n- ".join(news_items[:10])
         prompt = (
-            f"Rate the equity-market sentiment for {symbol} based on these "
-            f"recent news headlines.\n\n- {joined}\n\nReturn ONLY a JSON object "
-            f"like {{\"score\": -0.7, \"confidence\": 0.85, \"rationale\": \"...\"}}. "
-            f"score in [-1,+1], confidence in [0,1]. Be conservative."
+            f"Rate the equity-market sentiment for {symbol} based ONLY on these recent "
+            f"news headlines — do not use outside knowledge of the company.\n\n- {joined}\n\n"
+            f"Respond with ONLY a JSON object, no markdown fences, no prose, with exactly "
+            f"these fields:\n"
+            f'{{"score": <float -1.0 to 1.0>, "confidence": <float 0.0 to 1.0>, '
+            f'"rationale": "<1 sentence>"}}\n'
+            f"score: -1.0 = strongly bearish, 0.0 = neutral/mixed, +1.0 = strongly bullish. "
+            f"confidence: how unambiguous the headlines are. Be conservative — reserve "
+            f"|score| > 0.5 for clearly directional news."
         )
         try:
             resp = self._client.messages.create(
                 model=self.model, max_tokens=200,
-                system="You are a financial sentiment analyst. Output JSON only.",
+                system=(
+                    "You are a financial news sentiment analyst. Respond with ONLY the "
+                    "requested JSON object — no markdown fences, no extra text."
+                ),
                 messages=[{"role": "user", "content": prompt}],
             )
             text = resp.content[0].text.strip()
