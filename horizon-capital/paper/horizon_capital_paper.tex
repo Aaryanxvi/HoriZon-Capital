@@ -1,0 +1,572 @@
+\documentclass[10pt,twocolumn]{IEEEtran}
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+\begin{document}
+
+\title{Horizon Capital: An Autonomous Multi-Agent Hedge-Fund Terminal with
+LLM Debate Gating and Pre-Registered Strategy Validation}
+
+\author{Aaryan~Baadkar\\
+\textit{Horizon Capital Project}\\
+Email: aaryanbaadkar71@gmail.com}
+
+\maketitle
+
+\begin{abstract}
+Autonomous trading systems built around large language models (LLMs) are
+typically evaluated on in-sample backtests that overstate live performance,
+and their agent architectures rarely separate signal generation from risk
+authority. In this paper we present \textbf{Horizon Capital}, an autonomous
+hedge-fund terminal that models an investment firm as an organizational chart
+of cooperating software agents --- front-office strategy, portfolio and
+execution agents; middle-office risk, compliance and operations agents;
+back-office accounting and infrastructure agents; and an executive AI Chief
+Investment Officer --- communicating exclusively over a publish/subscribe
+message bus. Trade intents pass through three nested gates: a rule-based
+pre-trade risk check, a multi-model LLM debate in which four adversarial
+analyst roles vote under a perspective-rotation protocol, and a hard
+execution-time guard layer (kill switch, cash, and short constraints).
+The signal layer is an ensemble of transparent, rule-based strategy
+``sleeves'' combining regime-gated time-series momentum, quality ranking,
+hierarchical risk parity and fractional-Kelly position caps. We describe a
+validation methodology built on point-in-time (PIT) universe construction,
+leave-one-out sleeve attribution, and pre-registered holdout gates, and we
+report its consequences honestly: our first apparent edge was an artifact of
+survivorship bias; a breadth-timing sleeve that helped in-sample was dropped
+after it degraded out-of-sample Sharpe (0.77 without vs.\ 0.67 with, 2018--2024
+PIT), and the final mix passed a pre-registered 2008--2017 holdout gate
+(Sharpe 0.70 vs.\ 0.63 incumbent, max drawdown $-19\%$ vs.\ $-27\%$). A
+prediction-market momentum sleeve evaluated under the same protocol
+\emph{failed} its gate (total return $-8.1\%$, Sharpe $-0.18$) and ships
+disabled. We further report lessons from live paper-trading deployment
+against a real brokerage API, including a broker-equity reconciliation guard
+motivated by an accidental $3.5\times$ leverage incident. The system runs on
+consumer hardware with zero external infrastructure.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Multi-agent systems, large language models, algorithmic trading, momentum,
+risk management, backtesting methodology, survivorship bias
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Automated trading strategies are central to modern asset management, and a
+growing literature applies deep reinforcement learning
+\cite{yang2020ensemble,xiong2018practical} and, more recently, large language
+models \cite{yang2023fingpt,wu2023bloomberggpt} to the problem. Two gaps
+motivate this work.
+
+First, \emph{architecture}. Most published systems collapse the investment
+process into a single learned policy: one network observes prices and emits
+orders. Real investment firms do not work this way. Signal generation,
+position sizing, risk limits, compliance, execution, and accounting are
+performed by different desks with different objectives and veto power over
+one another. This separation is not bureaucratic overhead; it is the
+mechanism by which firms prevent any single model's failure mode from
+reaching the market unchecked.
+
+Second, \emph{evaluation}. Backtests reported in the applied literature are
+routinely contaminated by survivorship bias, lookahead in universe
+construction, and post-hoc strategy selection \cite{bailey2014deflated,
+lopezdeprado2018advances}. A strategy tuned until its historical Sharpe ratio
+looks attractive has, in effect, been fit to the test set.
+
+Horizon Capital addresses both gaps. It is a complete, runnable
+system\footnote{Python 3.14, Rich terminal interface; local mode requires
+only SQLite --- no external services.} that models a hedge fund as an
+organizational chart of decoupled agents coordinating over a
+publish/subscribe message bus, with three nested gates between a strategy
+signal and a broker order. Its signal layer is deliberately transparent ---
+rule-based momentum, trend, quality and regime primitives from the empirical
+asset-pricing literature \cite{jegadeesh1993returns,faber2007tactical,
+asness2019qmj} --- while its \emph{judgment} layer uses multiple LLMs in an
+adversarial debate protocol inspired by multi-agent deliberation
+\cite{du2023improving,park2023generative}. Its evaluation discipline is
+pre-registered: strategy changes must pass gates that are fixed \emph{before}
+the candidate is evaluated, on point-in-time data the candidate never saw.
+
+The contributions of this paper are:
+\begin{enumerate}
+\item A firm-as-org-chart multi-agent architecture for autonomous trading,
+with a three-gate pipeline (rule-based risk, LLM debate, execution guards)
+and per-asset-class broker routing spanning equities, cryptocurrency, and
+prediction markets.
+\item A multi-model LLM debate gate with four adversarial analyst roles,
+round-two perspective rotation to counter confirmation bias, and
+confidence-weighted consensus with explicit abstention semantics.
+\item A validation methodology --- PIT universes, leave-one-out sleeve
+attribution, pre-registered holdout gates --- and an honest account of what
+it rejected, including our own initial results.
+\item Deployment lessons from live paper trading against a real brokerage
+API, including a reconciliation guard pattern we believe generalizes to any
+system whose local ledger can drift from broker state.
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{Reinforcement Learning for Trading}
+Actor-critic methods (PPO, A2C, DDPG) have been applied to portfolio
+trading, individually and as Sharpe-selected ensembles
+\cite{yang2020ensemble,xiong2018practical,jiang2017cryptocurrency}. These
+systems learn positions end-to-end from price features. Horizon Capital
+takes the opposite position on interpretability: positions come from
+transparent rules whose historical behavior can be attributed sleeve by
+sleeve, and learned components (LLMs) are confined to a veto role where
+their failure mode is a rejected trade, not an unbounded position.
+
+\subsection{LLMs and Agents in Finance}
+Domain LLMs \cite{wu2023bloomberggpt,yang2023fingpt} and LLM trading agents
+have shown promise in sentiment extraction and decision support. Multi-agent
+debate improves factuality and reasoning in general tasks
+\cite{du2023improving}, and generative agent societies exhibit useful
+division of labor \cite{park2023generative}. We apply both ideas to trade
+approval specifically: debate with structured votes, role rotation, and a
+consensus rule that fails \emph{closed} (no providers $\Rightarrow$ reject)
+when the system trades autonomously.
+
+\subsection{Systematic Strategies and Validation}
+Our sleeves implement standard results: 12--1 cross-sectional momentum
+\cite{jegadeesh1993returns}, the 10-month/200-day trend filter
+\cite{faber2007tactical}, quality-minus-junk ranking \cite{asness2019qmj},
+hierarchical risk parity \cite{lopezdeprado2016hrp}, and fractional-Kelly
+sizing \cite{kelly1956}. Our evaluation discipline follows the
+backtest-overfitting literature \cite{bailey2014deflated,
+lopezdeprado2018advances}: deflated expectations, holdout periods fixed in
+advance, and reporting of adverse results.
+
+\section{System Architecture}
+
+\subsection{Firm as an Organizational Chart}
+
+Horizon Capital instantiates the departments of an investment firm as
+independent asynchronous agents (Fig.~\ref{fig:pipeline}):
+
+\begin{itemize}
+\item \textbf{Front office.} \emph{StrategyAgent} (signal generation from
+the sleeve ensemble, Sec.~\ref{sec:sleeves}); \emph{PortfolioAgent}
+(position sizing, NAV ownership, and the debate gate);
+\emph{ExecutionAgent} (order routing and final guards); an investor-relations
+agent (periodic reporting) and a sentiment agent (news-headline scoring).
+\item \textbf{Middle office.} \emph{RiskAgent} (pre-trade limit checks and a
+30-second VaR/CVaR/drawdown loop with a sticky kill switch);
+\emph{ComplianceAgent} (restricted lists, concentration);
+\emph{OperationsAgent} (stuck-order detection); \emph{DebateAgent}
+(Sec.~\ref{sec:debate}); an alpha-decay monitor.
+\item \textbf{Back office.} Accounting (P\&L, NAV reconciliation), IT
+(process health, resource monitoring), and quantitative-data agents.
+\item \textbf{Executive.} An AI Chief Investment Officer issuing periodic
+strategic advisories, crisis responses to risk alerts, and --- only under a
+kill-switch state with high stated confidence --- an override directive.
+\end{itemize}
+
+Agents never call one another directly. All coordination flows over a
+namespaced publish/subscribe bus (\texttt{horizon.\textit{area}.\textit{topic}})
+with wildcard subscriptions; in local mode the bus is an in-process
+asynchronous queue and all state persists to SQLite, so the entire firm runs
+on a laptop with no external infrastructure. A supervisor restarts crashed
+agents from heartbeats. This decoupling is what makes the gate structure
+enforceable: the only path from a signal to an order is through messages
+that the risk and debate agents can intercept.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  node distance=3.5mm and 3.5mm,
+  box/.style={draw, rounded corners=1pt, align=center, font=\scriptsize,
+              inner sep=2.5pt, minimum height=5.5mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[box] (strat) {StrategyAgent\\(sleeve ensemble)};
+\node[box, below=of strat] (risk) {RiskAgent\\(limits, VaR, kill switch)};
+\node[box, below=of risk] (port) {PortfolioAgent\\(sizing, NAV)};
+\node[box, right=of port] (debate) {DebateAgent\\(LLM consensus)};
+\node[box, below=of port] (exec) {ExecutionAgent\\(guards, routing)};
+\node[box, below=of exec] (brokers) {Brokers: Paper $|$ Alpaca (equity, crypto) $|$ Polymarket (CLOB)};
+\draw[arr] (strat) -- node[right, font=\tiny]{SIGNAL} (risk);
+\draw[arr] (risk) -- node[right, font=\tiny]{approved} (port);
+\draw[arr] (port.east) to[bend left=12] node[above, font=\tiny]{debate} (debate.north west);
+\draw[arr] (debate.south west) to[bend left=12] node[below, font=\tiny]{APPROVED} (port.east);
+\draw[arr] (port) -- node[right, font=\tiny]{ORDER\_NEW} (exec);
+\draw[arr] (exec) -- node[right, font=\tiny]{per-symbol routing} (brokers);
+\end{tikzpicture}
+\caption{The trade pipeline. Three nested gates separate a strategy signal
+from a broker order: rule-based risk checks, the LLM debate (binding in
+fully-autonomous mode), and execution-time guards.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Trade Pipeline and Operating Modes}
+
+A trade intent traverses:
+\begin{equation*}
+\text{Strategy} \xrightarrow{\text{SIGNAL}} \text{Risk}
+\rightarrow \text{Portfolio (+ Debate)} \rightarrow \text{Execution}
+\rightarrow \text{Broker}.
+\end{equation*}
+The RiskAgent enforces per-position weight caps (20\% of NAV) and daily-loss
+limits symbol-agnostically. The PortfolioAgent — sole owner of NAV — sizes
+approved signals against database-backed cash balances (the key-value cache
+is a mirror, never the source of truth). The ExecutionAgent applies final
+guards: kill-switch state, cash sufficiency, and a naked-short prohibition,
+then routes per symbol --- equities and cryptocurrency to a paper simulator
+or the Alpaca API, prediction-market symbols to a Polymarket CLOB client ---
+so no order can reach a broker that does not trade its asset class.
+
+Three operating modes trade off autonomy against oversight:
+\emph{paper-trading} (immediate simulated execution),
+\emph{human-approval} (orders queue for interactive approve/reject), and
+\emph{fully-autonomous}, in which the debate gate is binding and, absent any
+LLM provider, fails closed by rejecting the signal.
+
+\subsection{Execution Realism}
+The paper broker charges commissions on every fill and applies an
+Almgren--Chriss-style \cite{almgren2001optimal} temporary-impact model, so
+simulated fills degrade with participation. Realized P\&L is
+commission-inclusive by construction (commissions hit realized P\&L on every
+fill, including opening legs), which forces cash and P\&L ledgers to agree
+exactly --- a property we verify in tests.
+
+\section{Strategy Layer: Validated Sleeve Ensemble}
+\label{sec:sleeves}
+
+Signals come from independent \emph{sleeves}, each a pure function from
+historical bars to target portfolio weights, combined by fixed mix weights.
+The production mix (Sec.~\ref{sec:eval}) is:
+
+\begin{itemize}
+\item \textbf{Research stack} (weight 0.500, weekly). A Gaussian-mixture
+regime model \cite{kritzman2012regime} on index returns gates the book:
+in \textsc{risk-off} regimes capital moves to an inverse-volatility blend of
+long-duration Treasuries and gold; in \textsc{risk-on} regimes the sleeve
+ranks the point-in-time S\&P~500 universe by 12--1 time-series momentum
+\cite{jegadeesh1993returns} and quality \cite{asness2019qmj}, takes the top
+five names, weights them by hierarchical risk parity
+\cite{lopezdeprado2016hrp}, and caps each weight at half-Kelly
+\cite{kelly1956}.
+\item \textbf{Trend filter} (0.333, weekly). Faber's 200-day moving-average
+rule \cite{faber2007tactical} on the index proxy --- long above trend, cash
+below --- with a realized-volatility cap.
+\item \textbf{Momentum rank} (0.167, monthly). Cross-sectional 12--1
+momentum, top three names, equal weight. The live 20\% position cap contains
+its standalone drawdown (max $-25.4\%$ capped, versus $-59.5\%$ uncapped in
+an unconstrained harness).
+\end{itemize}
+
+The StrategyAgent aggregates sleeve targets and emits a signal only when a
+symbol's net target drifts more than 50 basis points, keeping turnover low.
+
+\textbf{Optional, unvalidated sleeves} for cryptocurrency (a Faber-style
+200-day trend rule on BTC and ETH with an annualized-volatility damper) and
+prediction markets (Sec.~\ref{sec:polymarket}) are carved out of the mix
+pro-rata \emph{only when explicitly enabled}, a construction that leaves the
+validated equity mix byte-identical when they are off --- a property pinned
+by a regression test. Both default to off; the prediction-market sleeve
+remains off because it failed its gate.
+
+\section{The LLM Debate Gate}
+\label{sec:debate}
+
+In fully-autonomous mode every sized trade must survive a structured debate
+among four adversarial analyst roles --- \textsc{strategy} (bull case),
+\textsc{risk} (bear case), \textsc{sentiment} (news and crowd positioning),
+and \textsc{portfolio} (fit with existing exposure). Each debater receives
+the same grounded context (signal metadata, market regime, cached sentiment,
+portfolio risk metrics) with explicit instructions to reason only from the
+data provided, and returns a structured vote:
+\begin{equation*}
+\{\texttt{argument},\ \texttt{vote} \in \{\text{FOR},
+\text{AGAINST}, \text{ABSTAIN}\},\ \texttt{confidence} \in [0,1]\}.
+\end{equation*}
+
+\textbf{Provider diversity.} Roles are assigned round-robin (or pinned by
+configuration) across the available LLM providers, so different model
+families argue different perspectives.
+
+\textbf{Perspective rotation.} In round two each debater is reassigned the
+\emph{opposite} role (bull argues the bear case, sentiment argues portfolio
+fit) with the round-one transcript in context, and must engage the strongest
+opposing argument. This forces genuine consideration of counterarguments
+and measurably reduces same-model agreement bias \cite{du2023improving}.
+
+\textbf{Consensus.} With $F$, $A$ the FOR and AGAINST vote sets over both
+rounds and $c_i$ vote confidences, the trade is approved iff
+\begin{equation}
+\frac{\sum_{i \in F} c_i}{\sum_{i \in F \cup A} c_i} > 0.55
+\quad \text{and} \quad
+\frac{|F|}{|F| + |A|} \geq 0.6,
+\end{equation}
+i.e., both the confidence-weighted and the raw FOR ratios must clear
+thresholds; abstentions count toward neither side. Malformed model output
+degrades to \textsc{abstain} rather than being reprompted, and if no
+provider is available the debate \emph{rejects} --- in autonomous mode the
+system never trades on the absence of judgment. All arguments, votes, and
+conclusions persist to an auditable session log.
+
+\section{Validation Methodology}
+\label{sec:method}
+
+Three rules govern every strategy change.
+
+\subsubsection{Point-in-time universes} Ranking today's index constituents
+backward in time implicitly conditions on survival. Our first backtests made
+exactly this error, and the apparent edge --- which motivated the project ---
+disappeared under a reconstructed point-in-time S\&P~500 membership series.
+We treat this as a headline result rather than an embarrassment: the
+pipeline that revealed it is the product.
+
+\subsubsection{Leave-one-out attribution} Each sleeve is removed from the
+mix in turn and the ensemble re-evaluated on PIT data; a sleeve earns its
+weight only if removing it hurts. This is how a breadth-timing sleeve ---
+attractive standalone and previously 40\% of the mix --- was found to drag
+the ensemble (Sec.~\ref{sec:eval}) and dropped.
+
+\subsubsection{Pre-registered holdout gates} Candidate mixes are selected on
+one PIT period (2018--2024) and must then pass acceptance criteria ---
+fixed \emph{before} evaluation --- on an unseen holdout (2008--2017)
+spanning the global financial crisis: Sharpe not worse than the incumbent,
+maximum drawdown not deeper, comparable CAGR. Candidates that fail ship
+disabled, with the adverse result recorded. No signal parameter is tuned on
+holdout data.
+
+\section{Performance Evaluation}
+\label{sec:eval}
+
+\subsection{Sleeve Attribution and Mix Selection}
+
+Table~\ref{tab:loo} shows the leave-one-out result that reshaped the
+production mix on the 2018--2024 PIT selection period, and
+Table~\ref{tab:holdout} the pre-registered holdout gate on 2008--2017. The
+candidate mix without the breadth sleeve dominated on both periods --- higher
+Sharpe on selection (0.77 vs.\ 0.67), higher Sharpe (0.70 vs.\ 0.63) and
+shallower maximum drawdown ($-19\%$ vs.\ $-27\%$) at comparable CAGR on
+holdout --- and both gates passed, so breadth was dropped and the mix
+reweighted to research~0.500 / trend~0.333 / momentum-rank~0.167.
+
+\begin{table}[t]
+\caption{Leave-one-out attribution, PIT 2018--2024 (selection period).}
+\label{tab:loo}
+\centering
+\begin{tabular}{lc}
+\toprule
+Configuration & Sharpe ratio \\
+\midrule
+Full mix (incl.\ breadth sleeve, 40\% weight) & 0.67 \\
+Mix without breadth sleeve & \textbf{0.77} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Pre-registered holdout gate, PIT 2008--2017 (unseen at selection;
+spans the 2008 crisis).}
+\label{tab:holdout}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Mix & Sharpe & Max drawdown & CAGR \\
+\midrule
+Incumbent (with breadth) & 0.63 & $-27\%$ & comparable \\
+Candidate (without breadth) & \textbf{0.70} & $\mathbf{-19\%}$ & comparable \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two selection-period observations deserve emphasis. First, the research
+stack is the load-bearing sleeve: removing it degrades the ensemble more
+than removing any other component. Second, a top-10 variant of the
+momentum-rank sleeve was evaluated and \emph{failed} its gate (mix Sharpe
+0.63 $<$ 0.67); the top-3 configuration was retained.
+
+\subsection{An Adverse Result: Prediction-Market Momentum}
+\label{sec:polymarket}
+
+The system ingests Polymarket prediction-market prices (Gamma metadata,
+CLOB midpoints) as first-class symbols with real execution support. We
+hypothesized that event probabilities drift --- informed flow moves prices
+before resolution --- and built a 7-day probability-momentum sleeve (long
+markets whose YES price rose $\geq 5$ percentage points, mid-price restricted
+to $[0.10, 0.90]$ to avoid resolution tails, 25\% per-market cap). Replayed
+day-by-day over CLOB price history for the highest-volume markets
+(Table~\ref{tab:pm}), the sleeve \emph{lost} money. Under the gate protocol
+of Sec.~\ref{sec:method} it therefore ships disabled. We report this result
+at equal prominence with the positive ones; a validation methodology that
+only ever approves is not a methodology.
+
+\begin{table}[t]
+\caption{Prediction-market momentum sleeve backtest (CLOB daily history,
+highest-volume markets, 365-day window). Gate: \textbf{failed}; sleeve
+ships disabled.}
+\label{tab:pm}
+\centering
+\begin{tabular}{lc}
+\toprule
+Metric & Value \\
+\midrule
+Markets traded & 3 of 5 discovered \\
+Aggregate total return & $-8.1\%$ \\
+Sharpe ratio & $-0.18$ \\
+Max drawdown & $-22.8\%$ \\
+Daily hit rate & 43.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Caveats we attach to this backtest apply to most published
+prediction-market results: short history, volume-skewed market selection,
+no order-book depth in fills, and binary-resolution jump risk that daily
+bars understate.
+
+\subsection{Live Deployment: the Reconciliation Guard}
+\label{sec:live}
+
+The full pipeline has run live against the Alpaca paper-trading API:
+sleeve signals produced real API orders, polled to terminal fills
+(fractional shares included), with cash settled atomically exactly once per
+order. The launch surfaced a failure mode we believe is underreported. The
+local ledger was initialized with \$1M while the brokerage account held
+\$100k of paper equity; sizing against local NAV therefore produced
+$3.5\times$ accidental margin exposure at the broker. The fix is a
+\emph{startup reconciliation guard}: on connect, the system compares
+broker equity to local NAV, reports position diffs, and --- on a mismatch
+exceeding 2\% --- raises a critical alert and falls back to simulated
+execution rather than trading a ledger it cannot trust. In subsequent runs
+the guard fired correctly and refused live routing until the accounts were
+re-synchronized. Any architecture whose internal state can drift from
+broker truth needs an equivalent gate.
+
+\subsection{Operational Robustness}
+
+The firm survives its own components failing: a supervisor restarts crashed
+agents from missed heartbeats (exercised in a boot-time database-contention
+incident that crashed four agents; all recovered without operator action,
+and the root cause was subsequently fixed), a sticky kill switch halts
+trading on drawdown breaches until a human clears it, and alerts route to
+console, Telegram, and e-mail. A template-based trade journal narrates every
+fill, kill-switch event, and debate conclusion to a daily Markdown file
+independent of any LLM. The codebase carries 467 automated tests, including
+regression pins on the validated mix weights and on cash/P\&L consistency.
+
+\section{Limitations}
+
+The validated results are backtests on daily bars plus a live
+\emph{paper}-trading deployment; no real capital has traded. Sharpe
+estimates on a single historical path overstate certainty
+\cite{bailey2014deflated}; our gates mitigate but cannot eliminate this.
+The debate gate's marginal contribution to portfolio outcomes --- as opposed
+to its audit value --- has not yet been isolated in a controlled A/B
+experiment, and LLM judgments inherit the biases of their training corpora.
+The prediction-market study covers few markets over a short window.
+
+\section{Conclusion}
+
+We presented Horizon Capital, an autonomous hedge-fund terminal that (i)
+organizes trading as a firm of decoupled agents with three nested gates
+between signal and order, (ii) confines LLMs to an adversarial,
+fail-closed judgment role over transparent rule-based signals, and (iii)
+subjects every strategy change to point-in-time, pre-registered validation.
+The methodology's value is demonstrated by what it rejected: our own
+survivorship-biased first edge, a breadth sleeve that helped in-sample and
+hurt out-of-sample, a top-10 momentum variant, and a prediction-market
+sleeve that lost money under honest replay. The mix that survived ---
+regime-gated momentum/quality with trend and momentum-rank satellites at
+0.500/0.333/0.167 --- improved holdout Sharpe from 0.63 to 0.70 and cut
+maximum drawdown from $-27\%$ to $-19\%$ against the incumbent.
+
+Future work: isolating the debate gate's causal effect on realized
+outcomes; extending PIT validation to the crypto sleeve; deeper
+prediction-market microstructure (order-book fills, resolution-event
+modeling); and graduating from paper to small live capital under the same
+gate discipline.
+
+\begin{thebibliography}{20}
+
+\bibitem{yang2020ensemble}
+H.~Yang, X.-Y.~Liu, S.~Zhong, and A.~Walid, ``Deep reinforcement learning
+for automated stock trading: An ensemble strategy,'' in \emph{Proc. ACM
+Int. Conf. AI in Finance (ICAIF)}, 2020.
+
+\bibitem{xiong2018practical}
+Z.~Xiong, X.-Y.~Liu, S.~Zhong, H.~Yang, and A.~Elwalid, ``Practical deep
+reinforcement learning approach for stock trading,'' \emph{NeurIPS Workshop
+on Challenges and Opportunities for AI in Financial Services}, 2018.
+
+\bibitem{jiang2017cryptocurrency}
+Z.~Jiang and J.~Liang, ``Cryptocurrency portfolio management with deep
+reinforcement learning,'' in \emph{Intelligent Systems Conference}, 2017.
+
+\bibitem{yang2023fingpt}
+H.~Yang, X.-Y.~Liu, and C.~D.~Wang, ``FinGPT: Open-source financial large
+language models,'' \emph{arXiv:2306.06031}, 2023.
+
+\bibitem{wu2023bloomberggpt}
+S.~Wu \emph{et al.}, ``BloombergGPT: A large language model for finance,''
+\emph{arXiv:2303.17564}, 2023.
+
+\bibitem{du2023improving}
+Y.~Du, S.~Li, A.~Torralba, J.~B.~Tenenbaum, and I.~Mordatch, ``Improving
+factuality and reasoning in language models through multiagent debate,''
+\emph{arXiv:2305.14325}, 2023.
+
+\bibitem{park2023generative}
+J.~S.~Park, J.~O'Brien, C.~J.~Cai, M.~R.~Morris, P.~Liang, and
+M.~S.~Bernstein, ``Generative agents: Interactive simulacra of human
+behavior,'' in \emph{Proc. ACM UIST}, 2023.
+
+\bibitem{jegadeesh1993returns}
+N.~Jegadeesh and S.~Titman, ``Returns to buying winners and selling losers:
+Implications for stock market efficiency,'' \emph{Journal of Finance},
+vol.~48, no.~1, pp. 65--91, 1993.
+
+\bibitem{faber2007tactical}
+M.~T.~Faber, ``A quantitative approach to tactical asset allocation,''
+\emph{Journal of Wealth Management}, vol.~9, no.~4, pp. 69--79, 2007.
+
+\bibitem{asness2019qmj}
+C.~S.~Asness, A.~Frazzini, and L.~H.~Pedersen, ``Quality minus junk,''
+\emph{Review of Accounting Studies}, vol.~24, pp. 34--112, 2019.
+
+\bibitem{lopezdeprado2016hrp}
+M.~L\'opez~de~Prado, ``Building diversified portfolios that outperform
+out of sample,'' \emph{Journal of Portfolio Management}, vol.~42, no.~4,
+pp. 59--69, 2016.
+
+\bibitem{kelly1956}
+J.~L.~Kelly, ``A new interpretation of information rate,'' \emph{Bell
+System Technical Journal}, vol.~35, no.~4, pp. 917--926, 1956.
+
+\bibitem{bailey2014deflated}
+D.~H.~Bailey and M.~L\'opez~de~Prado, ``The deflated Sharpe ratio:
+Correcting for selection bias, backtest overfitting and non-normality,''
+\emph{Journal of Portfolio Management}, vol.~40, no.~5, pp. 94--107, 2014.
+
+\bibitem{lopezdeprado2018advances}
+M.~L\'opez~de~Prado, \emph{Advances in Financial Machine Learning}.
+Wiley, 2018.
+
+\bibitem{kritzman2012regime}
+M.~Kritzman, S.~Page, and D.~Turkington, ``Regime shifts: Implications for
+dynamic strategies,'' \emph{Financial Analysts Journal}, vol.~68, no.~3,
+pp. 22--39, 2012.
+
+\bibitem{almgren2001optimal}
+R.~Almgren and N.~Chriss, ``Optimal execution of portfolio transactions,''
+\emph{Journal of Risk}, vol.~3, no.~2, pp. 5--39, 2001.
+
+\bibitem{markowitz1952}
+H.~Markowitz, ``Portfolio selection,'' \emph{Journal of Finance}, vol.~7,
+no.~1, pp. 77--91, 1952.
+
+\bibitem{sharpe1994}
+W.~F.~Sharpe, ``The Sharpe ratio,'' \emph{Journal of Portfolio Management},
+vol.~21, no.~1, pp. 49--58, 1994.
+
+\end{thebibliography}
+
+\end{document}
