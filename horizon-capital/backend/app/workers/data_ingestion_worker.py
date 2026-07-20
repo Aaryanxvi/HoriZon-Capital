@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import text
 
+from app.agents.front_office.portfolio.currency import FOREX_KEY
 from app.config import settings
 from app.core.kv_store import get_kv_store
 from app.core.logging import get_logger
@@ -21,6 +22,7 @@ logger = get_logger("worker.data_ingestion")
 
 YAHOO_POLL_INTERVAL = 30
 COINGECKO_POLL_INTERVAL = 60
+FOREX_POLL_INTERVAL = 3600  # USD/INR moves slowly; hourly is plenty
 RECONNECT_DELAY = 10
 MAX_RECONNECT_ATTEMPTS = 5
 FETCH_TIMEOUT = 30.0
@@ -52,6 +54,7 @@ class DataIngestionWorker:
         self._tasks = [
             asyncio.create_task(self._poll_yahoo_eod()),
             asyncio.create_task(self._poll_coingecko()),
+            asyncio.create_task(self._poll_forex()),
         ]
 
         logger.info("data_ingestion_worker.started")
@@ -219,6 +222,34 @@ class DataIngestionWorker:
                     logger.error("coingecko_poll_error", error=str(exc))
 
                 await asyncio.sleep(COINGECKO_POLL_INTERVAL)
+        except asyncio.CancelledError:
+            pass
+
+    async def _fetch_forex_once(self) -> None:
+        """Fetch USD/INR from yfinance and write it to KV, if valid."""
+        import yfinance as yf
+
+        hist = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: yf.Ticker("USDINR=X").history(period="1d")
+        )
+        if hist.empty:
+            return
+
+        rate = float(hist["Close"].iloc[-1])
+        if rate > 0:
+            await get_kv_store().set(FOREX_KEY, str(rate))
+            logger.info("forex_rate_updated", usdinr=round(rate, 4))
+
+    async def _poll_forex(self) -> None:
+        """Poll USD/INR hourly; fetch immediately so the reader has a rate at boot."""
+        try:
+            while self._running:
+                try:
+                    await self._fetch_forex_once()
+                except Exception as exc:
+                    logger.warning("forex_poll_error", error=str(exc))
+
+                await asyncio.sleep(FOREX_POLL_INTERVAL)
         except asyncio.CancelledError:
             pass
 

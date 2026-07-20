@@ -2,7 +2,7 @@
 
 Pulls current S&P 500 constituents (the liquid, actually-tradeable universe) so
 the breadth engine ranks the whole market instead of a fixed handful. Falls back
-to a bundled liquid list if the live fetch fails (offline / no lxml), so the
+to a bundled liquid list if the live fetch fails (offline / source down), so the
 system always runs.
 
 NOTE: current constituents is correct for LIVE trading — you can only buy what's
@@ -46,13 +46,23 @@ _cache: tuple[list[str], float] | None = None
 
 
 def _fetch_sp500_tickers() -> list[str]:
-    """Current S&P 500 tickers via Wikipedia (needs pandas + lxml/html5lib)."""
-    import pandas as pd
+    """Current S&P 500 tickers via the datasets/s-and-p-500-companies GitHub CSV."""
+    import csv
+    from io import StringIO
 
-    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    tables = pd.read_html(url)
-    syms = tables[0]["Symbol"].astype(str).tolist()
-    # Wikipedia uses BRK.B; yfinance wants BRK-B.
+    import httpx
+
+    url = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+    resp = httpx.get(
+        url,
+        headers={"User-Agent": "horizon-capital/0.2"},
+        timeout=20.0,
+        follow_redirects=True,
+    )
+    resp.raise_for_status()
+    rows = list(csv.DictReader(StringIO(resp.text)))
+    syms = [r["Symbol"] for r in rows if r.get("Symbol")]
+    # CSV uses BRK.B; yfinance wants BRK-B.
     return [s.strip().replace(".", "-") for s in syms if s.strip()]
 
 
