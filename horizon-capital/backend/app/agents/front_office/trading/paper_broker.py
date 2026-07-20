@@ -200,6 +200,8 @@ class PaperBroker:
             commission_bps = 10.0  # ~0.1% (STT + brokerage + GST + exchange + SEBI)
         elif exchange == "CRYPTO":
             commission_bps = 10.0  # ~0.1% taker fee typical crypto exchanges
+        elif exchange == "POLY":
+            commission_bps = 0.0  # Polymarket charges no trading fee
         else:
             commission_bps = 1.0  # US equities: near-zero + SEC fees, use ~1 bp
         commission = abs(notional) * commission_bps / 10_000.0
@@ -245,7 +247,7 @@ class PaperBroker:
         """
         from app.data_layer import alpaca_quotes
 
-        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol)
+        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol or ".POLY" in symbol)
         if is_us and alpaca_quotes.is_configured():
             live = await alpaca_quotes.get_latest_price(symbol)
             if live and live > 0:

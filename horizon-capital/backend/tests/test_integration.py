@@ -1838,11 +1838,11 @@ class TestDataManagerFeedWiring:
         assert isinstance(dm.alpaca_feed, AlpacaFeed)
         assert isinstance(dm.crypto_feed, CryptoFeed)
 
-    def test_feeds_list_has_three_entries(self):
-        """Internal _feeds list contains exactly 3 feeds."""
+    def test_feeds_list_has_four_entries(self):
+        """Internal _feeds list contains exactly 4 feeds."""
         from app.data_layer.data_manager import DataManager
         dm = DataManager()
-        assert len(dm._feeds) == 3
+        assert len(dm._feeds) == 4
 
 
 class TestDataIngestionWorker:

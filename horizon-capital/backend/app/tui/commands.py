@@ -75,6 +75,9 @@ HELP_TEXT = """
   [green]watchlist add[/] <SYM>  Add a US symbol (e.g. NVDA.NASDAQ, JPM.NYSE)
   [green]watchlist remove[/] <SYM>  Remove a symbol from watchlist
 
+  [bold yellow]Polymarket:[/bold yellow]
+  [green]pm[/]                  List configured Polymarket markets (price, 24h volume)
+
   [bold yellow]Manual Trading:[/bold yellow]
   [green]buy[/] <SYMBOL> [qty]   Place a manual BUY order (default qty: auto-size)
   [green]sell[/] <SYMBOL> [qty]  Place a manual SELL order (default: sell entire position)
@@ -134,6 +137,7 @@ class CommandHandler:
             "pnl": self._cmd_pnl,
             "cio": self._cmd_cio,
             "watchlist": self._cmd_watchlist,
+            "pm": self._cmd_pm,
             "buy": self._cmd_buy,
             "sell": self._cmd_sell,
             "strategy": self._cmd_strategy,
@@ -1236,6 +1240,32 @@ class CommandHandler:
             "Restart for changes to take effect."
         )
 
+    async def _cmd_pm(self, args: list[str]) -> str:
+        """List configured Polymarket markets with current mid price + 24h volume."""
+        from app.core.kv_store import get_kv_store
+        from app.data_layer.polymarket_feed import pm_symbol
+
+        slugs = [s.strip() for s in settings.polymarket_markets.split(",") if s.strip()]
+        if not slugs:
+            return "[dim]No Polymarket markets configured (set POLYMARKET_MARKETS).[/dim]"
+
+        kv = get_kv_store()
+        lines = ["[bold]Polymarket markets:[/bold]"]
+        for slug in slugs:
+            symbol = pm_symbol(slug)
+            price_str = await kv.get(f"horizon:price:{symbol}")
+            volume_str = await kv.get(f"horizon:volume:{symbol}")
+            meta_raw = await kv.get(f"horizon:pm:meta:{symbol}")
+            question = slug
+            if meta_raw:
+                import json as _json
+                question = _json.loads(meta_raw).get("question", slug)
+            question = question[:60]
+            price = f"{float(price_str):.4f}" if price_str else "n/a"
+            volume = f"{float(volume_str):,.0f}" if volume_str else "n/a"
+            lines.append(f"  [green]{symbol}[/green]  {question}  mid={price}  vol24h={volume}")
+        return "\n".join(lines)
+
     @staticmethod
     def _update_env(key: str, value: str) -> None:
         """Update a key in the backend .env file."""
@@ -1296,7 +1326,7 @@ class CommandHandler:
         price: float | None = None
 
         from app.data_layer import alpaca_quotes
-        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol)
+        is_us = not (".NSE" in symbol or ".BSE" in symbol or "-USD" in symbol or ".POLY" in symbol)
         if is_us and alpaca_quotes.is_configured():
             price = await alpaca_quotes.get_latest_price(symbol)
 
@@ -1370,6 +1400,8 @@ class CommandHandler:
             exchange = "BSE"
         elif "-USD" in symbol:
             exchange = "CRYPTO"
+        elif ".POLY" in symbol:
+            exchange = "POLY"
         else:
             exchange = "NASDAQ"
 

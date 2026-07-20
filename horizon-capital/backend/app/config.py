@@ -249,6 +249,14 @@ class Settings(BaseSettings):
     crypto_sleeve_enabled: bool = False
     crypto_sleeve_weight: float = 0.10
 
+    # Polymarket prediction markets. Data + paper trading need NO account (public
+    # Gamma/CLOB APIs). Real trading additionally requires POLYMARKET_REAL_TRADING=true,
+    # a funded Polygon USDC wallet key, and `pip install py-clob-client`.
+    polymarket_markets: str = ""  # comma-separated market slugs; empty = feature off
+    polymarket_real_trading: bool = False
+    polymarket_private_key: str = ""
+    polymarket_funder_address: str = ""
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []

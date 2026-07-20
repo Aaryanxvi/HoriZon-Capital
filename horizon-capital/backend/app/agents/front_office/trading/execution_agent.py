@@ -17,6 +17,7 @@ from app.agents.base_agent import BaseAgent
 from app.agents.front_office.trading.alpaca_broker import AlpacaBroker
 from app.agents.front_office.trading.order_manager import OrderManager
 from app.agents.front_office.trading.paper_broker import PaperBroker
+from app.agents.front_office.trading.polymarket_broker import PolymarketBroker
 from app.config import settings
 from app.core.cash import adjust_cash, mirror_to_kv
 from app.core.logging import get_logger
@@ -50,6 +51,18 @@ def _alpaca_guard_ok() -> bool:
     )
 
 
+def _polymarket_guard_ok() -> bool:
+    """Real Polymarket routing requires the explicit flag + wallet creds + client lib."""
+    from app.agents.front_office.trading.polymarket_broker import clob_client_available
+
+    return bool(
+        settings.polymarket_real_trading
+        and settings.polymarket_private_key
+        and settings.polymarket_funder_address
+        and clob_client_available()
+    )
+
+
 class ExecutionAgent(BaseAgent):
     """Routes orders to the paper broker and tracks state.
 
@@ -72,6 +85,7 @@ class ExecutionAgent(BaseAgent):
         self.order_manager = OrderManager()
         self.paper_broker = PaperBroker()
         self.alpaca_broker = AlpacaBroker()
+        self.polymarket_broker = PolymarketBroker()
         self.broker, self.broker_name = self._resolve_broker()
         # Orders awaiting human CIO approval: order_id -> order dict
         self._pending_approval: dict[str, dict] = {}
@@ -98,6 +112,14 @@ class ExecutionAgent(BaseAgent):
                 base_url=settings.alpaca_base_url,
             )
         return self.paper_broker, "PAPER"
+
+    def _broker_for(self, symbol: str) -> tuple:
+        """Per-order broker routing. .POLY symbols never touch Alpaca."""
+        if symbol.endswith(".POLY"):
+            if _polymarket_guard_ok():
+                return self.polymarket_broker, "POLYMARKET"
+            return self.paper_broker, "PAPER"
+        return self.broker, self.broker_name
 
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.execution.order.new", self.on_message)
@@ -250,6 +272,7 @@ class ExecutionAgent(BaseAgent):
     async def _handle_new_order(self, message: AgentMessage) -> None:
         """Receive a new order request and execute via paper broker."""
         payload = message.payload
+        _, broker_name = self._broker_for(payload["symbol"])
 
         order_data = {
             "symbol": payload["symbol"],
@@ -262,7 +285,7 @@ class ExecutionAgent(BaseAgent):
             "signal_id": payload.get("signal_id"),
             "debate_id": payload.get("debate_id"),
             "stop_loss": payload.get("stop_loss"),
-            "broker": self.broker_name,
+            "broker": broker_name,
             "mode": settings.system_mode.value,
         }
 
@@ -429,9 +452,11 @@ class ExecutionAgent(BaseAgent):
 
         await self.order_manager.update_status(order_id, "OPEN")
 
+        broker, _broker_name = self._broker_for(order.get("symbol", ""))
+
         fill = None
         for attempt in range(3):
-            fill = await self.broker.execute(order)
+            fill = await broker.execute(order)
             if fill is not None:
                 break
             # Only retry the paper broker. A live order that returned None may

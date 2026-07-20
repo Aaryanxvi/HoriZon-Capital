@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.data_layer.alpaca_feed import AlpacaFeed
 from app.data_layer.crypto_feed import CryptoFeed
 from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick
+from app.data_layer.polymarket_feed import PolymarketFeed
 from app.data_layer.yahoo_feed import YahooFeed
 
 
@@ -32,11 +33,13 @@ class DataManager:
         self.yahoo_feed = YahooFeed()
         self.alpaca_feed = AlpacaFeed()
         self.crypto_feed = CryptoFeed()
+        self.polymarket_feed = PolymarketFeed()
 
         self._feeds = [
             self.yahoo_feed,
             self.alpaca_feed,
             self.crypto_feed,
+            self.polymarket_feed,
         ]
 
     async def start_all(self) -> None:
@@ -63,6 +66,10 @@ class DataManager:
         await self.crypto_feed.connect()
         await self.crypto_feed.subscribe(crypto_symbols)
         await self.crypto_feed.start()
+
+        await self.polymarket_feed.connect()
+        await self.polymarket_feed.subscribe([])
+        await self.polymarket_feed.start()
 
         logger.info("data_manager.all_feeds_started")
 
