@@ -78,6 +78,8 @@ HELP_TEXT = """
   [bold yellow]Polymarket:[/bold yellow]
   [green]pm[/]                  List configured Polymarket markets (price, 24h volume)
 
+  [green]journal[/] [YYYY-MM-DD]  Show the trade journal (default: today)
+
   [bold yellow]Manual Trading:[/bold yellow]
   [green]buy[/] <SYMBOL> [qty]   Place a manual BUY order (default qty: auto-size)
   [green]sell[/] <SYMBOL> [qty]  Place a manual SELL order (default: sell entire position)
@@ -138,6 +140,7 @@ class CommandHandler:
             "cio": self._cmd_cio,
             "watchlist": self._cmd_watchlist,
             "pm": self._cmd_pm,
+            "journal": self._cmd_journal,
             "buy": self._cmd_buy,
             "sell": self._cmd_sell,
             "strategy": self._cmd_strategy,
@@ -1265,6 +1268,27 @@ class CommandHandler:
             volume = f"{float(volume_str):,.0f}" if volume_str else "n/a"
             lines.append(f"  [green]{symbol}[/green]  {question}  mid={price}  vol24h={volume}")
         return "\n".join(lines)
+
+    async def _cmd_journal(self, args: list[str]) -> str:
+        """Show the trade journal. Usage: journal | journal YYYY-MM-DD"""
+        import re
+        from datetime import datetime as _dt
+
+        from app.services.trade_journal import DEFAULT_JOURNAL_DIR
+
+        if args:
+            date_str = args[0]
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+                return "Usage: journal [YYYY-MM-DD]"
+        else:
+            date_str = _dt.now(UTC).strftime("%Y-%m-%d")
+
+        path = DEFAULT_JOURNAL_DIR / f"{date_str}.md"
+        if not path.exists():
+            if args:
+                return f"[dim]No journal for {date_str}.[/dim]"
+            return "[dim]No journal entries today.[/dim]"
+        return path.read_text(encoding="utf-8")
 
     @staticmethod
     def _update_env(key: str, value: str) -> None:

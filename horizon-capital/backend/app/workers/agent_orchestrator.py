@@ -55,6 +55,7 @@ class AgentOrchestrator:
         self._running: bool = False
         self._alert_manager = None
         self._health_monitor_svc = None
+        self._trade_journal = None
         # Supervised workers: name -> (worker_instance, task, restart_count)
         self._supervised_workers: dict[str, tuple[Any, asyncio.Task, int]] = {}
 
@@ -123,6 +124,14 @@ class AgentOrchestrator:
         except Exception as exc:
             logger.warning("alert_manager_not_available", error=str(exc))
 
+        # Wire up Trade Journal
+        try:
+            from app.services.trade_journal import TradeJournal
+            self._trade_journal = TradeJournal(bus=self.bus)
+            await self._trade_journal.start()
+        except Exception as exc:
+            logger.warning("trade_journal_not_available", error=str(exc))
+
         # Wire up Health Monitor
         try:
             from app.services.health_monitor import HealthMonitor
@@ -180,7 +189,7 @@ class AgentOrchestrator:
             await mgr.stop_all()
 
         # Stop all services
-        for svc_name in ("_alert_manager", "_health_monitor_svc"):
+        for svc_name in ("_alert_manager", "_health_monitor_svc", "_trade_journal"):
             svc = getattr(self, svc_name, None)
             if svc:
                 try:
