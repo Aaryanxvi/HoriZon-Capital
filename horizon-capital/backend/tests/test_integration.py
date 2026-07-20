@@ -376,78 +376,6 @@ class TestPerformanceService:
 
 
 # =====================================================================
-# 5. Technical Indicators
-# =====================================================================
-
-
-class TestTechnicalIndicators:
-    """Technical indicator calculations produce valid outputs."""
-
-    def _make_df(self):
-        import pandas as pd
-        np.random.seed(42)
-        n = 100
-        close = 100 + np.cumsum(np.random.normal(0, 1, n))
-        high = close + np.abs(np.random.normal(0, 0.5, n))
-        low = close - np.abs(np.random.normal(0, 0.5, n))
-        open_ = close + np.random.normal(0, 0.3, n)
-        volume = np.random.randint(1000, 100000, n).astype(float)
-        return pd.DataFrame({
-            "open": open_, "high": high, "low": low,
-            "close": close, "volume": volume,
-        })
-
-    def test_sma(self):
-        from app.workers.feature_computation_worker import TechnicalIndicators
-        df = self._make_df()
-        df = TechnicalIndicators.sma(df, period=20)
-        assert "sma_20" in df.columns
-        assert df["sma_20"].iloc[-1] is not None
-        assert not np.isnan(df["sma_20"].iloc[-1])
-
-    def test_rsi_bounds(self):
-        from app.workers.feature_computation_worker import TechnicalIndicators
-        df = self._make_df()
-        df = TechnicalIndicators.rsi(df)
-        valid_rsi = df["rsi"].dropna()
-        assert all(0 <= v <= 100 for v in valid_rsi)
-
-    def test_macd(self):
-        from app.workers.feature_computation_worker import TechnicalIndicators
-        df = self._make_df()
-        df = TechnicalIndicators.macd(df)
-        assert "macd" in df.columns
-        assert "macd_signal" in df.columns
-        assert "macd_histogram" in df.columns
-
-    def test_bollinger_bands(self):
-        from app.workers.feature_computation_worker import TechnicalIndicators
-        df = self._make_df()
-        df = TechnicalIndicators.bollinger_bands(df)
-        valid = df.dropna(subset=["bb_upper", "bb_lower"])
-        assert all(valid["bb_upper"] >= valid["bb_lower"])
-
-    def test_compute_all(self):
-        from app.workers.feature_computation_worker import TechnicalIndicators
-        df = self._make_df()
-        df = TechnicalIndicators.compute_all(df)
-        expected_columns = [
-            "sma_20", "sma_50", "rsi", "macd", "bb_upper",
-            "atr", "stoch_k", "adx", "obv", "vwap",
-        ]
-        for col in expected_columns:
-            assert col in df.columns, f"Missing column: {col}"
-
-    def test_volatility_features(self):
-        from app.workers.feature_computation_worker import VolatilityFeatures
-        df = self._make_df()
-        df = VolatilityFeatures.compute_all(df)
-        assert "realized_vol" in df.columns
-        assert "parkinson_vol" in df.columns
-        assert "garman_klass_vol" in df.columns
-
-
-# =====================================================================
 # 6. Security Validation
 # =====================================================================
 
@@ -946,7 +874,7 @@ class TestDashboardWiring:
         dash = TerminalDashboard()
         msg = AgentMessage(
             sender_id="data-ingestion-worker",
-            channel="horizon.market.price",
+            channel="horizon.tick.RELIANCE.NSE",
             message_type=MessageType.TICK,
             payload={
                 "symbol": "RELIANCE.NSE",

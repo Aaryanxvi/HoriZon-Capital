@@ -13,7 +13,6 @@ from sqlalchemy import text
 
 from app.core.database import async_session_factory
 from app.core.logging import get_logger
-from app.core.redis_client import redis_client
 
 logger = get_logger("features.store")
 
@@ -93,54 +92,3 @@ class FeatureStore:
             return json.loads(raw)
         return dict(raw) if raw else {}
 
-    # ------------------------------------------------------------------
-    # Redis cache (low-latency access for live pipeline)
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    async def cache_features(symbol: str, features: dict) -> None:
-        """Write the latest features into a Redis hash ``horizon:features:{symbol}``.
-
-        Each feature key is stored as a separate hash field so individual
-        look-ups are O(1).
-        """
-        key = f"horizon:features:{symbol}"
-        # Flatten nested values to JSON strings for Redis storage
-        mapping: dict[str, str] = {}
-        for k, v in features.items():
-            if isinstance(v, (dict, list)):
-                mapping[k] = json.dumps(v)
-            else:
-                mapping[k] = str(v)
-
-        if mapping:
-            await redis_client.hset(key, mapping=mapping)
-            # Expire after 1 hour to avoid stale data accumulation
-            await redis_client.expire(key, 3600)
-        logger.debug("features_cached", symbol=symbol, n_fields=len(mapping))
-
-    @staticmethod
-    async def get_cached_features(symbol: str) -> dict:
-        """Read all cached features for *symbol* from Redis.
-
-        Returns
-        -------
-        dict
-            Feature dict with string values (caller should cast as needed).
-            Returns empty dict if the key does not exist.
-        """
-        key = f"horizon:features:{symbol}"
-        raw = await redis_client.hgetall(key)
-
-        if not raw:
-            return {}
-
-        # Attempt to parse JSON-encoded values back to Python objects
-        result: dict = {}
-        for k, v in raw.items():
-            try:
-                result[k] = json.loads(v)
-            except (json.JSONDecodeError, TypeError):
-                result[k] = v
-
-        return result

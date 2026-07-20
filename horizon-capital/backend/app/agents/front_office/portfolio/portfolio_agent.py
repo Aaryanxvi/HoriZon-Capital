@@ -589,17 +589,6 @@ class PortfolioAgent(BaseAgent):
             await session.commit()
 
         # Cache latest snapshot in Redis
-        await self.redis.hset(
-            "horizon:portfolio:latest",
-            mapping={
-                "total_value": str(nav),
-                "cash_usd": str(cash_usd),
-                "cash_inr": str(cash_inr),
-                "gross_leverage": str(gross_leverage),
-                "net_leverage": str(net_leverage),
-                "updated_at": now.isoformat(),
-            },
-        )
         await self.redis.set("horizon:portfolio:nav", str(nav))
 
         # Build position summaries for dashboard

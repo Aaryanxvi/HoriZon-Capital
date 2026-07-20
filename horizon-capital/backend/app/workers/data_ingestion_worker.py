@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC
 
 from sqlalchemy import text
 
@@ -115,7 +115,7 @@ class DataIngestionWorker:
         await bus.publish(
             AgentMessage(
                 sender_id="data-ingestion-worker",
-                channel="horizon.market.price",
+                channel=f"horizon.tick.{symbol}",
                 message_type=MessageType.TICK,
                 payload={
                     "symbol": symbol,
@@ -164,11 +164,6 @@ class DataIngestionWorker:
                                 error=str(exc),
                             )
 
-                    await get_kv_store().set(
-                        "horizon:data:eod_updated",
-                        datetime.now(UTC).isoformat(),
-                    )
-
                 except Exception as exc:
                     logger.error("yahoo_eod_poll_error", error=str(exc))
 
@@ -212,11 +207,6 @@ class DataIngestionWorker:
                                 symbol=symbol,
                                 error=str(exc),
                             )
-
-                    await get_kv_store().set(
-                        "horizon:data:crypto_updated",
-                        datetime.now(UTC).isoformat(),
-                    )
 
                 except Exception as exc:
                     logger.error("coingecko_poll_error", error=str(exc))

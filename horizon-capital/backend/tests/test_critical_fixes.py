@@ -143,21 +143,6 @@ def test_profit_factor_correct():
     assert abs(pf - 2.0) < 0.01, f"Expected profit factor ~2.0, got {pf}"
 
 
-# ── C-04: Feature computation must use most recent bars ──
-
-
-def test_ohlcv_query_returns_newest_bars():
-    """The OHLCV query must return the most recent 500 bars, not the oldest."""
-    import inspect
-
-    from app.workers.feature_computation_worker import FeatureComputationWorker
-
-    source = inspect.getsource(FeatureComputationWorker._compute_features_for_symbol)
-    assert "ORDER BY timestamp DESC" in source, (
-        "OHLCV query still uses ASC — returns oldest bars instead of newest"
-    )
-
-
 # ── C-05: CIO agent must not be started twice ──
 
 

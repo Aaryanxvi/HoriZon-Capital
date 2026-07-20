@@ -169,16 +169,6 @@ async def _start_workers(orchestrator=None) -> list:
         console.print(f"[yellow]data_ingestion_worker failed to start: {exc}[/yellow]")
 
     try:
-        from app.workers.feature_computation_worker import FeatureComputationWorker
-        fcw = FeatureComputationWorker()
-        task = asyncio.create_task(fcw.run(), name="feature_computation_worker")
-        workers.append((fcw, task))
-        if orchestrator:
-            orchestrator.register_worker("feature_computation_worker", fcw, task)
-    except Exception as exc:
-        console.print(f"[yellow]feature_computation_worker failed to start: {exc}[/yellow]")
-
-    try:
         from app.workers.performance_worker import PerformanceWorker
         pw = PerformanceWorker()
         task = asyncio.create_task(pw.run(), name="performance_worker")

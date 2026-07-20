@@ -124,21 +124,6 @@ class SettingsPanel:
         # Hot-reload provider registry with any updated keys
         self._registry.reload_from_settings()
 
-        # Publish SETTINGS_UPDATED so subscribed agents react
-        try:
-            from app.core.messaging import AgentMessage, MessageType
-            from app.core.runtime import get_bus
-            bus = get_bus()
-            import asyncio
-            asyncio.get_event_loop().create_task(bus.publish(AgentMessage(
-                sender_id="settings-panel",
-                channel="horizon.settings.updated",
-                message_type=MessageType.SETTINGS_UPDATED,
-                payload={"source": "settings_panel"},
-            )))
-        except Exception:
-            pass
-
     def _edit_api_keys(self, console: Console) -> None:
         env = _read_env(self._env_path)
 

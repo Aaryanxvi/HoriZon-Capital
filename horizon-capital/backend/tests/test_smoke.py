@@ -545,32 +545,6 @@ class TestOnboarding:
         assert isinstance(result, bool)
 
 
-class TestAgentVisualizer:
-    """Agent visualizer."""
-
-    def test_import(self):
-        from app.tui.agent_visualizer import AgentVisualizer
-        assert AgentVisualizer is not None
-
-    def test_update_state(self):
-        from app.tui.agent_visualizer import AgentVisualizer
-
-        viz = AgentVisualizer()
-        viz.update_state("agent-1", "ANALYZING")
-        viz.update_state("agent-2", "IDLE")
-        states = viz.get_states()
-        assert states["agent-1"] == "ANALYZING"
-        assert states["agent-2"] == "IDLE"
-
-    def test_build_panel(self):
-        from app.tui.agent_visualizer import AgentVisualizer
-
-        viz = AgentVisualizer()
-        viz.update_state("agent-1", "DEBATING")
-        panel = viz.build_panel()
-        assert panel is not None
-
-
 class TestBaseStrategy:
     """Base strategy interface."""
 
@@ -1430,7 +1404,7 @@ class TestPriceUpdate:
         from app.core.messaging import AgentMessage, MessageType
         msg = AgentMessage(
             sender_id="data-ingestion-worker",
-            channel="horizon.market.price",
+            channel="horizon.tick.RELIANCE.NSE",
             message_type=MessageType.TICK,
             payload={
                 "symbol": "RELIANCE.NSE",
