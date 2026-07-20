@@ -243,6 +243,12 @@ class Settings(BaseSettings):
     overlay_enabled: bool = False
     overlay_vol_target: float = 0.15
 
+    # Crypto sleeve (Faber 200d trend on BTC/ETH). UNVALIDATED — no pre-registered
+    # gate pass. Default off. Weight is carved out of the validated equity mix
+    # pro-rata (see strategy_agent.py __init__).
+    crypto_sleeve_enabled: bool = False
+    crypto_sleeve_weight: float = 0.10
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []

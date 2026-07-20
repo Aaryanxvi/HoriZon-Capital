@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.strategy.sleeves import (
+    CryptoTrendSleeve,
     MomentumRankSleeve,
     ResearchStackSleeve,
     TrendFilterSleeve,
@@ -102,11 +103,19 @@ class StrategyAgent(BaseAgent):
         # (validate_overlay 2026-07-02: blend 0.16 vs baseline 0.28) and are kept
         # as research artifacts only — do not re-wire without a fresh gate pass.
         # Weights sum to 1.0.
-        self._sleeves = [
-            _weighted(ResearchStackSleeve(), 0.500),  # HRP + Kelly + regime + quality
-            _weighted(TrendFilterSleeve(), 0.333),    # Faber 200d SMA gate on SPY
-            _weighted(MomentumRankSleeve(), 0.167),   # 12-1 cross-sectional momentum
+        base_mix = [
+            (ResearchStackSleeve(), 0.500),  # HRP + Kelly + regime + quality
+            (TrendFilterSleeve(), 0.333),    # Faber 200d SMA gate on SPY
+            (MomentumRankSleeve(), 0.167),   # 12-1 cross-sectional momentum
         ]
+        if settings.crypto_sleeve_enabled:
+            # UNVALIDATED sleeve — carved out pro-rata so equity ratios stay intact.
+            cw = settings.crypto_sleeve_weight
+            scale = 1.0 - cw
+            self._sleeves = [_weighted(s, round(w * scale, 6)) for s, w in base_mix]
+            self._sleeves.append(_weighted(CryptoTrendSleeve(), cw))
+        else:
+            self._sleeves = [_weighted(s, w) for s, w in base_mix]
         # Universe resolved lazily on first tick — "sp500" hits the network, so
         # we don't want it firing at construction time (tests, --setup, etc.).
         self._universe_source = settings.universe_source
@@ -127,6 +136,10 @@ class StrategyAgent(BaseAgent):
         if not self._symbols:
             from app.data_layer.universe import get_universe
             self._symbols = get_universe(self._universe_source)
+            if settings.crypto_sleeve_enabled:
+                for cs in CryptoTrendSleeve._UNIVERSE:
+                    if cs not in self._symbols:
+                        self._symbols.append(cs)
             logger.info(
                 "universe_loaded", source=self._universe_source, n=len(self._symbols)
             )
@@ -175,7 +188,14 @@ class StrategyAgent(BaseAgent):
         await self._publish_ticks(bars)
 
         # Signal generation gated to market hours — TICKs always flow.
-        if not force and not _is_us_market_open():
+        market_open = _is_us_market_open()
+        if not force and not market_open:
+            if not settings.crypto_sleeve_enabled:
+                return
+            # Crypto trades 24/7 — still refresh/emit crypto signals off-hours,
+            # equities are left untouched (see crypto_only in the emit helper).
+            targets = self._compute_target_weights(bars)
+            await self._emit_signals_from_targets(targets, crypto_only=True)
             return
 
         targets = self._compute_target_weights(bars)
@@ -299,12 +319,17 @@ class StrategyAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _emit_signals_from_targets(
-        self, targets: dict[str, float]
+        self, targets: dict[str, float], *, crypto_only: bool = False
     ) -> None:
         """Emit SIGNAL messages when a symbol's target weight has changed.
 
         The portfolio agent interprets direction/strength and sizes orders
         against current cash + positions.
+
+        ``crypto_only=True`` (off-hours crypto tick) skips equities entirely —
+        including updating ``_last_emitted_weight`` for them — so the next
+        market-hours tick still sees their real drift, not a stale off-hours
+        snapshot.
         """
         # Include symbols that previously had a non-zero target but are now
         # absent so we emit exits. Sells first (most-negative delta first) so
@@ -321,6 +346,9 @@ class StrategyAgent(BaseAgent):
         )
 
         for symbol in ordered:
+            if crypto_only and _exchange_from_symbol(symbol) != "CRYPTO":
+                continue
+
             new_w = targets.get(symbol, 0.0)
             old_w = self._last_emitted_weight.get(symbol, 0.0)
             if abs(new_w - old_w) < MIN_WEIGHT_DELTA:

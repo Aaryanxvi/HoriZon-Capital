@@ -10,6 +10,10 @@ from app.core.logging import get_logger
 logger = get_logger("execution.alpaca_broker")
 
 
+def _is_crypto_symbol(symbol: str) -> bool:
+    return symbol.endswith(("-USD", "-USDT"))
+
+
 class AlpacaBroker:
     """Async broker that routes orders to Alpaca (paper or live).
 
@@ -88,12 +92,16 @@ class AlpacaBroker:
         # Strip exchange suffix for Alpaca (e.g., AAPL.NASDAQ -> AAPL)
         alpaca_symbol = symbol.split(".")[0] if "." in symbol else symbol
 
+        is_crypto = _is_crypto_symbol(symbol)
+        if is_crypto:
+            alpaca_symbol = symbol.replace("-", "/")  # BTC-USD -> BTC/USD
+
         payload: dict = {
             "symbol": alpaca_symbol,
             "qty": str(qty),
             "side": side,
             "type": order_type,
-            "time_in_force": "day",
+            "time_in_force": "gtc" if is_crypto else "day",
         }
 
         # Idempotency: Alpaca rejects a duplicate client_order_id, so a retry
@@ -209,16 +217,24 @@ class AlpacaBroker:
                     headers=self.headers,
                 )
             if resp.status_code == 200:
-                return [
-                    {
-                        "symbol": p["symbol"],
-                        "qty": float(p["qty"]),
-                        "avg_entry": float(p["avg_entry_price"]),
-                        "current_price": float(p["current_price"]),
-                        "side": "LONG" if float(p["qty"]) > 0 else "SHORT",
-                    }
-                    for p in resp.json()
-                ]
+                positions = []
+                for p in resp.json():
+                    raw_sym = p["symbol"]
+                    if p.get("asset_class") == "crypto":
+                        if "/" in raw_sym:
+                            raw_sym = raw_sym.replace("/", "-")
+                        elif raw_sym.endswith("USD"):
+                            raw_sym = f"{raw_sym[:-3]}-USD"
+                    positions.append(
+                        {
+                            "symbol": raw_sym,
+                            "qty": float(p["qty"]),
+                            "avg_entry": float(p["avg_entry_price"]),
+                            "current_price": float(p["current_price"]),
+                            "side": "LONG" if float(p["qty"]) > 0 else "SHORT",
+                        }
+                    )
+                return positions
             return []
         except httpx.HTTPError as exc:
             logger.error("alpaca_positions_error", error=str(exc))

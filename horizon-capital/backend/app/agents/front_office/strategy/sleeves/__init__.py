@@ -15,9 +15,12 @@ Sleeves:
 - ``momentum_rank``:  Monthly 12-1 momentum top-3.
 - ``gap_fade``:       Buy QQQ on open after gap-down (intraday thesis; NOT used
                       live — degenerate on daily bars. Kept for reference only).
+- ``crypto_trend``:   Faber 200d SMA gate on BTC/ETH. UNVALIDATED, default-off —
+                      enable via CRYPTO_SLEEVE_ENABLED.
 """
 
 from app.agents.front_office.strategy.sleeves.breadth_alpha import BreadthAlphaSleeve
+from app.agents.front_office.strategy.sleeves.crypto_trend import CryptoTrendSleeve
 from app.agents.front_office.strategy.sleeves.dual_momentum import DualMomentumSleeve
 from app.agents.front_office.strategy.sleeves.gap_fade import GapFadeSleeve
 from app.agents.front_office.strategy.sleeves.momentum_rank import MomentumRankSleeve
@@ -26,6 +29,7 @@ from app.agents.front_office.strategy.sleeves.trend_filter import TrendFilterSle
 
 __all__ = [
     "BreadthAlphaSleeve",
+    "CryptoTrendSleeve",
     "DualMomentumSleeve",
     "GapFadeSleeve",
     "MomentumRankSleeve",
