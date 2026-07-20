@@ -257,6 +257,11 @@ class Settings(BaseSettings):
     polymarket_private_key: str = ""
     polymarket_funder_address: str = ""
 
+    # Polymarket sleeve — UNVALIDATED (no gate pass). Default off. Run
+    # scripts/backtest_polymarket.py and pass a pre-registered gate before enabling.
+    polymarket_sleeve_enabled: bool = False
+    polymarket_sleeve_weight: float = 0.05
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []

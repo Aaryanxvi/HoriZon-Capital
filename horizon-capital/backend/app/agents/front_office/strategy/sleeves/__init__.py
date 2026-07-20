@@ -17,6 +17,9 @@ Sleeves:
                       live — degenerate on daily bars. Kept for reference only).
 - ``crypto_trend``:   Faber 200d SMA gate on BTC/ETH. UNVALIDATED, default-off —
                       enable via CRYPTO_SLEEVE_ENABLED.
+- ``polymarket_momentum``: 7d probability momentum on Polymarket YES prices,
+                      tail-filtered. UNVALIDATED, default-off — enable via
+                      POLYMARKET_SLEEVE_ENABLED.
 """
 
 from app.agents.front_office.strategy.sleeves.breadth_alpha import BreadthAlphaSleeve
@@ -24,6 +27,9 @@ from app.agents.front_office.strategy.sleeves.crypto_trend import CryptoTrendSle
 from app.agents.front_office.strategy.sleeves.dual_momentum import DualMomentumSleeve
 from app.agents.front_office.strategy.sleeves.gap_fade import GapFadeSleeve
 from app.agents.front_office.strategy.sleeves.momentum_rank import MomentumRankSleeve
+from app.agents.front_office.strategy.sleeves.polymarket_momentum import (
+    PolymarketMomentumSleeve,
+)
 from app.agents.front_office.strategy.sleeves.research_stack import ResearchStackSleeve
 from app.agents.front_office.strategy.sleeves.trend_filter import TrendFilterSleeve
 
@@ -33,6 +39,7 @@ __all__ = [
     "DualMomentumSleeve",
     "GapFadeSleeve",
     "MomentumRankSleeve",
+    "PolymarketMomentumSleeve",
     "ResearchStackSleeve",
     "TrendFilterSleeve",
 ]

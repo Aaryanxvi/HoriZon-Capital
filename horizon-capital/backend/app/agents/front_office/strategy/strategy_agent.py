@@ -26,6 +26,7 @@ from app.agents.base_agent import BaseAgent
 from app.agents.front_office.strategy.sleeves import (
     CryptoTrendSleeve,
     MomentumRankSleeve,
+    PolymarketMomentumSleeve,
     ResearchStackSleeve,
     TrendFilterSleeve,
 )
@@ -108,12 +109,16 @@ class StrategyAgent(BaseAgent):
             (TrendFilterSleeve(), 0.333),    # Faber 200d SMA gate on SPY
             (MomentumRankSleeve(), 0.167),   # 12-1 cross-sectional momentum
         ]
+        optional: list[tuple] = []
         if settings.crypto_sleeve_enabled:
-            # UNVALIDATED sleeve — carved out pro-rata so equity ratios stay intact.
-            cw = settings.crypto_sleeve_weight
-            scale = 1.0 - cw
+            optional.append((CryptoTrendSleeve(), settings.crypto_sleeve_weight))
+        if settings.polymarket_sleeve_enabled:
+            optional.append((PolymarketMomentumSleeve(), settings.polymarket_sleeve_weight))
+        if optional:
+            # UNVALIDATED sleeves — carved out pro-rata so equity ratios stay intact.
+            scale = 1.0 - sum(w for _, w in optional)
             self._sleeves = [_weighted(s, round(w * scale, 6)) for s, w in base_mix]
-            self._sleeves.append(_weighted(CryptoTrendSleeve(), cw))
+            self._sleeves += [_weighted(s, w) for s, w in optional]
         else:
             self._sleeves = [_weighted(s, w) for s, w in base_mix]
         # Universe resolved lazily on first tick — "sp500" hits the network, so
@@ -140,6 +145,16 @@ class StrategyAgent(BaseAgent):
                 for cs in CryptoTrendSleeve._UNIVERSE:
                     if cs not in self._symbols:
                         self._symbols.append(cs)
+            if settings.polymarket_sleeve_enabled:
+                from app.data_layer.polymarket_feed import pm_symbol
+
+                for slug in settings.polymarket_markets.split(","):
+                    slug = slug.strip()
+                    if not slug:
+                        continue
+                    ps = pm_symbol(slug)
+                    if ps not in self._symbols:
+                        self._symbols.append(ps)
             logger.info(
                 "universe_loaded", source=self._universe_source, n=len(self._symbols)
             )
@@ -190,12 +205,12 @@ class StrategyAgent(BaseAgent):
         # Signal generation gated to market hours — TICKs always flow.
         market_open = _is_us_market_open()
         if not force and not market_open:
-            if not settings.crypto_sleeve_enabled:
+            if not (settings.crypto_sleeve_enabled or settings.polymarket_sleeve_enabled):
                 return
-            # Crypto trades 24/7 — still refresh/emit crypto signals off-hours,
-            # equities are left untouched (see crypto_only in the emit helper).
+            # Crypto and Polymarket trade 24/7 — still refresh/emit their signals
+            # off-hours, equities are left untouched (see always_open_only below).
             targets = self._compute_target_weights(bars)
-            await self._emit_signals_from_targets(targets, crypto_only=True)
+            await self._emit_signals_from_targets(targets, always_open_only=True)
             return
 
         targets = self._compute_target_weights(bars)
@@ -208,10 +223,18 @@ class StrategyAgent(BaseAgent):
 
         symbols = self._ensure_symbols()
         try:
-            return await fetch_batch(symbols)
+            bars = await fetch_batch(symbols)
         except Exception as exc:
             logger.error("batch_fetch_error", error=str(exc))
             return {}
+
+        if settings.polymarket_sleeve_enabled:
+            poly = [s for s in symbols if s.endswith(".POLY")]
+            if poly:
+                from app.data_layer.pm_bars import fetch_pm_bars
+
+                bars.update(await fetch_pm_bars(poly))
+        return bars
 
     async def _publish_ticks(self, bars: dict[str, pd.DataFrame]) -> None:
         """Write latest price to KV and emit TICK per symbol for the dashboard."""
@@ -319,17 +342,17 @@ class StrategyAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     async def _emit_signals_from_targets(
-        self, targets: dict[str, float], *, crypto_only: bool = False
+        self, targets: dict[str, float], *, always_open_only: bool = False
     ) -> None:
         """Emit SIGNAL messages when a symbol's target weight has changed.
 
         The portfolio agent interprets direction/strength and sizes orders
         against current cash + positions.
 
-        ``crypto_only=True`` (off-hours crypto tick) skips equities entirely —
-        including updating ``_last_emitted_weight`` for them — so the next
-        market-hours tick still sees their real drift, not a stale off-hours
-        snapshot.
+        ``always_open_only=True`` (off-hours tick) skips symbols that only
+        trade during equity market hours — including updating
+        ``_last_emitted_weight`` for them — so the next market-hours tick
+        still sees their real drift, not a stale off-hours snapshot.
         """
         # Include symbols that previously had a non-zero target but are now
         # absent so we emit exits. Sells first (most-negative delta first) so
@@ -346,7 +369,7 @@ class StrategyAgent(BaseAgent):
         )
 
         for symbol in ordered:
-            if crypto_only and _exchange_from_symbol(symbol) != "CRYPTO":
+            if always_open_only and _exchange_from_symbol(symbol) not in ("CRYPTO", "POLY"):
                 continue
 
             new_w = targets.get(symbol, 0.0)

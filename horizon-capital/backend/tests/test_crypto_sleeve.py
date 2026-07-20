@@ -171,7 +171,7 @@ async def test_offhours_emits_crypto_only(monkeypatch):
     monkeypatch.setattr(agent, "_persist_signal", lambda payload: _noop())
 
     await agent._emit_signals_from_targets(
-        {"BTC-USD": 0.05, "AAPL.NASDAQ": 0.0}, crypto_only=True
+        {"BTC-USD": 0.05, "AAPL.NASDAQ": 0.0}, always_open_only=True
     )
 
     assert len(emitted) == 1
