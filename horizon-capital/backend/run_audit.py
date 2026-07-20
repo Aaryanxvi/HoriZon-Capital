@@ -309,10 +309,9 @@ section("WORKER STARTUP TESTS")
 
 
 async def test_workers():
-    from app.core.runtime import startup, shutdown, get_bus
+    from app.core.runtime import startup, shutdown
 
     await startup(headless=True)
-    bus = get_bus()
 
     workers_to_test = [
         ("DataIngestionWorker", "app.workers.data_ingestion_worker", "DataIngestionWorker", {}),
