@@ -99,6 +99,16 @@ def _build_user_prompt(
         "",
         f"## Market Regime: {regime or 'UNKNOWN'}",
         "",
+        "## Sentiment",
+    ]
+    if sentiment:
+        lines.append(f"- Average sentiment (24h): {sentiment.get('avg_sentiment_24h', 'N/A')}")
+        lines.append(f"- Lifecycle stage: {sentiment.get('lifecycle_stage', 'N/A')}")
+        lines.append(f"- Article count (14d): {sentiment.get('article_count_14d', 'N/A')}")
+    else:
+        lines.append("- No sentiment data available")
+    lines += [
+        "",
         "## Instructions",
         "Analyze the above from your role's perspective. Respond with ONLY a JSON object:",
         '{"argument": "<your reasoning>", "vote": "FOR|AGAINST|ABSTAIN", "confidence": <0.0-1.0>}',

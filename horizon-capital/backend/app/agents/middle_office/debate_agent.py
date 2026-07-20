@@ -166,6 +166,7 @@ class DebateAgent(BaseAgent):
 
         # Get regime for context
         regime = signal_payload.get("regime")
+        sentiment = await self._get_sentiment_context(symbol)
 
         engine = MultiModelDebateEngine(
             registry=provider_registry,
@@ -184,6 +185,7 @@ class DebateAgent(BaseAgent):
                 action=action,
                 signal_data=signal_payload,
                 regime=regime,
+                sentiment=sentiment,
                 allowed_providers=_allowed,
             )
 
@@ -283,6 +285,28 @@ class DebateAgent(BaseAgent):
         await self._persist_auto_approval(session_id, symbol, action, signal_payload)
 
         logger.info("signal_auto_approved", symbol=symbol, action=action)
+
+    @staticmethod
+    async def _get_sentiment_context(symbol: str) -> dict | None:
+        """Read cached SentimentAgent output for the debate prompt.
+
+        Never raises -- sentiment is a nice-to-have context field, not a
+        gate; any KV failure just means the debate proceeds without it.
+        """
+        try:
+            from app.core.kv_store import get_kv_store
+            kv = get_kv_store()
+            base = symbol.split(".")[0]
+            data = await kv.hgetall(f"horizon:sentiment:{base}")
+            if not data:
+                return None
+            return {
+                "label": data.get("label"),
+                "score": data.get("score"),
+                "avg_sentiment_24h": f"{data.get('label')} ({data.get('score')})",
+            }
+        except Exception:
+            return None
 
     # ------------------------------------------------------------------
     # Persistence

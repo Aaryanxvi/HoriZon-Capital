@@ -483,6 +483,7 @@ class PortfolioAgent(BaseAgent):
 
         native_alloc = min(native_target, native_cash * 0.9)
         qty = native_alloc / price
+        qty *= await self._sentiment_damper_factor(symbol)
         qty = float(int(qty)) if is_inr else round(qty, 4)  # fractional for US
         if qty <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
@@ -492,6 +493,27 @@ class PortfolioAgent(BaseAgent):
         else:
             alloc_usd = qty * price
         return {"quantity": qty, "allocation_usd": alloc_usd}
+
+    async def _sentiment_damper_factor(self, symbol: str) -> float:
+        """Return 0.5 to halve BUY sizing on strongly negative sentiment.
+
+        Flag-gated (default off) and UNVALIDATED — never applied to sells/exits
+        (only called from the BUY branch of _compute_position_size). Any KV
+        failure or missing data returns 1.0 (no damping).
+        """
+        if not settings.sentiment_sizing_enabled:
+            return 1.0
+        try:
+            base = symbol.split(".")[0]
+            data = await self.redis.hgetall(f"horizon:sentiment:{base}")
+            if data.get("label") == "negative" and float(data.get("score", 0.0)) >= 0.5:
+                logger.info(
+                    "sentiment_damper_applied", symbol=symbol, score=data.get("score")
+                )
+                return 0.5
+        except Exception:
+            pass
+        return 1.0
 
     # ------------------------------------------------------------------ #
     # Snapshot persistence

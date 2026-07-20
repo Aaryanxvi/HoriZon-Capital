@@ -262,6 +262,9 @@ class Settings(BaseSettings):
     polymarket_sleeve_enabled: bool = False
     polymarket_sleeve_weight: float = 0.05
 
+    # Sentiment sizing damper — UNVALIDATED signal, default off.
+    sentiment_sizing_enabled: bool = False
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []

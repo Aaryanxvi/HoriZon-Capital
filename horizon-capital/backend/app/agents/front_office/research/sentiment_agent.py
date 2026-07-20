@@ -6,8 +6,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-import httpx
-
+from app.agents.front_office.research.newsapi_client import NewsAPIClient
 from app.core.messaging import AgentMessage, MessageType
 
 logger = logging.getLogger(__name__)
@@ -108,19 +107,6 @@ class SentimentAgent:
     async def _fetch_headlines(self, symbol: str) -> list[str]:
         if not self.api_key:
             return []
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(
-                    "https://finnhub.io/api/v1/company-news",
-                    params={
-                        "symbol": symbol,
-                        "from": datetime.now(UTC).strftime("%Y-%m-%d"),
-                        "to": datetime.now(UTC).strftime("%Y-%m-%d"),
-                        "token": self.api_key,
-                    },
-                )
-                if resp.status_code == 200:
-                    return [a.get("headline", "") for a in resp.json()[:20]]
-        except Exception:
-            logger.debug("Failed to fetch headlines for %s", symbol)
-        return []
+        client = NewsAPIClient(self.api_key)
+        articles = await client.fetch_news(symbol, days_back=1)
+        return [a["title"] for a in articles]
