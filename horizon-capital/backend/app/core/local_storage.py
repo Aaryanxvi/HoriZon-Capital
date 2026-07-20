@@ -11,7 +11,7 @@ import re
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -32,6 +32,15 @@ local_engine = create_async_engine(
     echo=settings.app_debug,
     connect_args={"check_same_thread": False},
 )
+
+
+@event.listens_for(local_engine.sync_engine, "connect")
+def _set_sqlite_pragmas(dbapi_conn, _record) -> None:  # noqa: ANN001
+    """busy_timeout is per-connection — set it on every connection the pool opens,
+    not just the one used by init_local_db's PRAGMA/CREATE TABLE pass."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
 
 local_session_factory = async_sessionmaker(
     local_engine,

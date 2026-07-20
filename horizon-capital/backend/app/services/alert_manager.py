@@ -161,12 +161,12 @@ class AlertManager:
         """Subscribe to bus events for alert monitoring."""
         self._running = True
         await self.bus.subscribe("horizon.risk.alert", self._on_risk_alert)
-        await self.bus.subscribe("horizon.risk.kill_switch", self._on_kill_switch)
+        # no live publisher yet — dormant until regime events reach the bus
         await self.bus.subscribe("horizon.regime.update", self._on_regime_change)
         await self.bus.subscribe("horizon.system.health", self._on_health)
         await self.bus.subscribe("horizon.alpha.decay", self._on_alpha_decay)
-        await self.bus.subscribe("horizon.debate.conclusion", self._on_debate)
-        await self.bus.subscribe("horizon.trade.executed", self._on_trade)
+        await self.bus.subscribe("horizon.debate.*", self._on_debate)
+        await self.bus.subscribe("horizon.execution.order.fill", self._on_trade)
         logger.info("alert_manager.started", rules=len(self._rules))
 
     async def stop(self) -> None:
@@ -178,9 +178,21 @@ class AlertManager:
     # ------------------------------------------------------------------
 
     async def _on_risk_alert(self, msg: AgentMessage) -> None:
-        """Handle risk alerts (VaR breach, drawdown)."""
+        """Handle risk alerts (VaR breach, drawdown, kill switch)."""
         payload = msg.payload
         alert_type = payload.get("alert_type", "")
+
+        if payload.get("action") == "KILL_SWITCH_TRIGGERED":
+            await self._trigger_rule(
+                "kill_switch_activated",
+                title="KILL SWITCH ACTIVATED",
+                message=(
+                    f"Drawdown {payload.get('current_drawdown', 0):.2%} "
+                    f"breached limit {payload.get('limit', 0)}%. All trading halted."
+                ),
+                payload=payload,
+            )
+            return
 
         if alert_type == "DRAWDOWN_WARNING" or payload.get("current_drawdown", 0) > 5.0:
             await self._trigger_rule(
@@ -214,15 +226,6 @@ class AlertManager:
                     f"exceeds limit {settings.risk_var_limit_pct}%"
                 ),
                 payload=payload,
-            )
-
-    async def _on_kill_switch(self, msg: AgentMessage) -> None:
-        if msg.payload.get("active"):
-            await self._trigger_rule(
-                "kill_switch_activated",
-                title="KILL SWITCH ACTIVATED",
-                message=f"Reason: {msg.payload.get('reason', 'Unknown')}. All trading halted.",
-                payload=msg.payload,
             )
 
     async def _on_regime_change(self, msg: AgentMessage) -> None:
@@ -260,8 +263,8 @@ class AlertManager:
         )
 
     async def _on_debate(self, msg: AgentMessage) -> None:
-        decision = msg.payload.get("final_decision", "")
-        if decision in ("REJECT", "HOLD"):
+        decision = msg.payload.get("decision", "")
+        if decision == "REJECTED":
             await self._trigger_rule(
                 "debate_rejection",
                 title=f"Debate Rejected: {msg.payload.get('symbol', '')}",
@@ -273,8 +276,8 @@ class AlertManager:
             )
 
     async def _on_trade(self, msg: AgentMessage) -> None:
-        qty = msg.payload.get("quantity", 0)
-        price = msg.payload.get("price", 0)
+        qty = msg.payload.get("filled_qty", 0)
+        price = msg.payload.get("fill_price", 0)
         notional = abs(qty * price)
         if notional > 50000:  # large trade threshold
             await self._trigger_rule(
