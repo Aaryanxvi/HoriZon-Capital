@@ -371,6 +371,9 @@ class HealthMonitor:
         else:
             agent_status = "[green]HEALTHY[/]"
 
+        data_age = (
+            _format_age(snapshot.data_freshness_seconds) if snapshot.last_data_ingestion else "N/A"
+        )
         lines = [
             f"[bold cyan]System Health[/bold cyan]  {agent_status}",
             "",
@@ -392,8 +395,7 @@ class HealthMonitor:
             f"  Symbols Tracked: {snapshot.ohlcv_symbols_tracked}",
             f"  Last Ingestion:  "
             f"{snapshot.last_data_ingestion[:19] if snapshot.last_data_ingestion else 'N/A'}",
-            f"  Data Age:        "
-            f"{_format_age(snapshot.data_freshness_seconds) if snapshot.last_data_ingestion else 'N/A'}",
+            f"  Data Age:        {data_age}",
             "",
             f"  Kill Switch:    "
             f"{'[red]ACTIVE[/]' if snapshot.kill_switch_active else '[green]OFF[/]'}",

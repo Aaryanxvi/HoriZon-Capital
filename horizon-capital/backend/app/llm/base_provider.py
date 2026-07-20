@@ -25,7 +25,7 @@ class BaseLLMProvider(abc.ABC):
         if not hasattr(self, "model"):
             self.model: str = ""
 
-    def with_model(self, model: str) -> "BaseLLMProvider":
+    def with_model(self, model: str) -> BaseLLMProvider:
         """Return a new provider instance using a different model.
 
         Cheap shallow-copy: shares the underlying client when subclasses

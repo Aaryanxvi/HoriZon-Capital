@@ -52,8 +52,10 @@ def _recursive_bisection(cov: pd.DataFrame, sort_ix: list[int]) -> pd.Series:
                     for i, j in ((0, len(c)//2), (len(c)//2, len(c)))
                     if len(c) > 1]
         for i in range(0, len(clusters), 2):
-            c0 = clusters[i]; c1 = clusters[i+1]
-            v0 = _cluster_var(cov, c0); v1 = _cluster_var(cov, c1)
+            c0 = clusters[i]
+            c1 = clusters[i + 1]
+            v0 = _cluster_var(cov, c0)
+            v1 = _cluster_var(cov, c1)
             alpha = 1 - v0 / (v0 + v1) if v0 + v1 > 0 else 0.5
             w[c0] *= alpha
             w[c1] *= (1 - alpha)

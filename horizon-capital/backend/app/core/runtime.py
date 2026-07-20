@@ -123,10 +123,14 @@ async def startup(*, headless: bool = False) -> None:
         if force_reseed or not _has_balance(existing_usd):
             await redis_client.set("horizon:cash:usd", str(int(settings.initial_capital_usd)))
             await redis_client.set("horizon:portfolio:nav", str(int(settings.initial_capital_usd)))
-            logger.info("initial_capital_seeded_usd", usd=settings.initial_capital_usd, forced=force_reseed)
+            logger.info(
+                "initial_capital_seeded_usd", usd=settings.initial_capital_usd, forced=force_reseed
+            )
         if force_reseed or existing_inr is None:
             await redis_client.set("horizon:cash:inr", str(int(settings.initial_capital_inr)))
-            logger.info("initial_capital_seeded_inr", inr=settings.initial_capital_inr, forced=force_reseed)
+            logger.info(
+                "initial_capital_seeded_inr", inr=settings.initial_capital_inr, forced=force_reseed
+            )
 
     bus = get_bus()
     await bus.start_listening()

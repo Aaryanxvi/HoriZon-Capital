@@ -33,16 +33,16 @@ def detect_regime(close: pd.Series, lookback: int = 252) -> tuple[str, float]:
     if len(feat) < 50:
         return "RISK_OFF", 0.0
 
-    X = feat.values
+    x = feat.values
     try:
         gmm = GaussianMixture(n_components=2, random_state=42, max_iter=100)
-        gmm.fit(X)
+        gmm.fit(x)
     except Exception:
         return "RISK_OFF", 0.0
 
     means = gmm.means_  # 2 x 2: [ret_mean, vol_mean]
     risk_on_state = int(np.argmax(means[:, 0] - means[:, 1]))  # high-ret, low-vol
-    last_x = X[-1].reshape(1, -1)
+    last_x = x[-1].reshape(1, -1)
     probs = gmm.predict_proba(last_x)[0]
     conf = float(probs[risk_on_state])
     state = "RISK_ON" if conf > 0.5 else "RISK_OFF"

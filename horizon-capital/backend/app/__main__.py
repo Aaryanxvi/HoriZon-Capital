@@ -492,7 +492,9 @@ async def _run_with_tui(orchestrator) -> None:
 
     console.print()
     console.print("[green]All departments started.[/green]")
-    console.print("[dim]Type 'dashboard' for live view, 'help' for commands, 'quit' to exit.[/dim]\n")
+    console.print(
+        "[dim]Type 'dashboard' for live view, 'help' for commands, 'quit' to exit.[/dim]\n"
+    )
 
     # Set up readline tab completion for REPL
     try:
