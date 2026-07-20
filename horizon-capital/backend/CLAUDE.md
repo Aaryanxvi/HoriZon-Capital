@@ -57,13 +57,12 @@ app/
 ├── llm/             # base_provider + claude/openai/gemini providers; provider_registry (per-dept + per-agent routing)
 │                    #   agent_config.py (15 roles), agent_model_overrides.py (persisted json), models_registry.py
 ├── quant/           # Research-grade primitives: hrp, kelly, quality(QMJ), regime_hmm(GaussianMixture),
-│                    #   metrics_advanced(Probabilistic/Deflated Sharpe), iv_features, llm_sentiment
+│                    #   metrics_advanced(Probabilistic/Deflated Sharpe), llm_sentiment
 ├── features/        # technical.py (23 indicators via `ta`), volatility.py (GARCH), sentiment_features, feature_store
 ├── backtesting/     # backtest_engine (event-driven bar replay), backtest_broker (slippage+impact), metrics, trade_journal, report_exporter
 ├── workers/
 │   ├── agent_orchestrator.py        # Supervisor: agents + workers, heartbeat auto-restart
 │   ├── data_ingestion_worker.py     # Yahoo EOD 30s + CoinGecko 60s; 5y backfill if ohlcv empty
-│   ├── feature_computation_worker.py # 120s; own TA impl (duplicates features/)
 │   ├── performance_worker.py        # 900s; Sharpe/Sortino/Calmar + Jensen's alpha vs ^NSEI/^GSPC
 │   └── position_worker.py           # 30s mark-to-market + stop-loss enforcement (does NOT write NAV)
 ├── services/        # alert_manager, health_monitor, report_generator, performance, backup

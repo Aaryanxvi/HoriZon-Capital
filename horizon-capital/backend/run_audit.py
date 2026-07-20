@@ -316,11 +316,8 @@ async def test_workers():
 
     workers_to_test = [
         ("DataIngestionWorker", "app.workers.data_ingestion_worker", "DataIngestionWorker", {}),
-        ("FeatureComputationWorker", "app.workers.feature_computation_worker",
-         "FeatureComputationWorker", {}),
         ("PerformanceWorker", "app.workers.performance_worker", "PerformanceWorker", {}),
         ("PositionMonitorWorker", "app.workers.position_worker", "PositionMonitorWorker", {}),
-        ("MacroFactorWorker", "app.workers.macro_worker", "MacroFactorWorker", {"bus": bus}),
     ]
 
     for name, mod_path, cls_name, kwargs in workers_to_test:

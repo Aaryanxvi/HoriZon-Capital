@@ -108,7 +108,7 @@ async def activate_kill_switch(
 ) -> KillSwitchResponse:
     """Activate the kill switch: halt all trading immediately."""
     # Set flag in Redis for fast cross-service check
-    await redis_client.set("horizon:risk:kill_switch", "active")
+    await redis_client.set("horizon:system:halted", "1")
 
     # Persist in latest risk metric row
     stmt = select(RiskMetric).order_by(RiskMetric.created_at.desc()).limit(1)
@@ -136,7 +136,7 @@ async def deactivate_kill_switch(
     _user: dict = Depends(get_current_user),
 ) -> KillSwitchResponse:
     """Deactivate the kill switch: resume trading."""
-    await redis_client.set("horizon:risk:kill_switch", "inactive")
+    await redis_client.set("horizon:system:halted", "0")
 
     stmt = select(RiskMetric).order_by(RiskMetric.created_at.desc()).limit(1)
     result = await db.execute(stmt)

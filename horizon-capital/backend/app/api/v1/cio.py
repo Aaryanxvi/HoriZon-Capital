@@ -71,15 +71,14 @@ async def get_cio_status(
 ) -> CIOStatusResponse:
     """Get the current CIO / system status from Redis."""
     mode = await redis_client.get("horizon:system:mode") or settings.system_mode.value
-    kill_switch = await redis_client.get("horizon:risk:kill_switch")
-    halt_active = await redis_client.get("horizon:system:halt_active")
+    halted = await redis_client.get("horizon:system:halted")
     halt_reason = await redis_client.get("horizon:system:halt_reason")
     halt_until = await redis_client.get("horizon:system:halt_until")
 
     return CIOStatusResponse(
         system_mode=mode,
-        kill_switch_active=(kill_switch == "active"),
-        halt_active=(halt_active == "true"),
+        kill_switch_active=(halted == "1"),
+        halt_active=(halted == "1"),
         halt_reason=halt_reason,
         halt_until=halt_until,
         timestamp=datetime.now(UTC),
@@ -150,7 +149,7 @@ async def halt_system(
     _user: dict = Depends(get_current_user),
 ) -> HaltResponse:
     """Halt all system operations with a reason. Optionally auto-resume after N minutes."""
-    await redis_client.set("horizon:system:halt_active", "true")
+    await redis_client.set("horizon:system:halted", "1")
     await redis_client.set("horizon:system:halt_reason", body.reason)
 
     if body.duration_minutes:
@@ -166,9 +165,6 @@ async def halt_system(
         )
     else:
         await redis_client.delete("horizon:system:halt_until")
-
-    # Also activate kill switch
-    await redis_client.set("horizon:risk:kill_switch", "active")
 
     import orjson
 

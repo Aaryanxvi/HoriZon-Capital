@@ -109,8 +109,8 @@ async def create_order(
     broker = "PAPER" if "PAPER" in current_mode else "ALPACA"
 
     # Check kill switch
-    kill_switch = await redis_client.get("horizon:risk:kill_switch")
-    if kill_switch == "active":
+    halted = await redis_client.get("horizon:system:halted")
+    if halted == "1":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Kill switch is active. Trading is halted.",
