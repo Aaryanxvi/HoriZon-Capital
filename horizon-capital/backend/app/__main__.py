@@ -224,6 +224,18 @@ async def _start_workers(orchestrator=None) -> list:
     except Exception as exc:
         console.print(f"[yellow]eod-report-worker failed to start: {exc}[/yellow]")
 
+    try:
+        from app.config import settings as _cfg
+        if _cfg.telegram_bot_token and _cfg.telegram_chat_id:
+            from app.workers.brief_push_worker import BriefPushWorker
+            bpw = BriefPushWorker(orchestrator=orchestrator)
+            task = asyncio.create_task(bpw.run(), name="brief-push-worker")
+            workers.append((bpw, task))
+            if orchestrator:
+                orchestrator.register_worker("brief-push-worker", bpw, task)
+    except Exception as exc:
+        console.print(f"[yellow]brief-push-worker failed to start: {exc}[/yellow]")
+
     return workers
 
 
