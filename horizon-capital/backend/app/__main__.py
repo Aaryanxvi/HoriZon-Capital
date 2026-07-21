@@ -540,6 +540,8 @@ async def _run_with_tui(orchestrator) -> None:
             "orders all",
             "signals",
             "trades",
+            "journal",
+            "journal why",
             "pnl",
             "backtest",
             "backtest results",
