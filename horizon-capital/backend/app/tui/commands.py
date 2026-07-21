@@ -36,6 +36,7 @@ HELP_TEXT = """
 
   [green]help[/]                Show this help
   [green]status[/]              Show all agent statuses
+  [green]brief[/]               Morning briefing: P&L, regime, risk, pending, stops, debates
   [green]portfolio[/]           Show current portfolio (NAV, cash, positions)
   [green]positions[/]           Show open positions from the database
   [green]orders[/] [all]        Show recent orders (default: last 20)
@@ -120,6 +121,7 @@ class CommandHandler:
         handlers = {
             "help": self._cmd_help,
             "status": self._cmd_status,
+            "brief": self._cmd_brief,
             "portfolio": self._cmd_portfolio,
             "positions": self._cmd_positions,
             "orders": self._cmd_orders,
@@ -271,6 +273,10 @@ class CommandHandler:
 
             return "\n".join(lines)
         return "[yellow]Orchestrator not available.[/yellow]"
+
+    async def _cmd_brief(self, args: list[str]) -> str:
+        from app.services.morning_brief import build_morning_brief
+        return await build_morning_brief(orchestrator=self._orchestrator)
 
     async def _cmd_portfolio(self, args: list[str]) -> str:
         p = self._dashboard._portfolio if self._dashboard else {}

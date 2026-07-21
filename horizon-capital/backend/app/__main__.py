@@ -494,6 +494,7 @@ async def _run_with_tui(orchestrator) -> None:
             "help",
             "dashboard",
             "status",
+            "brief",
             "buy",
             "sell",
             "watchlist",
