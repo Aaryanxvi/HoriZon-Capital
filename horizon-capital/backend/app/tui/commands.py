@@ -53,6 +53,7 @@ HELP_TEXT = """
   [green]debate[/]              Show recent debate summaries
   [green]agents[/]              Show agent configuration
   [green]health[/]              Show system health
+  [green]doctor[/]              Self-check all subsystems (db, bus, LLM, data, alerts, broker)
   [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
   [green]report[/]              Generate today's EOD report now (markdown, emailed if SMTP set)
   [green]config[/]              Show current configuration
@@ -134,6 +135,7 @@ class CommandHandler:
             "debate": self._cmd_debate,
             "agents": self._cmd_agents,
             "health": self._cmd_health,
+            "doctor": self._cmd_doctor,
             "performance": self._cmd_performance,
             "report": self._cmd_report,
             "config": self._cmd_config,
@@ -280,6 +282,10 @@ class CommandHandler:
     async def _cmd_brief(self, args: list[str]) -> str:
         from app.services.morning_brief import build_morning_brief
         return await build_morning_brief(orchestrator=self._orchestrator)
+
+    async def _cmd_doctor(self, args: list[str]) -> str:
+        from app.services.doctor import run_doctor
+        return await run_doctor(orchestrator=self._orchestrator)
 
     async def _cmd_report(self, args: list[str]) -> str:
         from datetime import datetime as _dt

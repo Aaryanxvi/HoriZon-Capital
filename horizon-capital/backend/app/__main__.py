@@ -548,6 +548,7 @@ async def _run_with_tui(orchestrator) -> None:
             "debate",
             "agents",
             "health",
+            "doctor",
             "performance",
             "performance 1d",
             "performance 7d",
