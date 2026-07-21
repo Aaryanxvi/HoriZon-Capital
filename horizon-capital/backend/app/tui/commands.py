@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC
+from pathlib import Path
 
 import structlog
 from rich.console import Console
@@ -53,6 +54,7 @@ HELP_TEXT = """
   [green]agents[/]              Show agent configuration
   [green]health[/]              Show system health
   [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
+  [green]report[/]              Generate today's EOD report now (markdown, emailed if SMTP set)
   [green]config[/]              Show current configuration
 
   [bold yellow]Order Approval (HUMAN_APPROVAL mode):[/bold yellow]
@@ -133,6 +135,7 @@ class CommandHandler:
             "agents": self._cmd_agents,
             "health": self._cmd_health,
             "performance": self._cmd_performance,
+            "report": self._cmd_report,
             "config": self._cmd_config,
             "approve": self._cmd_approve,
             "reject": self._cmd_reject,
@@ -277,6 +280,20 @@ class CommandHandler:
     async def _cmd_brief(self, args: list[str]) -> str:
         from app.services.morning_brief import build_morning_brief
         return await build_morning_brief(orchestrator=self._orchestrator)
+
+    async def _cmd_report(self, args: list[str]) -> str:
+        from datetime import datetime as _dt
+
+        from app.workers.eod_report_worker import EODReportWorker
+
+        worker = EODReportWorker(orchestrator=self._orchestrator)
+        await worker._generate_and_send()
+
+        today_str = _dt.now(UTC).strftime("%Y-%m-%d")
+        path = Path.home() / ".horizon-capital" / "reports" / f"eod_{today_str}.md"
+        if path.exists():
+            return f"[green]EOD report generated:[/green] {path}"
+        return "[red]Report generation failed — check logs.[/red]"
 
     async def _cmd_portfolio(self, args: list[str]) -> str:
         p = self._dashboard._portfolio if self._dashboard else {}
