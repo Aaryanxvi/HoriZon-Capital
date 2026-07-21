@@ -9,6 +9,7 @@ Handles the full trade lifecycle:
 """
 
 import asyncio
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import text
@@ -129,6 +130,8 @@ class ExecutionAgent(BaseAgent):
 
     async def run(self) -> None:
         """Reconcile against the broker once at startup, then poll for stale orders."""
+        await self._rehydrate_pending()
+
         if self.broker_name == "ALPACA":
             await self._reconcile_alpaca_startup()
 
@@ -265,6 +268,7 @@ class ExecutionAgent(BaseAgent):
             order_id = message.payload.get("order_id", "")
             if order_id in self._pending_approval:
                 del self._pending_approval[order_id]
+                await self._delete_pending(order_id)
                 await self.order_manager.update_status(order_id, "REJECTED",
                                                        rejection_reason="CIO rejected")
                 logger.info("order_rejected_by_cio", order_id=order_id)
@@ -309,6 +313,7 @@ class ExecutionAgent(BaseAgent):
         # In HUMAN_APPROVAL mode, buffer orders that need approval
         if payload.get("requires_approval"):
             self._pending_approval[order["id"]] = order
+            await self._persist_pending(order)
             await self.order_manager.update_status(order["id"], "OPEN")
             logger.info("order_pending_approval", order_id=order["id"],
                         symbol=order["symbol"])
@@ -349,6 +354,7 @@ class ExecutionAgent(BaseAgent):
                     break
         if order is None:
             return False
+        await self._delete_pending(order_id)
         try:
             await self._execute_order(order)
         except Exception as exc:
@@ -374,6 +380,7 @@ class ExecutionAgent(BaseAgent):
                     break
         if order is None:
             return False
+        await self._delete_pending(order_id)
         await self.order_manager.update_status(order_id, "REJECTED",
                                                rejection_reason="CIO rejected")
         return True
@@ -381,6 +388,60 @@ class ExecutionAgent(BaseAgent):
     def get_pending_approvals(self) -> list[dict]:
         """Return list of orders awaiting CIO approval."""
         return list(self._pending_approval.values())
+
+    async def _persist_pending(self, order: dict) -> None:
+        """Durably record a pending-approval order so a restart can recover it."""
+        try:
+            async with _get_session_factory()() as session:
+                await session.execute(
+                    text(
+                        "INSERT OR REPLACE INTO pending_approvals (id, payload, created_at)"
+                        " VALUES (:id, :payload, :ts)"
+                    ),
+                    {
+                        "id": order["id"],
+                        "payload": json.dumps(order, default=str),
+                        "ts": datetime.now(UTC).isoformat(),
+                    },
+                )
+                await session.commit()
+        except Exception as exc:
+            logger.warning("persist_pending_failed", order_id=order.get("id"), error=str(exc))
+
+    async def _delete_pending(self, order_id: str) -> None:
+        """Remove a persisted pending-approval row once it's resolved."""
+        try:
+            async with _get_session_factory()() as session:
+                await session.execute(
+                    text("DELETE FROM pending_approvals WHERE id = :id"),
+                    {"id": order_id},
+                )
+                await session.commit()
+        except Exception as exc:
+            logger.warning("delete_pending_failed", order_id=order_id, error=str(exc))
+
+    async def _rehydrate_pending(self) -> None:
+        """Reload pending-approval orders persisted before a restart."""
+        try:
+            async with _get_session_factory()() as session:
+                result = await session.execute(
+                    text("SELECT id, payload FROM pending_approvals")
+                )
+                rows = result.fetchall()
+        except Exception as exc:
+            logger.warning("rehydrate_pending_failed", error=str(exc))
+            return
+
+        count = 0
+        for row in rows:
+            try:
+                self._pending_approval[row.id] = json.loads(row.payload)
+                count += 1
+            except Exception as exc:
+                logger.warning("rehydrate_pending_row_skipped", order_id=row.id, error=str(exc))
+
+        if count:
+            logger.info("pending_approvals_rehydrated", count=count)
 
     async def _execute_order(self, order: dict) -> None:
         """Execute the order via the paper broker."""

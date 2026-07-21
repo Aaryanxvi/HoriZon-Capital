@@ -179,6 +179,14 @@ def _create_tables(conn) -> None:  # noqa: ANN001
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_order_status ON orders (status)"))
 
     conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS pending_approvals (
+            id TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """))
+
+    conn.execute(text("""
         CREATE TABLE IF NOT EXISTS fills (
             id TEXT PRIMARY KEY,
             order_id TEXT NOT NULL,
