@@ -387,6 +387,72 @@ class ReportGenerator:
 
         return "\n".join(lines)
 
+    def to_markdown(self, report: PortfolioReport) -> str:
+        """Format report as plain markdown (one page, EOD export)."""
+        date_str = report.period_end[:10]
+        lines = [
+            f"# Horizon Capital — Daily Report — {date_str}",
+            "",
+            "## Summary",
+            "| NAV | Overnight P&L | Return | Sharpe (period) | Max DD |",
+            "|---|---|---|---|---|",
+        ]
+
+        nav = f"${report.portfolio_value:,.2f}" if report.portfolio_value else "n/a"
+        overnight_pnl = (
+            f"${report.total_pnl:,.2f}" if report.total_pnl else "n/a"
+        )
+        total_return = f"{report.total_return:+.2%}" if report.total_return else "n/a"
+        sharpe = f"{report.sharpe_ratio:.4f}" if report.sharpe_ratio else "n/a"
+        max_dd = f"{report.max_drawdown:.2%}" if report.max_drawdown else "n/a"
+        lines.append(f"| {nav} | {overnight_pnl} | {total_return} | {sharpe} | {max_dd} |")
+
+        lines.append("")
+        lines.append("## Positions")
+        if report.positions:
+            lines.append("| Symbol | Side | Qty | Entry | Last | Unrealized P&L |")
+            lines.append("|---|---|---|---|---|---|")
+            for p in report.positions:
+                lines.append(
+                    f"| {p['symbol']} | {p['side']} | {p['quantity']:.2f} | "
+                    f"{p['avg_entry']:.2f} | {p['current_price']:.2f} | "
+                    f"{p['unrealized_pnl']:.2f} |"
+                )
+        else:
+            lines.append("_No open positions._")
+
+        lines.append("")
+        lines.append("## Trades Today")
+        if report.trades:
+            lines.append("| Time | Symbol | Side | Qty | Price |")
+            lines.append("|---|---|---|---|---|")
+            for t in report.trades:
+                lines.append(
+                    f"| {t['filled_at'][:19]} | {t['symbol']} | {t['side']} | "
+                    f"{t['quantity']:.2f} | {t['price']:.2f} |"
+                )
+        else:
+            lines.append("_No trades today._")
+
+        lines.append("")
+        lines.append("## Risk")
+        lines.append(f"- VaR 95: {report.var_95:.4f}")
+        lines.append(f"- Current drawdown: {report.current_drawdown:.2%}")
+        lines.append("- Kill switch: n/a")
+
+        lines.append("")
+        lines.append("## Regime")
+        if report.regime_summary:
+            regime_parts = [
+                f"{scope}: {info['regime']} (conf={info['confidence']:.1%})"
+                for scope, info in report.regime_summary.items()
+            ]
+            lines.append(", ".join(regime_parts))
+        else:
+            lines.append("_No regime data._")
+
+        return "\n".join(lines) + "\n"
+
     def to_csv(self, report: PortfolioReport) -> str:
         """Export report trades to CSV string."""
         output = io.StringIO()
@@ -453,6 +519,9 @@ class ReportGenerator:
 
         if fmt == "csv":
             content = self.to_csv(report)
+            filepath.write_text(content, encoding="utf-8")
+        elif fmt == "md":
+            content = self.to_markdown(report)
             filepath.write_text(content, encoding="utf-8")
         elif fmt == "json":
             content = json.dumps({

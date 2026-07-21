@@ -128,9 +128,23 @@ DEFAULT_RULES: list[AlertRule] = [
     AlertRule(
         name="debate_rejection",
         description="Multi-agent debate rejected a trade proposal",
-        severity=AlertSeverity.INFO,
-        channels=[AlertChannel.CONSOLE],
+        severity=AlertSeverity.WARNING,
+        channels=[AlertChannel.CONSOLE, AlertChannel.TELEGRAM],
         cooldown_seconds=60,
+    ),
+    AlertRule(
+        name="stop_loss_triggered",
+        description="Stop-loss exit fired for a position",
+        severity=AlertSeverity.WARNING,
+        channels=[AlertChannel.CONSOLE, AlertChannel.TELEGRAM, AlertChannel.EMAIL],
+        cooldown_seconds=60,
+    ),
+    AlertRule(
+        name="order_pending_approval",
+        description="Order awaiting human approval",
+        severity=AlertSeverity.WARNING,
+        channels=[AlertChannel.CONSOLE, AlertChannel.TELEGRAM],
+        cooldown_seconds=0,
     ),
 ]
 
@@ -167,6 +181,8 @@ class AlertManager:
         await self.bus.subscribe("horizon.alpha.decay", self._on_alpha_decay)
         await self.bus.subscribe("horizon.debate.*", self._on_debate)
         await self.bus.subscribe("horizon.execution.order.fill", self._on_trade)
+        await self.bus.subscribe("horizon.signal.*", self._on_signal)
+        await self.bus.subscribe("horizon.execution.order.pending", self._on_pending_order)
         logger.info("alert_manager.started", rules=len(self._rules))
 
     async def stop(self) -> None:
@@ -181,37 +197,35 @@ class AlertManager:
         """Handle risk alerts (VaR breach, drawdown, kill switch)."""
         payload = msg.payload
         alert_type = payload.get("alert_type", "")
+        dd_pct = float(payload.get("current_drawdown", 0.0)) * 100
 
         if payload.get("action") == "KILL_SWITCH_TRIGGERED":
             await self._trigger_rule(
                 "kill_switch_activated",
                 title="KILL SWITCH ACTIVATED",
                 message=(
-                    f"Drawdown {payload.get('current_drawdown', 0):.2%} "
+                    f"Drawdown {dd_pct:.2f}% "
                     f"breached limit {payload.get('limit', 0)}%. All trading halted."
                 ),
                 payload=payload,
             )
             return
 
-        if alert_type == "DRAWDOWN_WARNING" or payload.get("current_drawdown", 0) > 5.0:
+        if alert_type == "DRAWDOWN_WARNING" or dd_pct > 5.0:
             await self._trigger_rule(
                 "drawdown_warning",
                 title="Drawdown Warning",
-                message=f"Current drawdown: {payload.get('current_drawdown', 0):.2f}%",
+                message=f"Current drawdown: {dd_pct:.2f}%",
                 payload=payload,
             )
 
         dd_limit = settings.risk_max_drawdown_pct * 0.8
-        if (
-            alert_type == "DRAWDOWN_CRITICAL"
-            or payload.get("current_drawdown", 0) > dd_limit
-        ):
+        if alert_type == "DRAWDOWN_CRITICAL" or dd_pct > dd_limit:
             await self._trigger_rule(
                 "drawdown_critical",
                 title="CRITICAL: Drawdown Approaching Limit",
                 message=(
-                    f"Drawdown {payload.get('current_drawdown', 0):.2f}% approaching "
+                    f"Drawdown {dd_pct:.2f}% approaching "
                     f"limit of {settings.risk_max_drawdown_pct}%"
                 ),
                 payload=payload,
@@ -222,8 +236,8 @@ class AlertManager:
                 "var_breach",
                 title="VaR Limit Breached",
                 message=(
-                    f"VaR {payload.get('var_95', 0):.4f} "
-                    f"exceeds limit {settings.risk_var_limit_pct}%"
+                    f"VaR {payload.get('var_pct', 0)}% "
+                    f"exceeds limit {payload.get('limit_pct', settings.risk_var_limit_pct)}%"
                 ),
                 payload=payload,
             )
@@ -290,6 +304,37 @@ class AlertManager:
                 ),
                 payload=msg.payload,
             )
+
+    async def _on_signal(self, msg: AgentMessage) -> None:
+        if msg.payload.get("strategy_name") != "stop_loss":
+            return
+        symbol = msg.payload.get("symbol", "")
+        await self._trigger_rule(
+            "stop_loss_triggered",
+            title=f"Stop-loss: {symbol}",
+            message=msg.payload.get("reasoning", f"Stop-loss exit fired for {symbol}"),
+            payload=msg.payload,
+        )
+
+    async def _on_pending_order(self, msg: AgentMessage) -> None:
+        if not msg.payload.get("requires_approval"):
+            return
+        side = msg.payload.get("side", "")
+        quantity = msg.payload.get("quantity", "")
+        symbol = msg.payload.get("symbol", "")
+        signal_id = msg.payload.get("signal_id") or ""
+        title = f"Approval needed: {side} {quantity} {symbol}"
+        if signal_id:
+            title = f"Approval needed: {side} {quantity} {symbol} ({signal_id[:8]})"
+        await self._trigger_rule(
+            "order_pending_approval",
+            title=title,
+            message=(
+                "Reply /approve <id-prefix> or /reject <id-prefix> on Telegram, "
+                "or use the REPL 'pending' command."
+            ),
+            payload=msg.payload,
+        )
 
     # ------------------------------------------------------------------
     # Alert triggering

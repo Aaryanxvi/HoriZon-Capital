@@ -202,6 +202,28 @@ async def _start_workers(orchestrator=None) -> list:
     except Exception as exc:
         console.print(f"[yellow]position_monitor_worker failed to start: {exc}[/yellow]")
 
+    try:
+        from app.config import settings as _cfg
+        if _cfg.telegram_bot_token and _cfg.telegram_chat_id:
+            from app.services.telegram_approvals import TelegramApprovalWorker
+            taw = TelegramApprovalWorker(orchestrator=orchestrator)
+            task = asyncio.create_task(taw.run(), name="telegram-approvals")
+            workers.append((taw, task))
+            if orchestrator:
+                orchestrator.register_worker("telegram-approvals", taw, task)
+    except Exception as exc:
+        console.print(f"[yellow]telegram-approvals failed to start: {exc}[/yellow]")
+
+    try:
+        from app.workers.eod_report_worker import EODReportWorker
+        eod = EODReportWorker(orchestrator=orchestrator)
+        task = asyncio.create_task(eod.run(), name="eod-report-worker")
+        workers.append((eod, task))
+        if orchestrator:
+            orchestrator.register_worker("eod-report-worker", eod, task)
+    except Exception as exc:
+        console.print(f"[yellow]eod-report-worker failed to start: {exc}[/yellow]")
+
     return workers
 
 
@@ -494,6 +516,7 @@ async def _run_with_tui(orchestrator) -> None:
             "help",
             "dashboard",
             "status",
+            "brief",
             "buy",
             "sell",
             "watchlist",
@@ -520,6 +543,7 @@ async def _run_with_tui(orchestrator) -> None:
             "performance 90d",
             "performance ytd",
             "performance all",
+            "report",
             "config",
             "pending",
             "approve",
