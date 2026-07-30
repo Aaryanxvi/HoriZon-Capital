@@ -690,6 +690,46 @@ def print_examples(cf: dict, n: int = 6) -> None:
 # Reporting
 # ----------------------------------------------------------------------------
 
+def placebo_arms(stream: list[dict], signals: list[dict], mode: str,
+                 reject_rate: float, closes: pd.DataFrame, opens: pd.DataFrame,
+                 calendar: pd.DatetimeIndex, capital: float,
+                 trials: int = 25) -> dict:
+    """Arm C: gates that reject at Arm B's rate but choose at random.
+
+    A gate that vetoes 40% of trades mechanically cuts exposure and turnover,
+    and in a bull sample that alone can move Sharpe. So "Arm B beat Arm A" does
+    not establish that the LLM chose *well* -- only that it traded less. This
+    control holds the rejection RATE fixed and destroys the CHOICE, using a
+    deterministic hash per trial so the result is reproducible without an RNG.
+
+    Arm B is only evidence of judgment if it beats this distribution.
+    """
+    sharpes: list[float] = []
+    fills: list[int] = []
+    for trial in range(trials):
+        fake: dict[str, dict] = {}
+        for sig in signals:
+            key = _cache_key(mode, sig)
+            # Deterministic pseudo-random accept/reject at the target rate.
+            h = int(hashlib.sha1(f"{trial}|{key}".encode()).hexdigest()[:8], 16)
+            approve = (h % 10_000) / 10_000.0 >= reject_rate
+            fake[key] = {"decision": "APPROVED" if approve else "REJECTED", "mode": mode}
+        eq, gross, info = execute(stream, fake, mode, closes, opens, calendar, capital)
+        sharpes.append(metrics(eq, "placebo", gross)["Sharpe"])
+        fills.append(info["fills"])
+    arr = np.array(sharpes)
+    return {
+        "trials": trials,
+        "reject_rate": reject_rate,
+        "sharpe_mean": float(arr.mean()),
+        "sharpe_std": float(arr.std()),
+        "sharpe_p5": float(np.percentile(arr, 5)),
+        "sharpe_p95": float(np.percentile(arr, 95)),
+        "fills_mean": float(np.mean(fills)),
+        "sharpes": sharpes,
+    }
+
+
 def _vote_stats(verdicts: dict[str, dict], mode: str) -> dict:
     recs = [r for r in verdicts.values() if r.get("mode") == mode]
     ok = [r for r in recs if r.get("decision") in ("APPROVED", "REJECTED")]
@@ -882,6 +922,21 @@ async def amain() -> None:
     print(f"Ending NAV: Arm A ${eq_a.iloc[-1]:,.0f}, Arm B ${eq_b.iloc[-1]:,.0f} "
           f"(both from ${args.capital:,.0f})")
 
+    # Arm C: does the gate beat trading-less-at-random?
+    rate = stats["rejected"] / stats["debates"] if stats["debates"] else 0.0
+    print(f"\nRunning {25} placebo gates at Arm B's {rate:.1%} rejection rate "
+          f"(random choice, no LLM)...")
+    pl = placebo_arms(stream, signals, args.mode, rate, closes, opens, cal, args.capital)
+    beat = sum(1 for s in pl["sharpes"] if m_b["Sharpe"] > s)
+    p_emp = 1 - beat / pl["trials"]
+    placebo_verdict = ("judgment adds beyond trading less" if p_emp <= 0.05
+                       else "NOT distinguishable from simply trading less")
+    print(f"Arm C (random gate, same rate): Sharpe {pl['sharpe_mean']:.2f} "
+          f"+/- {pl['sharpe_std']:.2f}  [p5 {pl['sharpe_p5']:.2f}, "
+          f"p95 {pl['sharpe_p95']:.2f}]  avg fills {pl['fills_mean']:.0f}")
+    print(f"Arm B beats {beat}/{pl['trials']} random gates "
+          f"(empirical p = {p_emp:.2f}) -- {placebo_verdict}")
+
     # Pre-registered acceptance criterion.
     passes = m_b["Sharpe"] >= m_a["Sharpe"] and cf["total_pct"] <= 0
     verdict = ("PASS -- gate earns a permanent place in the autonomous pipeline"
@@ -952,6 +1007,19 @@ def _selfcheck() -> None:
 
     # Cache keys separate the two modes so verdicts can never cross-contaminate.
     assert _cache_key("blind", sig) != _cache_key("unblind", sig)
+
+    # Placebo gates must hit the requested rejection rate and be reproducible,
+    # or the control cannot separate "chose well" from "traded less".
+    many = [{**sig, "date": f"2020-01-{d:02d}T00:00:00", "symbol": f"S{d}"}
+            for d in range(1, 29)]
+    r1 = placebo_arms(stream, many, "blind", 0.5, px, px, cal, 100_000.0, trials=2)
+    r2 = placebo_arms(stream, many, "blind", 0.5, px, px, cal, 100_000.0, trials=2)
+    assert r1["sharpes"] == r2["sharpes"], "placebo must be deterministic"
+    # Rate 0.0 approves everything, so it must match Arm A's fill count exactly.
+    all_ok = placebo_arms(stream, [sig], "blind", 0.0, px, px, cal, 100_000.0, trials=1)
+    assert all_ok["fills_mean"] == a["fills"], (all_ok, a)
+    none_ok = placebo_arms(stream, [sig], "blind", 1.0, px, px, cal, 100_000.0, trials=1)
+    assert none_ok["fills_mean"] == 0.0, none_ok
 
     # Subsampling is deterministic and spans the window, so the unblind arm
     # debates exactly the signals blind already ruled on (paired comparison).
