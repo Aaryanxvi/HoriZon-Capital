@@ -94,6 +94,56 @@ SHARPE_TOL, MAXDD_TOL = 0.02, 1.0
 
 PAPER_DIR = ROOT.parent.parent / "own research paper"
 
+# USD per 1M tokens (input, output), for the run-cost PROJECTION only. List
+# prices as of 2026-07; verify against the provider's billing page before
+# trusting a number here -- this is a budget guard, not an invoice.
+PRICES = {
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    "gemini-2.0-flash": (0.10, 0.40),
+    "gemini-1.5-flash": (0.075, 0.30),
+    "claude-sonnet-4-20250514": (3.00, 15.00),
+}
+
+
+def project_cost(verdicts: dict[str, dict], mode: str, total_signals: int) -> str:
+    """Extrapolate full-run cost from the debates actually paid for so far.
+
+    Token counts are estimated from character length (~4 chars/token) because
+    the provider wrappers return text only. Treat the figure as +/-30%.
+    """
+    done = [r for r in verdicts.values()
+            if r.get("mode") == mode and r.get("decision") in ("APPROVED", "REJECTED")]
+    if not done:
+        return "no completed debates yet -- cannot project"
+
+    in_tok = sum(r.get("prompt_chars", 0) for r in done) / 4
+    out_tok = sum(r.get("output_chars", 0) for r in done) / 4
+    # Split the token spend across the providers that actually argued.
+    per_debate_in, per_debate_out = in_tok / len(done), out_tok / len(done)
+
+    lines = [f"Cost projection from {len(done)} completed debates "
+             f"(~{per_debate_in:,.0f} in / {per_debate_out:,.0f} out tokens each):"]
+    models = done[-1].get("models", {})
+    if not models:
+        return "\n".join(lines + ["  model ids not recorded -- rerun to project"])
+
+    share = 1.0 / len(models)
+    total = 0.0
+    for name, model in sorted(models.items()):
+        p_in, p_out = PRICES.get(model, (0.0, 0.0))
+        if not p_in and not p_out:
+            lines.append(f"  {name:8s} {model:26s} unknown pricing -- excluded")
+            continue
+        cost = (per_debate_in * share * p_in + per_debate_out * share * p_out) / 1e6
+        full = cost * total_signals
+        total += full
+        lines.append(f"  {name:8s} {model:26s} ${cost * 1000:.4f}/1k debates "
+                     f"-> ${full:.2f} for all {total_signals}")
+    lines.append(f"  PROJECTED FULL RUN (this mode): ${total:.2f}  "
+                 f"(both modes ~${total * 2:.2f}) -- estimate, +/-30%")
+    return "\n".join(lines)
+
 
 # ----------------------------------------------------------------------------
 # Null bus -- the debate engine publishes lifecycle messages; in a harness there
@@ -226,6 +276,24 @@ def build_signal_stream(bars, closes, opens, calendar, config_universe, spy_col)
 # Phase 2 -- debates (LLM, cached, concurrent)
 # ----------------------------------------------------------------------------
 
+def _prompt_chars(symbol: str, action: str, signal_data: dict, regime: str | None,
+                  arguments: list) -> int:
+    """Total input characters billed across both rounds of one debate.
+
+    Round 1: the shared context prompt + one role prompt, per debater.
+    Round 2: the same, plus round 1's transcript appended for every debater.
+    """
+    from app.agents.debate.debate_engine import DEBATER_ROLES, _build_user_prompt
+
+    base = len(_build_user_prompt(symbol, action, signal_data, regime, None, None))
+    roles = sum(len(p) for p in DEBATER_ROLES.values())
+    n = len(DEBATER_ROLES)
+    r1 = base * n + roles
+    transcript = sum(len(a.argument[:500]) + 80 for a in arguments if a.round_number == 1)
+    r2 = (base + transcript) * n + roles if any(a.round_number == 2 for a in arguments) else 0
+    return r1 + r2
+
+
 def _cache_key(mode: str, sig: dict) -> str:
     raw = f"{mode}|{sig['date']}|{sig['symbol']}|{sig['target_weight']:.6f}|" \
           f"{sig['previous_weight']:.6f}"
@@ -339,6 +407,11 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
                     "models": models,
                     "llm_calls": len(res.arguments),
                     "latency_ms": round((time.perf_counter() - t0) * 1000),
+                    # Character counts feed the cost projection. Round 2 carries
+                    # round 1's transcript, so input is charged roughly twice.
+                    "prompt_chars": _prompt_chars(symbol, action, signal_data, regime,
+                                                  res.arguments),
+                    "output_chars": sum(len(a.argument) for a in res.arguments),
                     "votes": [
                         {"role": a.role, "provider": a.provider, "round": a.round_number,
                          "vote": a.vote, "confidence": a.confidence}
@@ -634,9 +707,16 @@ async def amain() -> None:
 
     stats = _vote_stats(verdicts, args.mode)
     missing = sum(1 for s in signals if _cache_key(args.mode, s) not in verdicts)
+
+    print("\n" + project_cost(verdicts, args.mode, len(signals)))
+
     if missing:
-        print(f"\n[WARN] {missing} signals have no verdict -- they FAIL CLOSED "
-              f"(rejected) in Arm B. Re-run to complete them before publishing.")
+        pct = missing / len(signals) * 100
+        print(f"\n[WARN] {missing} of {len(signals)} signals ({pct:.1f}%) have no "
+              f"verdict. Un-debated signals FAIL CLOSED, so Arm B below is NOT a "
+              f"scaled-down version of the full result -- it is mostly forced "
+              f"rejections. Re-run without --limit to complete; verdicts already "
+              f"paid for are cached and will not be re-charged.")
 
     eq_b, gross_b, info_b = execute(stream, verdicts, args.mode, closes, opens, cal,
                                     args.capital)
@@ -676,6 +756,14 @@ async def amain() -> None:
                if passes else "FAIL -- gate reverts to advisory-only")
     print("\nPRE-REGISTERED ACCEPTANCE "
           f"(Sharpe_B >= Sharpe_A AND counterfactual <= 0): {verdict}")
+
+    # A table built on incomplete verdict coverage would misrepresent the gate.
+    # Withhold it rather than let a pilot's numbers reach the paper by accident.
+    if missing > len(signals) * 0.01:
+        print("\nTable withheld: verdict coverage is incomplete, so these Arm B "
+              "numbers are diagnostics only and must not be published. "
+              "Complete the run to emit the table.")
+        return
 
     latex = emit_latex(m_a, m_b, cf, stats, args.mode)
     print("\n" + latex)
@@ -724,6 +812,20 @@ def _selfcheck() -> None:
 
     # Cache keys separate the two modes so verdicts can never cross-contaminate.
     assert _cache_key("blind", sig) != _cache_key("unblind", sig)
+
+    # Cost projection: 4M input chars = 1M tokens, priced at $0.15/M for
+    # gpt-4o-mini, so 10 debates -> $0.15, and 1000 signals -> $15.00.
+    priced = {"k": {"mode": "blind", "decision": "APPROVED",
+                    "prompt_chars": 400_000, "output_chars": 0,
+                    "models": {"openai": "gpt-4o-mini"}}}
+    proj = project_cost({f"k{i}": {**priced["k"]} for i in range(10)}, "blind", 1000)
+    assert "$15.00" in proj, proj
+    # Two providers split the same token spend, so the total is unchanged.
+    two = {**priced["k"], "models": {"openai": "gpt-4o-mini", "gemini": "gemini-2.0-flash"}}
+    proj2 = project_cost({f"k{i}": dict(two) for i in range(10)}, "blind", 1000)
+    assert "$12.50" in proj2, proj2  # (0.15 + 0.10) / 2 * 100 tok/debate * 1000
+    # No completed debates must not crash or fabricate a number.
+    assert "cannot project" in project_cost({}, "blind", 1000)
 
     # Production weights are the published mix, derived not retyped.
     assert abs(PROD_WEIGHTS["research_stack"] - 0.5) < 1e-9, PROD_WEIGHTS
