@@ -83,6 +83,12 @@ MIN_TRADE_NAV = 0.002
 MIN_WEIGHT_DELTA = 0.005          # 50 bps -- below this no SIGNAL is emitted
 STRENGTH_SCALE = 0.5              # strength = min(|dw| / 0.5, 1.0)
 
+# Rate-limit handling. A debate lost to a tokens-per-minute cap is a gap, not a
+# verdict, and gaps fail closed -- so retry rather than let throttling bias the
+# gate toward rejection.
+RETRIES = 5
+BACKOFF_BASE = 8.0                # seconds; 8, 16, 32, 64 between attempts
+
 # The production mix == the published mix minus breadth_alpha, renormalized:
 # research .500 / trend .333 / momrank .167. Derived, not retyped, so it stays
 # identical to the arm that produced Table I.
@@ -296,6 +302,20 @@ def _prompt_chars(symbol: str, action: str, signal_data: dict, regime: str | Non
     return r1 + r2
 
 
+def subsample(signals: list[dict], n: int) -> list[dict]:
+    """Evenly-spaced deterministic subsample, preserving chronological spread.
+
+    Deterministic so the unblind arm debates exactly the signals the blind arm
+    already ruled on, making the two directly pairable. Evenly spaced rather
+    than "first N" so the sample spans the whole 2018-2024 window instead of
+    just its first months.
+    """
+    if n >= len(signals):
+        return signals
+    step = len(signals) / n
+    return [signals[int(i * step)] for i in range(n)]
+
+
 def _cache_key(mode: str, sig: dict) -> str:
     raw = f"{mode}|{sig['date']}|{sig['symbol']}|{sig['target_weight']:.6f}|" \
           f"{sig['previous_weight']:.6f}"
@@ -395,6 +415,30 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
         symbol, signal_data = _signal_payload(sig, mode)
         action = "BUY" if sig["direction"] > 0 else "SELL"
         regime = sig["features"].get("market regime (index vs its 200d SMA)")
+        # Token-per-minute limits are transient, so a debate lost to one is not
+        # a result -- it is a gap that would fail closed and bias Arm B toward
+        # rejection. Retry with backoff, holding the semaphore slot so the
+        # wait also throttles the run instead of hammering a limited endpoint.
+        rec: dict | None = None
+        for attempt in range(RETRIES):
+            rec = await attempt_debate(sig, key, symbol, signal_data, action, regime)
+            if rec["decision"] != "ERROR":
+                break
+            if attempt < RETRIES - 1:
+                async with sem:
+                    await asyncio.sleep(BACKOFF_BASE * (2 ** attempt))
+        assert rec is not None
+        async with lock:
+            cached[key] = rec
+            fh.write(json.dumps(rec) + "\n")
+            fh.flush()
+            done += 1
+            if done % 25 == 0 or done == len(todo):
+                errs = sum(1 for r in cached.values() if r.get("decision") == "ERROR")
+                print(f"  ...{done}/{len(todo)} debates ({errs} still failing)")
+
+    async def attempt_debate(sig: dict, key: str, symbol: str, signal_data: dict,
+                             action: str, regime: str | None) -> dict:
         async with sem:
             t0 = time.perf_counter()
             try:
@@ -426,36 +470,32 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
                                     f"failed: {failed[0].argument[:160]}"}
                 else:
                     rec = {
-                    "key": key, "mode": mode, "date": sig["date"],
-                    "symbol": sig["symbol"], "action": action,
-                    "decision": res.decision,
-                    "consensus_score": res.consensus_score,
-                    "for_count": res.for_count,
-                    "against_count": res.against_count,
-                    "abstain_count": res.abstain_count,
-                    "rounds": res.rounds,
-                    "providers": res.providers_used,
-                    "models": models,
-                    "llm_calls": len(res.arguments),
-                    "latency_ms": round((time.perf_counter() - t0) * 1000),
-                    # Character counts feed the cost projection. Round 2 carries
-                    # round 1's transcript, so input is charged roughly twice.
-                    "prompt_chars": _prompt_chars(symbol, action, signal_data, regime,
-                                                  res.arguments),
-                    "output_chars": sum(len(a.argument) for a in res.arguments),
-                    "votes": [
-                        {"role": a.role, "provider": a.provider, "round": a.round_number,
-                         "vote": a.vote, "confidence": a.confidence}
-                        for a in res.arguments
-                    ],
-                }
-        async with lock:
-            cached[key] = rec
-            fh.write(json.dumps(rec) + "\n")
-            fh.flush()
-            done += 1
-            if done % 25 == 0 or done == len(todo):
-                print(f"  ...{done}/{len(todo)} debates")
+                        "key": key, "mode": mode, "date": sig["date"],
+                        "symbol": sig["symbol"], "action": action,
+                        "decision": res.decision,
+                        "consensus_score": res.consensus_score,
+                        "for_count": res.for_count,
+                        "against_count": res.against_count,
+                        "abstain_count": res.abstain_count,
+                        "rounds": res.rounds,
+                        "providers": res.providers_used,
+                        "models": models,
+                        "llm_calls": len(res.arguments),
+                        "latency_ms": round((time.perf_counter() - t0) * 1000),
+                        # Character counts feed the cost projection. Round 2
+                        # carries round 1's transcript, so input is charged
+                        # roughly twice.
+                        "prompt_chars": _prompt_chars(symbol, action, signal_data,
+                                                      regime, res.arguments),
+                        "output_chars": sum(len(a.argument) for a in res.arguments),
+                        "votes": [
+                            {"role": a.role, "provider": a.provider,
+                             "round": a.round_number, "vote": a.vote,
+                             "confidence": a.confidence}
+                            for a in res.arguments
+                        ],
+                    }
+        return rec
 
     try:
         await asyncio.gather(*(one(s) for s in todo))
@@ -579,6 +619,7 @@ def counterfactual_pnl(rejected: list[dict], closes: pd.DataFrame,
     total = 0.0
     wins = 0
     counted = 0
+    detail: list[dict] = []
     for sig in rejected:
         sym = sig["symbol"]
         if sym not in opens.columns or sym not in closes.columns:
@@ -602,11 +643,47 @@ def counterfactual_pnl(rejected: list[dict], closes: pd.DataFrame,
         counted += 1
         if contrib > 0:
             wins += 1
+        detail.append({
+            "date": sig["date"][:10], "symbol": sym,
+            "action": "BUY" if dw > 0 else "SELL",
+            "dw_pct": dw * 100, "fwd_ret_pct": fwd * 100,
+            "contrib_pct": contrib * 100,
+            "held_to": str(exit_date.date()),
+        })
     return {
         "total_pct": total * 100,
         "counted": counted,
         "win_rate": (wins / counted * 100) if counted else 0.0,
+        "detail": detail,
     }
+
+
+def print_examples(cf: dict, n: int = 6) -> None:
+    """Show the individual vetoes that moved the number most, both directions.
+
+    An aggregate counterfactual hides whether the gate made a few large correct
+    calls or many small wrong ones. These are the trades a reader will want to
+    check by hand.
+    """
+    detail = cf.get("detail", [])
+    if not detail:
+        print("\n(no rejected trades with price coverage to show)")
+        return
+    ranked = sorted(detail, key=lambda d: d["contrib_pct"])
+
+    def block(title: str, rows: list[dict]) -> None:
+        print(f"\n{title}")
+        print(f"  {'date':11s} {'symbol':14s} {'act':4s} {'dweight':>8s} "
+              f"{'fwd ret':>9s} {'NAV impact':>11s}  held to")
+        for d in rows:
+            print(f"  {d['date']:11s} {d['symbol']:14s} {d['action']:4s} "
+                  f"{d['dw_pct']:+7.2f}% {d['fwd_ret_pct']:+8.1f}% "
+                  f"{d['contrib_pct']:+10.2f}%  {d['held_to']}")
+
+    block(f"Gate's best calls -- vetoed trades that WOULD have lost money "
+          f"(top {n}):", ranked[:n])
+    block(f"Gate's worst calls -- vetoed trades that WOULD have made money "
+          f"(top {n}):", list(reversed(ranked[-n:])))
 
 
 # ----------------------------------------------------------------------------
@@ -682,6 +759,13 @@ async def amain() -> None:
                    help="comma-separated subset to debate with, e.g. 'openai'. "
                         "Use to exclude a registered-but-out-of-quota provider, "
                         "whose failed calls would otherwise register as ABSTAIN.")
+    p.add_argument("--sample", type=int, default=None,
+                   help="debate a deterministic evenly-spaced subsample of N "
+                        "signals. For the unblind sensitivity arm, which is a "
+                        "PAIRED comparison against blind and does not need full "
+                        "coverage. Never use for the primary (blind) arm: its "
+                        "Arm B is a portfolio path, and un-debated signals fail "
+                        "closed.")
     args = p.parse_args()
     model_overrides = {k: v for k, v in
                        (("openai", args.openai_model), ("gemini", args.gemini_model))
@@ -738,7 +822,11 @@ async def amain() -> None:
 
     cache_path = PAPER_DIR / f"debate_ab_verdicts_{args.mode}.jsonl"
     only = [s.strip() for s in args.providers.split(",")] if args.providers else None
-    verdicts = await run_debates(signals, args.mode, args.concurrency, cache_path,
+    to_debate = subsample(signals, args.sample) if args.sample else signals
+    if args.sample:
+        print(f"Subsampling {len(to_debate)} of {len(signals)} signals "
+              f"(paired sensitivity arm -- no publishable Arm B from this run)")
+    verdicts = await run_debates(to_debate, args.mode, args.concurrency, cache_path,
                                  args.limit, model_overrides, only)
 
     stats = _vote_stats(verdicts, args.mode)
@@ -785,6 +873,14 @@ async def amain() -> None:
     print(f"\nCounterfactual P&L of vetoed trades: {cf['total_pct']:+.2f}% of NAV "
           f"across {cf['counted']} rejections ({cf['win_rate']:.1f}% would have been "
           f"profitable)")
+    print_examples(cf)
+
+    share = info_b["fills"] / info_a["fills"] * 100 if info_a["fills"] else 0.0
+    print(f"\nArm B placed {info_b['fills']} fills vs Arm A's {info_a['fills']} "
+          f"({share:.0f}% of the trading), turnover {info_b['turnover']:.2f}x vs "
+          f"{info_a['turnover']:.2f}x NAV/yr.")
+    print(f"Ending NAV: Arm A ${eq_a.iloc[-1]:,.0f}, Arm B ${eq_b.iloc[-1]:,.0f} "
+          f"(both from ${args.capital:,.0f})")
 
     # Pre-registered acceptance criterion.
     passes = m_b["Sharpe"] >= m_a["Sharpe"] and cf["total_pct"] <= 0
@@ -838,6 +934,14 @@ def _selfcheck() -> None:
     cf = counterfactual_pnl(b["rejected"], px, px, cal)
     assert abs(cf["total_pct"] - 20.0) < 1e-6, cf
     assert cf["counted"] == 1 and cf["win_rate"] == 100.0
+    # Per-trade detail must reconstruct the aggregate, or the examples shown to
+    # a reader would not be the trades that produced the headline number.
+    assert len(cf["detail"]) == 1, cf["detail"]
+    d = cf["detail"][0]
+    assert d["symbol"] == "X" and d["action"] == "BUY", d
+    assert abs(d["fwd_ret_pct"] - 100.0) < 1e-6, d      # 10.0 -> 20.0
+    assert abs(d["contrib_pct"] - 20.0) < 1e-6, d
+    assert abs(sum(x["contrib_pct"] for x in cf["detail"]) - cf["total_pct"]) < 1e-9
 
     # Blinding must not leak the ticker or the date; unblind must carry both.
     blind_sym, blind_data = _signal_payload(
@@ -848,6 +952,15 @@ def _selfcheck() -> None:
 
     # Cache keys separate the two modes so verdicts can never cross-contaminate.
     assert _cache_key("blind", sig) != _cache_key("unblind", sig)
+
+    # Subsampling is deterministic and spans the window, so the unblind arm
+    # debates exactly the signals blind already ruled on (paired comparison).
+    pool = [{"i": i} for i in range(100)]
+    s1, s2 = subsample(pool, 10), subsample(pool, 10)
+    assert s1 == s2, "subsample must be deterministic"
+    assert [d["i"] for d in s1] == list(range(0, 100, 10)), s1
+    assert s1[-1]["i"] > 80, "sample must reach the end of the window"
+    assert subsample(pool, 500) == pool, "n >= len returns everything"
 
     # Cost projection: 4M input chars = 1M tokens, priced at $0.15/M for
     # gpt-4o-mini, so 10 debates -> $0.15, and 1000 signals -> $15.00.
