@@ -28,7 +28,10 @@ while :; do
   fi
   if [ "$(date +%s)" -ge "$DEADLINE_EPOCH" ]; then
     say "deadline reached -- assembling with whatever coverage exists"
-    pkill -f validate_debate_ab.py 2>/dev/null
+    # This is Git Bash on Windows: pkill/pgrep are absent, and taskkill cannot
+    # filter on a command line. Match the process through CIM instead, or the
+    # arm keeps consuming quota while the paper is being assembled behind it.
+    powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -like '*validate_debate_ab*' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force }" 2>/dev/null
     sleep 5
     break
   fi

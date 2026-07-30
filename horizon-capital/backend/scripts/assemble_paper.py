@@ -35,11 +35,26 @@ PCT = r"\%"
 EOL = r"\\"
 
 
-def _sub(text: str, old: str, new: str, what: str) -> str:
-    """Replace exactly one occurrence, failing loudly if the anchor moved."""
+def _sub_block(text: str, name: str, new: str) -> str:
+    """Replace the body between ``% BEGIN:name`` and ``% END:name``.
+
+    Marker-delimited rather than matching the placeholder text itself, so the
+    script is idempotent: it can be re-run after a longer run and will overwrite
+    its own previous output. Matching literal ``---`` rows would work exactly
+    once and then fail, which is the worst possible failure mode for something
+    that runs unattended and may need a second pass.
+    """
+    begin, end = f"% BEGIN:{name}", f"% END:{name}"
+    i, j = text.find(begin), text.find(end)
+    assert i != -1 and j != -1 and j > i, f"{name}: markers not found in paper"
+    return text[:i + len(begin)] + "\n" + new + "\n" + text[j:]
+
+
+def _sub_once(text: str, old: str, new: str, what: str) -> str:
+    """Replace one occurrence; tolerate it already being gone (idempotent)."""
     n = text.count(old)
-    assert n == 1, f"{what}: expected 1 anchor match, found {n}"
-    return text.replace(old, new)
+    assert n <= 1, f"{what}: expected at most 1 match, found {n}"
+    return text.replace(old, new) if n else text
 
 
 def load_pairs(mode: str) -> dict[tuple[str, str], dict]:
@@ -82,6 +97,15 @@ def leakage_rows() -> tuple[str, dict]:
     stats = {"paired": len(shared), "blind_approval": approval(b),
              "unblind_approval": approval(u), "agreement": agree,
              "blind_consensus": consensus(b), "unblind_consensus": consensus(u)}
+
+    # With no unblinded arm there is nothing to pair, and every cell would
+    # render as 0.0% -- indistinguishable in print from a measured result of
+    # zero. Say plainly that it was not run instead.
+    if not shared:
+        rows = (r"\multicolumn{3}{c}{\emph{Not run --- the unblinded "
+                r"sensitivity arm did not complete.}} \\")
+        return rows, stats
+
     rows = "\n".join([
         f"Debates (paired) & {len(shared)} & {len(shared)} {EOL}",
         f"Approval rate & {stats['blind_approval']:.1f}{PCT} & "
@@ -206,38 +230,15 @@ def main() -> None:
     leak_rows, leak = leakage_rows()
     tex = TEX.read_text(encoding="utf-8")
 
-    # --- Table VI -----------------------------------------------------------
-    tex = _sub(tex,
-               "Trades executed & --- & --- & --- \\\\\n"
-               "Rejection rate & n/a & --- & --- \\\\\n"
-               "Counterfactual P\\&L of rejections & n/a & --- & n/a \\\\\n"
-               "CAGR & --- & --- & --- \\\\\n"
-               "Volatility & --- & --- & --- \\\\\n"
-               "Sharpe ratio & --- & --- & --- \\\\\n"
-               "Max drawdown & --- & --- & --- \\\\\n"
-               "Turnover ($\\times$ NAV/yr) & --- & --- & --- \\\\",
-               abtest_rows(s), "Table VI rows")
+    tex = _sub_block(tex, "abtest-rows", abtest_rows(s))
+    tex = _sub_block(tex, "leak-rows", leak_rows)
+    tex = _sub_block(tex, "abtest-prose", results_prose(s, leak))
 
-    # --- Table VII (leakage) ------------------------------------------------
-    tex = _sub(tex,
-               "Debates (paired) & --- & --- \\\\\n"
-               "Approval rate & --- & --- \\\\\n"
-               "Verdict agreement with blinded & n/a & --- \\\\\n"
-               "Mean consensus score & --- & --- \\\\",
-               leak_rows, "Table VII rows")
-
-    # --- Results prose ------------------------------------------------------
-    tex = _sub(tex,
-               "\\emph{[Numbers pending completion of the run; "
-               "Tables~\\ref{tab:abtest}\nand~\\ref{tab:leak} are filled from "
-               "the harness output.]}",
-               results_prose(s, leak), "Sec. VII results prose")
-
-    # --- Title: no longer a pending draft -----------------------------------
-    tex = _sub(tex,
-               "{\\large --- Draft 1 (LLM-integration experiment pending, "
-               "Sec.~\\ref{sec:aitest}) ---}}",
-               "}", "title draft marker")
+    # Title: no longer a pending draft.
+    tex = _sub_once(tex,
+                    "{\\large --- Draft 1 (LLM-integration experiment pending, "
+                    "Sec.~\\ref{sec:aitest}) ---}}",
+                    "}", "title draft marker")
 
     TEX.write_text(tex, encoding="utf-8")
     print(f"Assembled {TEX.name}")
@@ -268,6 +269,18 @@ def _selfcheck() -> None:
         "nav_end": {"arm_a": 280000.0, "arm_b": 300000.0, "initial": 100000.0},
         "acceptance_pass": True, "placebo_verdict": "judgment adds",
     }
+    # An unpaired leakage table must announce itself, never render as zeros
+    # that read like a measured null result. Checked against whatever verdicts
+    # are actually on disk, so it covers both the pre- and post-unblind states.
+    lrows, lstats = leakage_rows()
+    if lstats["paired"] == 0:
+        assert "Not run" in lrows, lrows
+        assert "0.0" not in lrows, "unpaired table must not render zero rates"
+    else:
+        assert lrows.count(r"\\") == 4, lrows
+        for line in lrows.splitlines():
+            assert line.replace(r"\&", "").count("&") == 2, line
+
     rows = abtest_rows(s)
     assert rows.count(r"\\") == 8, rows
     # Every row must carry three data columns (four fields) for the 4-col table.
