@@ -487,6 +487,45 @@ worst of the 2008 crash. Their drawdowns here are therefore flattered; our
 relative drawdown advantage on this window is a lower bound.}
 \end{table}
 
+\subsection{Correcting for Multiple Testing}
+\label{sec:dsr}
+
+A Sharpe ratio selected as the best of several trials is biased upward, and
+Sec.~\ref{sec:method} concedes that we evaluated several sleeve mixes. Raw
+Sharpe ratios therefore overstate the evidence, and we deflate them
+(Table~\ref{tab:dsr}). The probabilistic Sharpe ratio (PSR) gives the
+probability that the \emph{true} Sharpe exceeds a benchmark after correcting
+for the skew and excess kurtosis of the realized return distribution; the
+deflated Sharpe ratio (DSR) additionally discounts for having chosen the best
+of $N$ trials \cite{bailey2014deflated}.
+
+Rather than assume a flattering trial count, we deflate using the twelve
+Sharpe ratios this project actually produced --- the full mix, four standalone
+sleeves, four leave-one-out mixes, the rejected momentum top-10 variant, and
+the holdout incumbent/candidate pair --- whose observed spread ($-0.72$ to
+$0.77$, variance $0.159$) is wide and therefore deflates harder than a generic
+assumption would. On both windows the edge survives: the probability that the
+true Sharpe beats the S\&P~500 benchmark's is 0.90 on the selection period and
+0.99 on the holdout, and the deflated probability of a positive true Sharpe
+remains 0.83 and 0.86 respectively. These are meaningfully below the
+undeflated figures, which is the point of reporting them.
+
+\begin{table}[t]
+\caption{Probabilistic and deflated Sharpe ratios for the production mix.
+PSR corrects for non-normality; DSR additionally deflates for selection
+across the 12 strategy variants this project evaluated.}
+\label{tab:dsr}
+\centering
+\begin{tabular}{lccccc}
+\toprule
+Window & Days & SR & PSR$>$0 & PSR$>$SPY & DSR \\
+\midrule
+Selection 2018--2024 & 1{,}760 & 0.77 & 0.996 & 0.897 & 0.833 \\
+Holdout 2008--2017 & 2{,}517 & 0.70 & 0.999 & 0.986 & 0.863 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{An Adverse Result: Prediction-Market Momentum}
 \label{sec:polymarket}
 
@@ -693,12 +732,27 @@ delistings); this residual survivorship bias affects all compared arms and
 the benchmark-relative ordering equally, but absolute return levels should
 be read with it in mind. Sharpe
 estimates on a single historical path overstate certainty
-\cite{bailey2014deflated}; our gates mitigate but cannot eliminate this.
-The debate gate's marginal contribution to portfolio outcomes --- as opposed
-to its audit value --- has not yet been isolated; Sec.~\ref{sec:aitest}
-pre-registers that experiment for Draft~2. LLM judgments inherit the biases
-of their training corpora.
+\cite{bailey2014deflated}; Sec.~\ref{sec:dsr} deflates for this but cannot
+eliminate it. LLM judgments inherit the biases of their training corpora.
 The prediction-market study covers few markets over a short window.
+
+Four limitations attach specifically to the debate-gate experiment of
+Sec.~\ref{sec:aitest}. First, it is a \emph{replay}: the panel judges
+historical signals rather than trading forward, which buys the sample size the
+pre-registered metrics need at the cost of the leakage risk quantified in
+Table~\ref{tab:leak}. Blinding removes the security's identity and date, but
+an extreme feature combination can still narrow the era, so the residual is
+bounded rather than zero. Second, the panel ran on a \emph{single} provider.
+The architecture assigns roles across model families and the mechanism is
+exercised in live operation, but the reported experiment does not demonstrate
+cross-family diversity, and same-family debaters may share failure modes that
+independent families would not. Third, the \textsc{sentiment} role abstains
+structurally in replay: no point-in-time news archive is available, and the
+role is instructed to abstain rather than guess, so roughly one voice in four
+contributes little to the reported verdicts. Fourth, the gate was evaluated in
+its \emph{deployed} configuration, judging the strongest signals within a
+budget rather than every signal; the effect of gating the full stream is
+unmeasured and would require an order of magnitude more model calls.
 
 \section{Conclusion}
 

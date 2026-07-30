@@ -666,17 +666,26 @@ def execute(stream: list[dict], verdicts: dict[str, dict] | None, mode: str,
 # Phase 4 -- counterfactual P&L of vetoed trades
 # ----------------------------------------------------------------------------
 
-def counterfactual_pnl(rejected: list[dict], closes: pd.DataFrame,
-                       opens: pd.DataFrame, calendar: pd.DatetimeIndex) -> dict:
+def counterfactual_pnl(rejected: list[dict], all_signals: list[dict],
+                       closes: pd.DataFrame, opens: pd.DataFrame,
+                       calendar: pd.DatetimeIndex) -> dict:
     """What the vetoed trades would have earned, in NAV percentage points.
 
     Each rejected signal is a weight change ``dw`` that never happened. Its
     counterfactual contribution is ``dw x forward return`` from the fill bar
     (t+1 open) to the next signal on that symbol -- the horizon the position
     would actually have been held for. Positive total = the gate cost money.
+
+    The horizon must close at the next signal of ANY kind on that symbol, not
+    merely the next rejected one. Building it from rejections alone leaves a
+    symbol that is vetoed once and re-signalled later with no closing date, so
+    it is marked as held to the end of the window: a 2018 veto on NVDA scores a
+    6.5-year +1900% move against the gate and the aggregate reaches several
+    hundred percent of NAV, which is an artifact of the horizon rather than a
+    finding.
     """
     next_signal: dict[str, list[pd.Timestamp]] = {}
-    for sig in rejected:
+    for sig in all_signals:
         next_signal.setdefault(sig["symbol"], []).append(pd.Timestamp(sig["date"]))
 
     total = 0.0
@@ -694,7 +703,7 @@ def counterfactual_pnl(rejected: list[dict], closes: pd.DataFrame,
         if np.isnan(entry) or entry <= 0:
             continue
         # Hold until the next signal on this symbol, else to the end of the run.
-        later = [d for d in next_signal[sym] if d > pd.Timestamp(sig["date"])]
+        later = [d for d in next_signal.get(sym, []) if d > pd.Timestamp(sig["date"])]
         exit_date = min(later) if later else calendar[-1]
         px = closes[sym].loc[:exit_date].dropna()
         if px.empty:
@@ -1001,7 +1010,7 @@ async def amain() -> None:
                                     args.capital, args.undebated)
     m_b = metrics(eq_b, "Arm B (gate on)", gross_b)
     m_b.update(info_b)
-    cf = counterfactual_pnl(info_b["rejected"], closes, opens, cal)
+    cf = counterfactual_pnl(info_b["rejected"], signals, closes, opens, cal)
 
     print(f"\n{'arm':22s} {'CAGR%':>7s} {'vol%':>6s} {'Sharpe':>7s} {'maxDD%':>7s} "
           f"{'gross%':>7s} {'fills':>6s} {'turn':>6s}")
@@ -1078,6 +1087,40 @@ async def amain() -> None:
     (PAPER_DIR / f"debate_ab_table_{args.mode}.tex").write_text(latex + "\n", encoding="utf-8")
     print(f"\nWrote {PAPER_DIR / f'debate_ab_table_{args.mode}.tex'}")
 
+    # Machine-readable summary so the paper can be assembled without a human
+    # re-reading this log and retyping numbers into LaTeX.
+    summary = {
+        "mode": args.mode,
+        "window": [args.start, args.end],
+        "signals_total": len(signals),
+        "signals_debated": len(signals) - missing,
+        "coverage_pct": 100 - pct,
+        "undebated_policy": args.undebated,
+        "weight_coverage_pct": (
+            sum(abs(s["target_weight"] - s["previous_weight"])
+                for s in signals if _cache_key(args.mode, s) in verdicts)
+            / sum(abs(s["target_weight"] - s["previous_weight"]) for s in signals) * 100),
+        "arm_a": {k: m_a[k] for k in
+                  ("CAGR%", "vol%", "Sharpe", "maxDD%", "avgGross%", "fills", "turnover")},
+        "arm_b": {k: m_b[k] for k in
+                  ("CAGR%", "vol%", "Sharpe", "maxDD%", "avgGross%", "fills", "turnover")},
+        "arm_c": {"sharpe_mean": pl["sharpe_mean"], "sharpe_std": pl["sharpe_std"],
+                  "sharpe_p5": pl["sharpe_p5"], "sharpe_p95": pl["sharpe_p95"],
+                  "fills_mean": pl["fills_mean"], "trials": pl["trials"],
+                  "beat": beat, "p_empirical": p_emp},
+        "gate": stats,
+        "counterfactual": {k: cf[k] for k in ("total_pct", "counted", "win_rate")},
+        "examples": sorted(cf["detail"], key=lambda d: d["contrib_pct"])[:6]
+        + sorted(cf["detail"], key=lambda d: -d["contrib_pct"])[:6],
+        "nav_end": {"arm_a": float(eq_a.iloc[-1]), "arm_b": float(eq_b.iloc[-1]),
+                    "initial": args.capital},
+        "acceptance_pass": bool(passes),
+        "placebo_verdict": placebo_verdict,
+    }
+    out = PAPER_DIR / f"debate_ab_summary_{args.mode}.json"
+    out.write_text(json.dumps(summary, indent=1, default=float), encoding="utf-8")
+    print(f"Wrote {out}")
+
 
 def _selfcheck() -> None:
     """Runnable check of the arm logic -- no data, no network, no LLM."""
@@ -1116,7 +1159,7 @@ def _selfcheck() -> None:
     assert d["fills"] == a["fills"], (d, a)
 
     # Counterfactual: vetoed +20% weight into a name that doubled = +20% * 100%.
-    cf = counterfactual_pnl(b["rejected"], px, px, cal)
+    cf = counterfactual_pnl(b["rejected"], [sig], px, px, cal)
     assert abs(cf["total_pct"] - 20.0) < 1e-6, cf
     assert cf["counted"] == 1 and cf["win_rate"] == 100.0
     # Per-trade detail must reconstruct the aggregate, or the examples shown to
