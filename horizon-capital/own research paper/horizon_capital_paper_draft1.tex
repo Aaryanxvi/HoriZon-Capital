@@ -559,50 +559,117 @@ regression pins on the validated mix weights and on cash/P\&L consistency.
 \section{Planned Experiment: Isolating the Debate Gate}
 \label{sec:aitest}
 
-\emph{[Reserved for Draft 2 --- to be completed after AI integration testing.]}
+The results above isolate the rule-based signal layer. What they do not
+measure is the marginal contribution of the LLM debate gate itself. This
+section reports that experiment.
 
-The results above isolate the rule-based signal layer. What they do not yet
-measure is the marginal contribution of the LLM debate gate itself. Once LLM
-providers are re-integrated, we will run the following pre-registered A/B
-experiment and report it here:
+\textbf{Design.} Two arms consume an \emph{identical} signal stream under an
+identical fill model: (A) debate gate disabled --- every risk-approved signal
+executes; (B) debate gate binding --- a signal executes only on an
+\textsc{approved} conclusion from the multi-model debate of
+Sec.~\ref{sec:debate}, and a rejected signal leaves that symbol at its
+previous target weight, so the gate vetoes entries and exits alike. Sizing,
+risk limits and execution are shared, so divergence is attributable to the
+gate alone. Sleeve targets are a pure function of bars and date rather than of
+the portfolio, which is what allows both arms to consume a byte-identical
+signal stream even after their holdings diverge.
 
-\textbf{Design.} Two arms consume the \emph{identical} live signal stream in
-paper-trading mode over the same window: (A) debate gate disabled ---
-every risk-approved signal executes; (B) debate gate binding --- signals
-execute only on \textsc{approved} conclusions from the multi-model debate of
-Sec.~\ref{sec:debate}. Both arms share sizing, risk limits, and execution
-models, so any divergence in outcomes is attributable to the gate.
+\textbf{Replay rather than forward test.} The pre-registered metrics include
+Sharpe, maximum drawdown and turnover, which require hundreds of trades; live
+paper trading emits a handful per week. We therefore replay the production mix
+over the 2018--2024 PIT window and route every signal the live StrategyAgent
+would have emitted (the same 50~bp drift rule) through the real debate engine.
+As a pre-registered validity check, arm~A must reproduce the published
+production mix of Table~\ref{tab:sel} within $\pm 0.02$ Sharpe before any LLM
+is called; it does (0.78 vs.\ 0.77, maximum drawdown $-18.0\%$ in both), which
+establishes that the replayed system is the published one.
+
+\textbf{Hindsight leakage, measured rather than assumed away.} An LLM trained
+on data after the evaluation window may recall what a given stock did. Our
+primary arm therefore \emph{blinds} the panel: the prompt carries no ticker, no
+date and no price level, only scale-free features (cross-sectional momentum
+percentile, distance from the 200-day average, realized volatility, drawdown
+from the 52-week high, correlation to the index, and the regime label). A
+debater sees ``\textsc{asset} (identity withheld)'' and six numbers that
+describe thousands of (security, date) pairs, so there is no key with which to
+retrieve an outcome. A secondary \emph{unblinded} arm restores the ticker and
+the as-of date on the same signals; the paired difference in verdicts is our
+estimate of exploitable leakage, and is reported in
+Table~\ref{tab:leak}.
+
+\textbf{Deployed configuration.} The live DebateAgent does not debate every
+signal: a cost gate spends a bounded daily budget on the strongest signals and
+releases the remainder un-debated. Arm~B reproduces that behaviour --- the
+strongest signals are judged by the panel and the rest trade on the quant
+signal --- so the measured effect is the effect on the system as deployed
+rather than on a hypothetical one that debates everything. The coverage
+achieved is reported with the result.
+
+\textbf{Arm C: a rate-matched random gate.} A gate that vetoes a large share of
+trades mechanically reduces exposure and turnover, and in a trending sample
+that alone can move the Sharpe ratio. ``Arm~B beat arm~A'' would therefore not
+establish that the panel chose \emph{well}, only that it traded \emph{less}. We
+add a control that holds the rejection rate at arm~B's measured value while
+destroying the choice, accepting at random; twenty-five such gates give a null
+distribution. Arm~B counts as evidence of judgment only if it clears that
+distribution.
 
 \textbf{Pre-registered metrics.} (i) approval/rejection/abstention rates and
-per-role vote distributions; (ii) counterfactual P\&L of rejected trades
-(would the vetoed trades have made or lost money?); (iii) arm-level Sharpe,
-maximum drawdown, and turnover deltas; (iv) provider-disagreement rate and
-its correlation with subsequent realized volatility; (v) gate latency and
-cost per decision.
+per-role vote distributions; (ii) counterfactual P\&L of rejected trades ---
+for each veto, the weight change that never happened multiplied by the realized
+forward return over the horizon the position would have been held; (iii)
+arm-level CAGR, Sharpe, maximum drawdown and turnover; (iv) provider- and
+role-disagreement rates; (v) gate latency and cost per decision.
 
 \textbf{Acceptance criterion (fixed in advance).} The gate earns a permanent
 place in the autonomous pipeline if arm~B's risk-adjusted return is at least
 equal to arm~A's \emph{and} the counterfactual P\&L of rejected trades is
 non-positive; otherwise the gate reverts to advisory-only. Consistent with
-Sec.~\ref{sec:method}, an adverse result will be reported, not hidden.
+Sec.~\ref{sec:method}, an adverse result is reported, not hidden.
+
+\subsection{Results}
+\label{sec:abresults}
+
+\emph{[Numbers pending completion of the run; Tables~\ref{tab:abtest}
+and~\ref{tab:leak} are filled from the harness output.]}
 
 \begin{table}[t]
-\caption{Debate-gate A/B results. \emph{[To be completed in Draft 2 after
-AI integration testing.]}}
+\caption{Debate-gate A/B, blinded panel, PIT 2018--2024. Identical signal
+stream and fill model across arms. Arm~C holds arm~B's rejection rate but
+chooses at random (25 trials, mean $\pm$ s.d.).}
 \label{tab:abtest}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Metric & A (no gate) & B (gate on) & C (random) \\
+\midrule
+Trades executed & --- & --- & --- \\
+Rejection rate & n/a & --- & --- \\
+Counterfactual P\&L of rejections & n/a & --- & n/a \\
+CAGR & --- & --- & --- \\
+Volatility & --- & --- & --- \\
+Sharpe ratio & --- & --- & --- \\
+Max drawdown & --- & --- & --- \\
+Turnover ($\times$ NAV/yr) & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Hindsight-leakage sensitivity: the same signals judged with the
+security's identity and date withheld (primary) and restored (sensitivity).
+A large gap would indicate the panel is recalling outcomes rather than
+reasoning from features.}
+\label{tab:leak}
 \centering
 \begin{tabular}{lcc}
 \toprule
-Metric & Arm A (no gate) & Arm B (gate on) \\
+Metric & Blinded & Unblinded \\
 \midrule
-Trades executed & --- & --- \\
-Rejection rate & n/a & --- \\
-Counterfactual P\&L of rejections & n/a & --- \\
-CAGR & --- & --- \\
-Volatility & --- & --- \\
-Sharpe ratio & --- & --- \\
-Max drawdown & --- & --- \\
-Turnover & --- & --- \\
+Debates (paired) & --- & --- \\
+Approval rate & --- & --- \\
+Verdict agreement with blinded & n/a & --- \\
+Mean consensus score & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}

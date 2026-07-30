@@ -357,7 +357,8 @@ def _signal_payload(sig: dict, mode: str) -> tuple[str, dict]:
 async def run_debates(signals: list[dict], mode: str, concurrency: int,
                       cache_path: Path, limit: int | None,
                       model_overrides: dict[str, str],
-                      only: list[str] | None = None) -> dict[str, dict]:
+                      only: list[str] | None = None,
+                      rpm: float = 0.0) -> dict[str, dict]:
     """Debate every signal once; return {cache_key: verdict record}."""
     from app.agents.debate.multi_model_debate import MultiModelDebateEngine
     from app.llm.provider_registry import provider_registry
@@ -424,6 +425,24 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
     lock = asyncio.Lock()
     fh = cache_path.open("a", encoding="utf-8")
 
+    # Proactive pacing. A rejected request still decrements the provider's
+    # request budget, so reacting to 429s burns quota for nothing. Start at most
+    # one debate per `interval`, keeping consumption under the refill rate.
+    interval = (8 * 60.0 / rpm) if rpm else 0.0
+    next_start = 0.0
+    pace_lock = asyncio.Lock()
+
+    async def pace() -> None:
+        nonlocal next_start
+        if not interval:
+            return
+        async with pace_lock:
+            now = time.monotonic()
+            wait = max(0.0, next_start - now)
+            next_start = max(now, next_start) + interval
+        if wait:
+            await asyncio.sleep(wait)
+
     async def one(sig: dict) -> None:
         nonlocal done
         key = _cache_key(mode, sig)
@@ -439,6 +458,7 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
         for attempt in range(RETRIES):
             if aborted:
                 return
+            await pace()
             rec = await attempt_debate(sig, key, symbol, signal_data, action, regime)
             if rec["decision"] != "ERROR":
                 break
@@ -538,13 +558,23 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
 
 def execute(stream: list[dict], verdicts: dict[str, dict] | None, mode: str,
             closes: pd.DataFrame, opens: pd.DataFrame, calendar: pd.DatetimeIndex,
-            capital: float):
+            capital: float, undebated: str = "reject"):
     """Replay one arm. ``verdicts=None`` -> Arm A (every signal executes).
 
     Arm B applies a signal only on an APPROVED verdict; a rejected signal leaves
     that symbol pinned at its previous target, which is what a binding gate does
-    to entries and exits alike. Missing/ERROR verdicts fail CLOSED (rejected),
-    matching the live engine's no-provider semantics.
+    to entries and exits alike.
+
+    ``undebated`` decides what happens to a signal carrying no verdict:
+
+    ``reject``      fail closed, matching the live engine when no LLM provider
+                    is available. Only valid at full verdict coverage, since
+                    otherwise missing debates masquerade as gate decisions.
+    ``passthrough`` execute it un-debated, matching the live cost gate: the
+                    DebateAgent debates only the strongest signals within a
+                    daily budget and releases the rest APPROVED
+                    (``_emit_passthrough``). This makes a partial run a faithful
+                    model of the deployed system rather than a truncated one.
     """
     by_bar: dict[int, dict] = {}
     for rec in stream:
@@ -612,6 +642,11 @@ def execute(stream: list[dict], verdicts: dict[str, dict] | None, mode: str,
                 effective[sig["symbol"]] = sig["target_weight"]
                 continue
             rec = verdicts.get(_cache_key(mode, sig))
+            if rec is None and undebated == "passthrough":
+                # Live cost-gate behaviour: un-debated signals trade on the
+                # quant signal alone. Not a gate decision, so not a rejection.
+                effective[sig["symbol"]] = sig["target_weight"]
+                continue
             if rec is not None and rec.get("decision") == "APPROVED":
                 effective[sig["symbol"]] = sig["target_weight"]
             else:
@@ -721,7 +756,7 @@ def print_examples(cf: dict, n: int = 6) -> None:
 def placebo_arms(stream: list[dict], signals: list[dict], mode: str,
                  reject_rate: float, closes: pd.DataFrame, opens: pd.DataFrame,
                  calendar: pd.DatetimeIndex, capital: float,
-                 trials: int = 25) -> dict:
+                 trials: int = 25, undebated: str = "reject") -> dict:
     """Arm C: gates that reject at Arm B's rate but choose at random.
 
     A gate that vetoes 40% of trades mechanically cuts exposure and turnover,
@@ -742,7 +777,8 @@ def placebo_arms(stream: list[dict], signals: list[dict], mode: str,
             h = int(hashlib.sha1(f"{trial}|{key}".encode()).hexdigest()[:8], 16)
             approve = (h % 10_000) / 10_000.0 >= reject_rate
             fake[key] = {"decision": "APPROVED" if approve else "REJECTED", "mode": mode}
-        eq, gross, info = execute(stream, fake, mode, closes, opens, calendar, capital)
+        eq, gross, info = execute(stream, fake, mode, closes, opens, calendar,
+                                  capital, undebated)
         sharpes.append(metrics(eq, "placebo", gross)["Sharpe"])
         fills.append(info["fills"])
     arr = np.array(sharpes)
@@ -819,6 +855,11 @@ async def amain() -> None:
                    help="cap debates this run (pilot / budget control); resumes later")
     p.add_argument("--dry-run", action="store_true",
                    help="build the signal stream and stop -- no LLM calls, no cost")
+    p.add_argument("--rpm", type=float, default=0.0,
+                   help="cap provider REQUESTS per minute (8 per debate). Set to "
+                        "the account's refill rate so a run never outpaces its "
+                        "quota -- rejected requests still consume it, so pacing "
+                        "beats reacting to 429s. 0 disables pacing.")
     p.add_argument("--rebuild-bars", action="store_true",
                    help="refetch prices and rebuild the signal stream instead of "
                         "using the on-disk cache")
@@ -830,6 +871,15 @@ async def amain() -> None:
                    help="comma-separated subset to debate with, e.g. 'openai'. "
                         "Use to exclude a registered-but-out-of-quota provider, "
                         "whose failed calls would otherwise register as ABSTAIN.")
+    p.add_argument("--undebated", choices=("reject", "passthrough"), default="reject",
+                   help="what an un-debated signal does in Arm B. 'reject' fails "
+                        "closed and needs full coverage; 'passthrough' mirrors the "
+                        "live cost gate, making a partial run a faithful model of "
+                        "the deployed system.")
+    p.add_argument("--strongest", type=int, default=None,
+                   help="debate the N strongest signals (live debates strongest "
+                        "first within its daily budget). Combine with "
+                        "--undebated passthrough for the deployed configuration.")
     p.add_argument("--sample", type=int, default=None,
                    help="debate a deterministic evenly-spaced subsample of N "
                         "signals. For the unblind sensitivity arm, which is a "
@@ -913,28 +963,42 @@ async def amain() -> None:
 
     cache_path = PAPER_DIR / f"debate_ab_verdicts_{args.mode}.jsonl"
     only = [s.strip() for s in args.providers.split(",")] if args.providers else None
-    to_debate = subsample(signals, args.sample) if args.sample else signals
-    if args.sample:
+    to_debate = signals
+    if args.strongest:
+        # Live spends its debate budget on the strongest signals first, so
+        # taking the top N by strength reproduces which trades get judged.
+        to_debate = sorted(signals, key=lambda s: -s["strength"])[:args.strongest]
+        cov = (sum(abs(s["target_weight"] - s["previous_weight"]) for s in to_debate)
+               / sum(abs(s["target_weight"] - s["previous_weight"]) for s in signals))
+        print(f"Debating the {len(to_debate)} strongest of {len(signals)} signals "
+              f"({cov:.0%} of all traded weight); the rest {args.undebated}.")
+    elif args.sample:
+        to_debate = subsample(signals, args.sample)
         print(f"Subsampling {len(to_debate)} of {len(signals)} signals "
               f"(paired sensitivity arm -- no publishable Arm B from this run)")
     verdicts = await run_debates(to_debate, args.mode, args.concurrency, cache_path,
-                                 args.limit, model_overrides, only)
+                                 args.limit, model_overrides, only, args.rpm)
 
     stats = _vote_stats(verdicts, args.mode)
     missing = sum(1 for s in signals if _cache_key(args.mode, s) not in verdicts)
 
     print("\n" + project_cost(verdicts, args.mode, len(signals)))
 
-    if missing:
-        pct = missing / len(signals) * 100
+    pct = missing / len(signals) * 100 if signals else 0.0
+    if missing and args.undebated == "passthrough":
+        print(f"\nCoverage: {len(signals) - missing} of {len(signals)} signals "
+              f"debated ({100 - pct:.1f}%); the remaining {missing} traded "
+              f"un-debated, as the live cost gate releases them. Arm B below is "
+              f"the DEPLOYED configuration, not a fully-gated one.")
+    elif missing:
         print(f"\n[WARN] {missing} of {len(signals)} signals ({pct:.1f}%) have no "
               f"verdict. Un-debated signals FAIL CLOSED, so Arm B below is NOT a "
               f"scaled-down version of the full result -- it is mostly forced "
-              f"rejections. Re-run without --limit to complete; verdicts already "
-              f"paid for are cached and will not be re-charged.")
+              f"rejections. Re-run to complete, or pass --undebated passthrough "
+              f"to model the live cost gate. Cached verdicts are not re-charged.")
 
     eq_b, gross_b, info_b = execute(stream, verdicts, args.mode, closes, opens, cal,
-                                    args.capital)
+                                    args.capital, args.undebated)
     m_b = metrics(eq_b, "Arm B (gate on)", gross_b)
     m_b.update(info_b)
     cf = counterfactual_pnl(info_b["rejected"], closes, opens, cal)
@@ -977,7 +1041,11 @@ async def amain() -> None:
     rate = stats["rejected"] / stats["debates"] if stats["debates"] else 0.0
     print(f"\nRunning {25} placebo gates at Arm B's {rate:.1%} rejection rate "
           f"(random choice, no LLM)...")
-    pl = placebo_arms(stream, signals, args.mode, rate, closes, opens, cal, args.capital)
+    # Randomise only the signals the panel actually judged, so Arm C differs
+    # from Arm B in exactly one thing: the choice, not the coverage.
+    judged = [s for s in signals if _cache_key(args.mode, s) in verdicts]
+    pl = placebo_arms(stream, judged, args.mode, rate, closes, opens, cal,
+                      args.capital, undebated=args.undebated)
     beat = sum(1 for s in pl["sharpes"] if m_b["Sharpe"] > s)
     p_emp = 1 - beat / pl["trials"]
     placebo_verdict = ("judgment adds beyond trading less" if p_emp <= 0.05
@@ -995,12 +1063,14 @@ async def amain() -> None:
     print("\nPRE-REGISTERED ACCEPTANCE "
           f"(Sharpe_B >= Sharpe_A AND counterfactual <= 0): {verdict}")
 
-    # A table built on incomplete verdict coverage would misrepresent the gate.
-    # Withhold it rather than let a pilot's numbers reach the paper by accident.
-    if missing > len(signals) * 0.01:
-        print("\nTable withheld: verdict coverage is incomplete, so these Arm B "
-              "numbers are diagnostics only and must not be published. "
-              "Complete the run to emit the table.")
+    # Under fail-closed semantics an incomplete run's Arm B is mostly forced
+    # rejections, which would read as a gate decision. Withhold the table.
+    # Under pass-through it is the deployed configuration and is publishable,
+    # provided the coverage travels with it.
+    if missing > len(signals) * 0.01 and args.undebated == "reject":
+        print("\nTable withheld: verdict coverage is incomplete under fail-closed "
+              "semantics, so these Arm B numbers are diagnostics only. Complete "
+              "the run, or pass --undebated passthrough to model the live gate.")
         return
 
     latex = emit_latex(m_a, m_b, cf, stats, args.mode)
@@ -1027,9 +1097,18 @@ def _selfcheck() -> None:
     assert b["fills"] == 0, b
     assert len(b["rejected"]) == 1
 
-    # A missing verdict must fail CLOSED, not silently execute.
+    # A missing verdict must fail CLOSED by default, not silently execute.
     _, _, c = execute(stream, {}, "blind", px, px, cal, 100_000.0)
     assert c["fills"] == 0 and c["rejected"][0]["verdict"] == "MISSING", c
+
+    # ...but under live cost-gate semantics it trades un-debated, and is NOT
+    # counted as a gate rejection (it never reached the panel).
+    _, _, pt = execute(stream, {}, "blind", px, px, cal, 100_000.0, "passthrough")
+    assert pt["fills"] == a["fills"], (pt, a)
+    assert pt["rejected"] == [], pt["rejected"]
+    # An explicit REJECT still binds under passthrough -- only absence changes.
+    _, _, pr = execute(stream, rej, "blind", px, px, cal, 100_000.0, "passthrough")
+    assert pr["fills"] == 0 and len(pr["rejected"]) == 1, pr
 
     # An APPROVED verdict executes exactly like Arm A.
     ok = {_cache_key("blind", sig): {"decision": "APPROVED", "mode": "blind"}}
