@@ -144,6 +144,15 @@ def _build_user_prompt(
     else:
         lines.append("- No risk metrics available")
 
+    # Optional numeric grounding from the signal itself. Kept generic so the
+    # same block serves live signals and the blinded A/B harness, which relies
+    # on these features being the ONLY thing identifying the trade.
+    features = signal_data.get("features")
+    if features:
+        lines.append("")
+        lines.append("## Signal Features")
+        lines.extend(f"- {k}: {v}" for k, v in features.items())
+
     lines.extend(
         [
             "",

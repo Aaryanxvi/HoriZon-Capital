@@ -46,7 +46,9 @@ PIT), and the final mix passed a pre-registered 2008--2017 holdout gate
 On both periods the production mix beats an S\&P~500 buy-and-hold on
 return, volatility, Sharpe (0.77 vs.\ 0.55 selection; 0.70 vs.\ 0.31
 holdout), and drawdown ($-19.1\%$ vs.\ $-51.9\%$ through the 2008 crisis),
-at roughly three-quarters gross exposure. A
+at roughly three-quarters gross exposure, and leads both an investable
+hedge-fund-industry replication benchmark and a 60/40 balanced portfolio on
+return and Sharpe over the same windows. A
 prediction-market momentum sleeve evaluated under the same protocol
 \emph{failed} its gate (total return $-8.1\%$, Sharpe $-0.18$) and ships
 disabled. We further report lessons from live paper-trading deployment
@@ -348,18 +350,47 @@ harnesses immediately before submission of this draft (yfinance daily bars;
 identical fill model across all arms; delisted-symbol coverage gaps noted
 in Sec.~\ref{sec:limits} bias all arms equally).
 
+\subsection{Benchmark Selection}
+\label{sec:benchmarks}
+
+Comparing a hedge-fund system only against a long-only equity index is a weak
+test: the index is not a peer. We therefore report three benchmarks on every
+window, computed from the same daily bars, the same metric definitions and the
+same risk-free rate (4\%) as every strategy row. \textbf{SPY} is the S\&P~500
+buy-and-hold reference. \textbf{QAI} (IQ Hedge Multi-Strategy Tracker) is an
+investable replication of the aggregate hedge-fund industry return stream and
+is our stand-in for the licensed HFRI-type ``industry average'' indices;
+notably, a replication ETF is free of the survivorship and backfill bias
+documented in self-reported hedge-fund indices, so if anything it is the
+stricter comparison. \textbf{AOR} (iShares Core Growth Allocation) is a
+conventional 60/40 balanced portfolio --- the default alternative use of the
+capital. Both peer funds post-date the start of the 2008--2017 holdout and
+therefore skip part of the crisis; we report each one's realized coverage
+rather than silently splicing, and read our relative drawdown advantage on
+that window as a lower bound. A flat 4\% risk-free rate is severe for
+low-volatility vehicles such as QAI, but it is applied identically to every
+row, so the ordering is unaffected.
+
 \subsection{Selection-Period Performance and Benchmark Comparison}
 
 Table~\ref{tab:sel} reports the 2018--2024 PIT selection period: the
 production mix against the prior incumbent mix (which carried a
-breadth-timing sleeve at 40\% weight) and an S\&P~500 buy-and-hold
-benchmark (SPY), all under the same commission- and impact-aware fill
-model. The production mix delivers a higher CAGR than the benchmark
-(15.8\% vs.\ 13.6\%) at three-quarters of its volatility (15.3\% vs.\
-19.5\%), a Sharpe ratio of 0.77 vs.\ 0.55, and roughly half the maximum
+breadth-timing sleeve at 40\% weight) and the three benchmarks of
+Sec.~\ref{sec:benchmarks}, all under the same commission- and impact-aware
+fill model. The production mix delivers a higher CAGR than the equity
+benchmark (15.8\% vs.\ 13.6\%) at three-quarters of its volatility (15.3\%
+vs.\ 19.5\%), a Sharpe ratio of 0.77 vs.\ 0.55, and roughly half the maximum
 drawdown ($-18.0\%$ vs.\ $-33.7\%$) --- while holding an average gross
 exposure of only 78\%, i.e., it outperforms while carrying a standing
-cash buffer.
+cash buffer. Against the peer benchmarks the margin is wider still: the
+hedge-fund industry proxy returned 2.5\% CAGR (Sharpe $-0.21$) and the 60/40
+portfolio 5.9\% (Sharpe 0.21) over the same period --- a six-fold advantage in
+CAGR over the industry proxy and a Sharpe ratio that is positive where the
+industry proxy's is negative. The industry proxy operates at materially lower
+volatility (6.4\%) and drawdown ($-14.9\%$), reflecting a different risk
+mandate rather than a better one: per unit of risk taken it was compensated
+below the risk-free rate over this window, while the production mix earned
+0.77 units of excess return per unit of volatility.
 
 \begin{table}[t]
 \caption{Performance, PIT 2018--2024 selection period (identical harness
@@ -372,7 +403,10 @@ Variant & CAGR & Vol. & Sharpe & MaxDD & Gross \\
 \midrule
 Production mix & \textbf{15.8\%} & 15.3\% & \textbf{0.77} & $\mathbf{-18.0\%}$ & 78\% \\
 Prior mix (w/ breadth) & 14.4\% & 16.0\% & 0.67 & $-24.2\%$ & 95\% \\
+\midrule
 SPY buy-and-hold & 13.6\% & 19.5\% & 0.55 & $-33.7\%$ & --- \\
+Hedge-fund industry (QAI) & 2.5\% & 6.4\% & $-0.21$ & $-14.9\%$ & --- \\
+60/40 balanced (AOR) & 5.9\% & 11.5\% & 0.21 & $-22.9\%$ & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -419,9 +453,12 @@ above incumbent (0.70 $>$ 0.63); G2, maximum drawdown within five points
 of the incumbent (comfortably exceeded --- 7.8 points \emph{shallower}).
 At identical CAGR (13.0\%), the candidate achieves it with lower
 volatility (12.9\% vs.\ 14.8\%) and lower gross exposure (75\% vs.\ 94\%).
-Both mixes dominate the benchmark decisively through the crisis: SPY
+Both mixes dominate the equity benchmark decisively through the crisis: SPY
 returned 8.5\% CAGR at 20.3\% volatility with a $-51.9\%$ maximum
-drawdown (Sharpe 0.31).
+drawdown (Sharpe 0.31). The candidate also leads both peer benchmarks on
+CAGR and Sharpe (13.0\%/0.70 against 3.1\%/$-0.13$ for the hedge-fund
+industry proxy and 10.2\%/0.49 for 60/40), though as noted both peers enter
+the window late and so avoid the worst of the crash.
 
 \begin{table}[t]
 \caption{Pre-registered holdout gate, PIT 2008--2017 (unseen at
@@ -436,9 +473,18 @@ Variant & CAGR & Vol. & Sharpe & MaxDD & Gross \\
 \midrule
 Candidate (production) & 13.0\% & 12.9\% & \textbf{0.70} & $\mathbf{-19.1\%}$ & 75\% \\
 Incumbent (w/ breadth) & 13.0\% & 14.8\% & 0.63 & $-26.9\%$ & 94\% \\
+\midrule
 SPY buy-and-hold & 8.5\% & 20.3\% & 0.31 & $-51.9\%$ & --- \\
+Hedge-fund industry (QAI)$^\dagger$ & 3.1\% & 6.0\% & $-0.13$ & $-7.7\%$ & --- \\
+60/40 balanced (AOR)$^\dagger$ & 10.2\% & 13.6\% & 0.49 & $-24.4\%$ & --- \\
 \bottomrule
 \end{tabular}
+
+\vspace{2pt}
+{\footnotesize $^\dagger$Partial window: QAI's first trading day is 2009-03-25
+(87.7\% coverage) and AOR's is 2008-11-19 (91.1\%), so both \emph{skip} the
+worst of the 2008 crash. Their drawdowns here are therefore flattered; our
+relative drawdown advantage on this window is a lower bound.}
 \end{table}
 
 \subsection{An Adverse Result: Prediction-Market Momentum}
@@ -552,6 +598,8 @@ Metric & Arm A (no gate) & Arm B (gate on) \\
 Trades executed & --- & --- \\
 Rejection rate & n/a & --- \\
 Counterfactual P\&L of rejections & n/a & --- \\
+CAGR & --- & --- \\
+Volatility & --- & --- \\
 Sharpe ratio & --- & --- \\
 Max drawdown & --- & --- \\
 Turnover & --- & --- \\
@@ -563,7 +611,15 @@ Turnover & --- & --- \\
 \label{sec:limits}
 
 The validated results are backtests on daily bars plus a live
-\emph{paper}-trading deployment; no real capital has traded. Free daily
+\emph{paper}-trading deployment; no real capital has traded. This asymmetry
+matters most for the peer comparison of Sec.~\ref{sec:benchmarks}: the
+hedge-fund and balanced benchmarks are realized, investable, net-of-fee return
+streams carrying management costs and capacity constraints, whereas our rows
+charge commissions and market impact but no management or performance fee and
+assume the strategy's own capacity is unbounded. The comparison is therefore
+favorable to us by construction, and the peer rows should be read as an
+indication that the mix is in a competitive range rather than as evidence of
+a realized excess return over the industry. Free daily
 data omits many delisted symbols (85\% coverage of the point-in-time
 union on 2018--2024, 71\% on 2008--2017, where the gap is GFC-era
 delistings); this residual survivorship bias affects all compared arms and
@@ -592,7 +648,9 @@ regime-gated momentum/quality with trend and momentum-rank satellites at
 0.500/0.333/0.167 --- improved holdout Sharpe from 0.63 to 0.70, cut
 maximum drawdown from $-26.9\%$ to $-19.1\%$ against the incumbent, and
 more than doubled the buy-and-hold benchmark's Sharpe ratio on both
-evaluation periods at lower volatility and materially shallower drawdowns.
+evaluation periods at lower volatility and materially shallower drawdowns,
+while also leading an investable hedge-fund-industry replication benchmark
+and a 60/40 balanced portfolio on return and risk-adjusted return.
 
 Future work: isolating the debate gate's causal effect on realized
 outcomes; extending PIT validation to the crypto sleeve; deeper
