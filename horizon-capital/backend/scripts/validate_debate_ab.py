@@ -92,7 +92,9 @@ PROD_WEIGHTS = _loo_weights("breadth_alpha")
 REF_SHARPE, REF_MAXDD = 0.77, -18.0
 SHARPE_TOL, MAXDD_TOL = 0.02, 1.0
 
-PAPER_DIR = ROOT.parent.parent / "own research paper"
+# ROOT is backend/, so the paper sits one level up beside it -- NOT two, which
+# would land outside the inner repo.
+PAPER_DIR = ROOT.parent / "own research paper"
 
 # USD per 1M tokens (input, output), for the run-cost PROJECTION only. List
 # prices as of 2026-07; verify against the provider's billing page before
@@ -327,7 +329,8 @@ def _signal_payload(sig: dict, mode: str) -> tuple[str, dict]:
 
 async def run_debates(signals: list[dict], mode: str, concurrency: int,
                       cache_path: Path, limit: int | None,
-                      model_overrides: dict[str, str]) -> dict[str, dict]:
+                      model_overrides: dict[str, str],
+                      only: list[str] | None = None) -> dict[str, dict]:
     """Debate every signal once; return {cache_key: verdict record}."""
     from app.agents.debate.multi_model_debate import MultiModelDebateEngine
     from app.llm.provider_registry import provider_registry
@@ -345,6 +348,15 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
         base = provider_registry.get_provider(name)
         if base is not None:
             provider_registry._providers[name] = base.with_model(model)
+    # Restricting providers is a correctness control, not a preference: a
+    # provider that is registered but out of quota fails every call, and the
+    # engine turns a failed call into an ABSTAIN. Excluding it outright beats
+    # letting a dead vendor abstain its way through the experiment.
+    if only:
+        unknown = [n for n in only if n not in available]
+        if unknown:
+            raise SystemExit(f"--providers {unknown} not registered (have {available})")
+        available = only
     models = {n: getattr(provider_registry.get_provider(n), "model", "?") for n in available}
     print(f"Providers: {', '.join(f'{n} ({m})' for n, m in sorted(models.items()))}")
 
@@ -356,8 +368,13 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
                     rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                # ERROR records are failures, not verdicts -- drop them so the
+                # signal is retried instead of permanently failing closed.
+                if rec.get("decision") == "ERROR":
+                    cached.pop(rec["key"], None)
+                    continue
                 cached[rec["key"]] = rec
-        print(f"Resuming: {len(cached)} debates already cached in {cache_path.name}")
+        print(f"Resuming: {len(cached)} usable debates cached in {cache_path.name}")
 
     todo = [s for s in signals if _cache_key(mode, s) not in cached]
     if limit is not None:
@@ -388,13 +405,27 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
                     regime=regime,
                     sentiment=None,
                     risk_metrics=None,
+                    allowed_providers=available,
                 )
             except Exception as exc:  # provider outage, quota, parse blowup
                 rec = {"key": key, "mode": mode, "date": sig["date"],
                        "symbol": sig["symbol"], "decision": "ERROR",
                        "error": str(exc)[:300]}
             else:
-                rec = {
+                # The engine converts a failed provider call into an ABSTAIN
+                # vote. A rate-limited call would therefore look like a debater
+                # genuinely declining to judge, and abstentions count toward
+                # neither side -- so a quota error would silently reshape the
+                # consensus. Refuse any debate containing one; it stays
+                # uncached and is retried on the next run.
+                failed = [a for a in res.arguments if a.argument.startswith("Error from ")]
+                if failed:
+                    rec = {"key": key, "mode": mode, "date": sig["date"],
+                           "symbol": sig["symbol"], "decision": "ERROR",
+                           "error": f"{len(failed)}/{len(res.arguments)} provider calls "
+                                    f"failed: {failed[0].argument[:160]}"}
+                else:
+                    rec = {
                     "key": key, "mode": mode, "date": sig["date"],
                     "symbol": sig["symbol"], "action": action,
                     "decision": res.decision,
@@ -647,6 +678,10 @@ async def amain() -> None:
                    help="pin the OpenAI model (default gpt-4o; gpt-4o-mini is ~15x cheaper)")
     p.add_argument("--gemini-model", default=None,
                    help="pin the Gemini model (default gemini-2.0-flash)")
+    p.add_argument("--providers", default=None,
+                   help="comma-separated subset to debate with, e.g. 'openai'. "
+                        "Use to exclude a registered-but-out-of-quota provider, "
+                        "whose failed calls would otherwise register as ABSTAIN.")
     args = p.parse_args()
     model_overrides = {k: v for k, v in
                        (("openai", args.openai_model), ("gemini", args.gemini_model))
@@ -702,8 +737,9 @@ async def amain() -> None:
         return
 
     cache_path = PAPER_DIR / f"debate_ab_verdicts_{args.mode}.jsonl"
+    only = [s.strip() for s in args.providers.split(",")] if args.providers else None
     verdicts = await run_debates(signals, args.mode, args.concurrency, cache_path,
-                                 args.limit, model_overrides)
+                                 args.limit, model_overrides, only)
 
     stats = _vote_stats(verdicts, args.mode)
     missing = sum(1 for s in signals if _cache_key(args.mode, s) not in verdicts)
