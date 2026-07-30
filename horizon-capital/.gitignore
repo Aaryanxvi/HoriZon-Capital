@@ -58,3 +58,8 @@ htmlcov/
 .claude/
 .superpowers/
 *.pid
+
+# Debate A/B harness caches: large and fully regenerable from the harness.
+# Verdict JSONL is kept (it is paid-for experimental evidence).
+own research paper/debate_ab_bars_*.pkl
+own research paper/debate_ab_stream_*.json

@@ -86,8 +86,15 @@ STRENGTH_SCALE = 0.5              # strength = min(|dw| / 0.5, 1.0)
 # Rate-limit handling. A debate lost to a tokens-per-minute cap is a gap, not a
 # verdict, and gaps fail closed -- so retry rather than let throttling bias the
 # gate toward rejection.
-RETRIES = 5
-BACKOFF_BASE = 8.0                # seconds; 8, 16, 32, 64 between attempts
+RETRIES = 3
+BACKOFF_BASE = 8.0                # seconds; 8, 16, 32 between attempts
+
+# Two different 429s wear the same status code and must NOT be treated alike.
+# A per-minute token limit clears in seconds, so retrying is right. A per-DAY
+# request limit clears in hours, so every retry against it burns quota that
+# produces nothing -- exactly how a rate-limited run silently consumed a whole
+# day's 10,000-request budget for 46 usable verdicts. Abort on sight.
+DAILY_LIMIT_MARKERS = ("requests per day", "RPD", "per-day", "requests per min")
 
 # The production mix == the published mix minus breadth_alpha, renormalized:
 # research .500 / trend .333 / momrank .167. Derived, not retyped, so it stays
@@ -403,9 +410,17 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
     if not todo:
         return cached
 
+    # Requests are the scarce resource, not dollars: 8 calls per debate against
+    # a 10,000/day cap means one mode's full coverage is most of a day's budget.
+    # State it up front so an impossible run is not started.
+    calls = len(todo) * 8
+    print(f"This run needs ~{calls:,} provider requests "
+          f"({len(todo)} debates x 8). Check your daily cap before starting.")
+
     engine = MultiModelDebateEngine(registry=provider_registry, bus=_NullBus(), max_rounds=2)
     sem = asyncio.Semaphore(concurrency)
     done = 0
+    aborted = False
     lock = asyncio.Lock()
     fh = cache_path.open("a", encoding="utf-8")
 
@@ -419,11 +434,24 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
         # a result -- it is a gap that would fail closed and bias Arm B toward
         # rejection. Retry with backoff, holding the semaphore slot so the
         # wait also throttles the run instead of hammering a limited endpoint.
+        nonlocal aborted
         rec: dict | None = None
         for attempt in range(RETRIES):
+            if aborted:
+                return
             rec = await attempt_debate(sig, key, symbol, signal_data, action, regime)
             if rec["decision"] != "ERROR":
                 break
+            err = rec.get("error", "")
+            if any(m in err for m in DAILY_LIMIT_MARKERS):
+                if not aborted:
+                    aborted = True
+                    print(f"\n[ABORT] Provider reports a per-day request limit, which "
+                          f"will not clear by retrying:\n  {err[:300]}\n"
+                          f"Stopping now so the remaining quota is not burned. "
+                          f"Verdicts so far are cached; re-run after the reset to "
+                          f"resume exactly where this left off.")
+                return
             if attempt < RETRIES - 1:
                 async with sem:
                     await asyncio.sleep(BACKOFF_BASE * (2 ** attempt))
@@ -467,7 +495,7 @@ async def run_debates(signals: list[dict], mode: str, concurrency: int,
                     rec = {"key": key, "mode": mode, "date": sig["date"],
                            "symbol": sig["symbol"], "decision": "ERROR",
                            "error": f"{len(failed)}/{len(res.arguments)} provider calls "
-                                    f"failed: {failed[0].argument[:160]}"}
+                                    f"failed: {failed[0].argument[:400]}"}
                 else:
                     rec = {
                         "key": key, "mode": mode, "date": sig["date"],
@@ -791,6 +819,9 @@ async def amain() -> None:
                    help="cap debates this run (pilot / budget control); resumes later")
     p.add_argument("--dry-run", action="store_true",
                    help="build the signal stream and stop -- no LLM calls, no cost")
+    p.add_argument("--rebuild-bars", action="store_true",
+                   help="refetch prices and rebuild the signal stream instead of "
+                        "using the on-disk cache")
     p.add_argument("--openai-model", default=None,
                    help="pin the OpenAI model (default gpt-4o; gpt-4o-mini is ~15x cheaper)")
     p.add_argument("--gemini-model", default=None,
@@ -818,9 +849,21 @@ async def amain() -> None:
     pit = union_members(args.start, args.end)
     anchor_bases = {_base(a) for a in _ANCHORS}
     tickers = list(_ANCHORS) + sorted(t for t in pit if t not in anchor_bases)
-    print(f"Fetching {len(tickers)} tickers (PIT union + anchors), 10y daily...")
-    bars = await fetch_batch(tickers, period="10y")
-    print(f"Coverage: {len(bars)}/{len(tickers)} (missing = mostly delisted; known gap)")
+
+    # A rate-limited run gets restarted several times, and refetching ~670
+    # tickers costs minutes each time for bytes that cannot change. Cache them.
+    cache_bars = PAPER_DIR / f"debate_ab_bars_{args.start[:4]}_{args.end[:4]}.pkl"
+    if cache_bars.exists() and not args.rebuild_bars:
+        bars = pd.read_pickle(cache_bars)
+        print(f"Loaded {len(bars)} cached price series from {cache_bars.name} "
+              f"(--rebuild-bars to refetch)")
+    else:
+        print(f"Fetching {len(tickers)} tickers (PIT union + anchors), 10y daily...")
+        bars = await fetch_batch(tickers, period="10y")
+        PAPER_DIR.mkdir(exist_ok=True)
+        pd.to_pickle(bars, cache_bars)
+        print(f"Coverage: {len(bars)}/{len(tickers)} "
+              f"(missing = mostly delisted; known gap) -> cached")
 
     closes = pd.DataFrame({s: df["close"] for s, df in bars.items()}).sort_index()
     opens = pd.DataFrame({s: df["open"] for s, df in bars.items()}).sort_index()
@@ -829,8 +872,16 @@ async def amain() -> None:
     cal = closes.index[win]
 
     print(f"\nProduction mix weights: { {k: round(v, 3) for k, v in PROD_WEIGHTS.items()} }")
-    print("Building signal stream (no LLM)...")
-    stream = build_signal_stream(bars, closes, opens, cal, config_universe, spy_col)
+    # The stream is a deterministic function of the bars and window, and
+    # rebuilding it runs every sleeve over ~365 rebalances. Cache it too.
+    cache_stream = PAPER_DIR / f"debate_ab_stream_{args.start[:4]}_{args.end[:4]}.json"
+    if cache_stream.exists() and not args.rebuild_bars:
+        stream = json.loads(cache_stream.read_text(encoding="utf-8"))
+        print(f"Loaded cached signal stream from {cache_stream.name}")
+    else:
+        print("Building signal stream (no LLM)...")
+        stream = build_signal_stream(bars, closes, opens, cal, config_universe, spy_col)
+        cache_stream.write_text(json.dumps(stream), encoding="utf-8")
     signals = [r for r in stream if "targets_snapshot" not in r]
     print(f"Signals the live StrategyAgent would emit: {len(signals)}")
     print(f"Full debate cost: {len(signals)} debates x 8 LLM calls = "
