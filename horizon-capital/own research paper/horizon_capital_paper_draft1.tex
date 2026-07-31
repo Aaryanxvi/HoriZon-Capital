@@ -234,7 +234,7 @@ A trade intent traverses:
 \rightarrow \text{Broker}.
 \end{equation*}
 The RiskAgent enforces per-position weight caps (20\% of NAV) and daily-loss
-limits symbol-agnostically. The PortfolioAgent — sole owner of NAV — sizes
+limits symbol-agnostically. The PortfolioAgent --- sole owner of NAV --- sizes
 approved signals against database-backed cash balances (the key-value cache
 is a mirror, never the source of truth). The ExecutionAgent applies final
 guards: kill-switch state, cash sufficiency, and a naked-short prohibition,
@@ -313,7 +313,11 @@ data provided, and returns a structured vote:
 
 \textbf{Provider diversity.} Roles are assigned round-robin (or pinned by
 configuration) across the available LLM providers, so different model
-families argue different perspectives.
+families argue different perspectives. This is a property of the
+implementation, not of the experiment reported in Sec.~\ref{sec:aitest}: that
+run had one provider available and therefore exercised role diversity without
+model-family diversity. We flag it here rather than let the architecture
+description imply otherwise.
 
 \textbf{Perspective rotation.} In round two each debater is reassigned the
 \emph{opposite} role (bull argues the bear case, sentiment argues portfolio
@@ -616,7 +620,7 @@ fill, kill-switch event, and debate conclusion to a daily Markdown file
 independent of any LLM. The codebase carries 467 automated tests, including
 regression pins on the validated mix weights and on cash/P\&L consistency.
 
-\section{Planned Experiment: Isolating the Debate Gate}
+\section{Isolating the Debate Gate}
 \label{sec:aitest}
 
 The results above isolate the rule-based signal layer. What they do not
@@ -690,11 +694,14 @@ Sec.~\ref{sec:method}, an adverse result is reported, not hidden.
 \subsection{Results}
 \label{sec:abresults}
 
-The panel ruled on 270 of the 1{,}015 signals, covering 58\% of all traded
-weight --- the strongest signals first, which is how the live cost gate spends
-its budget. The other signals traded without a debate. Across 288 concluded
-debates and 2{,}304 model calls the panel approved 118 and rejected 170, a
-rejection rate of 59\%, at a median 4.6~seconds per decision.
+The panel concluded 288 debates over 2{,}304 model calls, approving 118 and
+rejecting 170 --- a rejection rate of 59\%, at a median 4.6~seconds per
+decision. Of those, 270 fall on signals inside the evaluated stream and so
+enter arm~B; the remainder were debated during earlier passes over the same
+window and are retained in the vote statistics but not in the portfolio.
+The 270 cover 58\% of all traded weight, the strongest signals first, which is
+how the live cost gate spends its budget. The rest of the 1{,}015 signals
+traded without a debate.
 
 It was not a rubber stamp. Seventy percent of debates split \textsc{for}
 against \textsc{against}, and the roles disagreed in a stable way: the
@@ -767,7 +774,7 @@ Metric & A (no gate) & B (gate on) & C (random) \\
 % BEGIN:abtest-rows
 Trades executed & 1867 & 1510 & 1720 \\
 Rejection rate & n/a & 59.0\% & 59.0\% \\
-Counterfactual P\&L of rejections & n/a & -101.12\% & n/a \\
+Counterfactual P\&L of rejections$^\ddagger$ & n/a & $-101\%$ & n/a \\
 CAGR & 15.9\% & 15.9\% & --- \\
 Volatility & 15.3\% & 17.3\% & --- \\
 Sharpe ratio & 0.78 & 0.71 & 0.83 $\pm$ 0.14 \\
@@ -776,6 +783,12 @@ Turnover ($\times$ NAV/yr) & 12.72 & 2.69 & --- \\
 % END:abtest-rows
 \bottomrule
 \end{tabular}
+
+\vspace{2pt}
+{\footnotesize $^\ddagger$A sum of independent one-at-a-time effects, not a
+realizable P\&L; see the discussion in Sec.~\ref{sec:abresults}. Arm~C executes
+more trades than arm~B at the same rejection rate because it rejects a
+different, randomly chosen subset.}
 \end{table}
 
 \begin{table}[t]
@@ -876,6 +889,27 @@ so the sentiment role has something to reason about instead of abstaining,
 test the gate on the full signal stream rather than the strongest 58\% of
 traded weight, and extend the same point-in-time treatment to the crypto
 sleeve before any of it sees real capital.
+
+\section*{Reproducibility}
+
+Every number in this paper is produced by a script in the project repository
+rather than transcribed by hand. The performance and attribution tables come
+from the point-in-time sleeve harness, the holdout gate from its own harness
+with an assertion that the fetched history actually spans 2008, the deflated
+Sharpe ratios from the trial Sharpe ratios listed in Sec.~\ref{sec:dsr}, and
+the debate-gate tables from the A/B harness, which caches every verdict as a
+JSON line recording the vote, confidence, provider, model identifier and
+latency of each debater in each round. Those verdict logs are archived with the
+manuscript, so the gate result can be recomputed without re-running any model.
+The A/B harness refuses to emit a results table when verdict coverage is
+incomplete under fail-closed semantics, and re-derives its summary statistics
+from the cached verdicts rather than from whatever code version produced them,
+so a mid-run correction cannot silently reach the manuscript.
+
+Free daily bars limit exact reproduction: delisted securities are absent from
+the vendor (Sec.~\ref{sec:limits}), so a rerun today recovers the same
+coverage we report but not necessarily the identical universe a paid
+survivorship-free vendor would supply.
 
 \begin{thebibliography}{20}
 
