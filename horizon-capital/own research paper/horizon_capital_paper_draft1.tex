@@ -57,12 +57,22 @@ arm agreed with the blinded one on 73\% of verdicts, so the finding is not an
 artifact of the LLM recalling outcomes. Under the criterion we fixed in
 advance, the gate fails and reverts to advisory-only.
 
-We report this because a validation methodology that only ever approves is
-not a methodology. The same protocol also rejected a prediction-market
-momentum sleeve ($-8.1\%$ total return), which ships disabled. We close with
-what live paper trading against a real brokerage taught us, including the
-reconciliation guard we added after a ledger mismatch produced $3.5\times$
-unintended leverage.
+That result is about one component, not about the system. The gate occupies a
+veto slot by construction, so its failure cost 0.07 of Sharpe rather than a
+breached risk limit or an unbounded position, and removing it returns the
+system to a configuration we have measured. We regard containing an unreliable
+component as the more useful finding for anyone building software that trades
+without supervision.
+
+The rest works. The pipeline has run end to end against a real brokerage API
+with orders polled to terminal fills and cash settled atomically exactly once,
+on a laptop with no external services, recovering from its own agent crashes
+without operator action, and refusing to trade when its ledger disagreed with
+the broker by more than 2\% --- a guard we added after that disagreement
+produced $3.5\times$ unintended leverage. The same validation protocol that
+rejected the gate also rejected a prediction-market momentum sleeve
+($-8.1\%$ total return), which ships disabled. A methodology that only ever
+approves is not a methodology.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -788,6 +798,32 @@ a recorded argument for why it was permitted, and in a system that trades
 without a human in the loop that record has value independent of whether the
 votes improve returns. It has not earned authority over execution.
 
+\subsection{What the Result Says About the Architecture}
+
+It is worth separating two claims that are easy to run together. The debate
+gate did not improve returns. The \emph{system} was unaffected by that: it
+continued to trade, to size against a database-backed ledger, to enforce its
+risk limits, and to route orders correctly, because the gate sits in a veto
+slot where its failure mode is a trade that does not happen. Arm~B's worst
+outcome across seven years was a Sharpe ratio 0.07 below arm~A's. It was not a
+blown risk limit, an unbounded position, or a ledger that stopped reconciling.
+
+That is the property the three-gate structure was built for, and it is the one
+that matters for a system intended to run without supervision. A design in
+which the least predictable component is load-bearing converts a model failure
+into a capital loss. Here the least predictable component is advisory by
+construction, its authority is a veto rather than an instruction, and removing
+it entirely returns the system to a configuration we have measured. We would
+rather report that an LLM layer added nothing than report that it worked until
+it did not.
+
+The practical consequence is a deployment posture rather than a deletion. The
+gate ships enabled in its advisory role, where it produces the audit trail, and
+disabled as a binding veto until it can clear the control in
+Sec.~\ref{sec:aitest} under conditions the architecture was designed for and
+this run could not supply: more than one model family, and a sentiment role
+with a point-in-time news archive to reason from.
+
 \begin{table}[t]
 \caption{Debate-gate A/B, blinded panel, PIT 2018--2024. Identical signal
 stream and fill model across arms. Arm~C holds arm~B's rejection rate but
@@ -889,6 +925,52 @@ blinding argument: we can show the panel behaved almost identically with and
 without the ticker, which rules out one specific failure, but not that its
 priors about momentum or volatility are well calibrated to the period it was
 judging.
+
+\section{Toward Production}
+\label{sec:production}
+
+We are not claiming a deployable fund. We are claiming that the distance
+between this system and one is measurable, and that most of what remains is
+capital and time rather than unsolved design. This section is our own
+assessment of which is which.
+
+\textbf{What has been demonstrated.} The pipeline has traded end to end against
+a real brokerage API: sleeve signals became live orders, orders were polled to
+terminal fills including fractional shares, and cash settled atomically exactly
+once per order --- a property the accounting tests pin, because a
+settle-twice bug is invisible until the ledger diverges. The system runs on a
+laptop with no external services, so operating it does not presuppose
+infrastructure. It survives its own faults: a supervisor restarted four agents
+that crashed on a boot-time database contention without operator action, and
+the reconciliation guard of Sec.~\ref{sec:live} caught a $3.5\times$ leverage
+exposure created by a ledger that disagreed with the broker. Risk limits, the
+kill switch and the naked-short prohibition are enforced in the execution path
+rather than advised, and 468 automated tests hold the validated mix weights and
+the cash/P\&L identity in place against regression.
+
+\textbf{What is missing, in the order it would have to be fixed.} First, real
+capital, in an amount small enough that the loss is tuition, under the same
+gates and with the same reconciliation guard active. Nothing in this paper
+substitutes for that, and a live track record is the only evidence that settles
+the questions a backtest cannot: fill quality at size, borrow availability,
+and whether the operator actually leaves the system alone. Second, capacity.
+Our fills charge commission and impact but assume our own participation does
+not move the book; the top-five concentration of the research sleeve makes that
+assumption fail sooner than it would for a diversified mandate. Third, the
+sentiment role needs a point-in-time news archive before it contributes
+anything; at present it abstains, and one silent voice in four is a design
+that is not being tested. Fourth, the debate gate needs the multi-family
+configuration it was written for. Fifth, and least technical: anyone operating
+this on behalf of other people inherits a regulatory perimeter that this paper
+does not address at all.
+
+\textbf{What we would tell someone considering building on it.} The parts we
+would trust are the ones that were tested adversarially and the ones that have
+already failed once and been fixed --- the reconciliation guard, the settlement
+path, the risk gates, and the validation protocol itself. The part we would not
+yet trust with authority is the part that is most fashionable. That ordering is
+the opposite of how such systems are usually presented, and it is the honest
+one.
 
 \section{Conclusion}
 
