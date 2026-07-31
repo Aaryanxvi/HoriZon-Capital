@@ -407,7 +407,8 @@ benchmark (15.8\% vs.\ 13.6\%) at three-quarters of its volatility (15.3\%
 vs.\ 19.5\%), a Sharpe ratio of 0.77 vs.\ 0.55, and roughly half the maximum
 drawdown ($-18.0\%$ vs.\ $-33.7\%$) --- while holding an average gross
 exposure of only 78\%, i.e., it outperforms while carrying a standing
-cash buffer. Against the peer benchmarks the margin is wider still: the
+cash buffer. Fig.~\ref{fig:equity} plots both windows: the separation comes
+from the drawdowns rather than from the rallies. Against the peer benchmarks the margin is wider still: the
 hedge-fund industry proxy returned 2.5\% CAGR (Sharpe $-0.21$) and the 60/40
 portfolio 5.9\% (Sharpe 0.21) over the same period --- a six-fold advantage in
 CAGR over the industry proxy and a Sharpe ratio that is positive where the
@@ -435,6 +436,18 @@ Hedge-fund industry (QAI) & 2.5\% & 6.4\% & $-0.21$ & $-14.9\%$ & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_equity.pdf}
+\caption{Production mix against the S\&P~500, both evaluation windows, each
+normalized to 100 at the window start. The mix is not merely higher: it is
+flatter through the drawdowns that matter --- the 2020 crash and the 2022
+decline in the upper panel, and the 2008--2009 crisis in the lower one, where
+the benchmark loses roughly half its value and the mix does not. Series differ
+in dash pattern as well as color so the figure survives grayscale printing.}
+\label{fig:equity}
+\end{figure}
 
 \subsection{Sleeve Attribution}
 
@@ -721,12 +734,26 @@ holding positions the sleeves had already decided to trim, and average gross
 exposure rose from 78\% to 99.8\% as a result. The gate did not so much
 select trades as freeze the portfolio.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_gate.pdf}
+\caption{The debate-gate experiment. Both arms consume an identical signal
+stream; the gated arm executes only what the panel approved. The shaded band is
+the 5th--95th percentile of 25 gates that reject at the same rate but choose at
+random. The gated arm spends the entire window inside that band and ends inside
+it, which is the finding: whatever the panel contributed is within the range of
+rejecting the same number of trades arbitrarily.}
+\label{fig:gate}
+\end{figure}
+
 \textbf{The control that decides the question.} A gate rejecting 59\% of
 trades changes exposure and turnover whether or not it chooses well, and on
 this sample those mechanical effects are large. Arm~C therefore rejects at
 the same 59\% rate but picks at random. Twenty-five such gates returned a
 Sharpe of 0.83 $\pm$ 0.14 (5th--95th percentile 0.63--1.05), and the LLM
-panel beat only 5 of them --- an empirical $p$ of 0.80. Random rejection at
+panel beat only 5 of them --- an empirical $p$ of 0.80.
+Fig.~\ref{fig:gate} shows why: the gated curve stays inside the random-gate
+envelope for the whole window. Random rejection at
 the same rate was better than the panel, on average and at the median. We
 take the parsimonious reading: the gate's effect here is the effect of
 trading less, and the deliberation added nothing on top of it. Without this
