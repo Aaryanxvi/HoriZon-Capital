@@ -1,0 +1,902 @@
+[
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "SPY.NYSE",
+  "direction": 1,
+  "strength": 0.4,
+  "target_weight": 0.2,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.46",
+   "price vs 200d SMA": "+9.3%",
+   "realized vol (20d, annualized)": "5.9%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "1.00",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "AAPL.NASDAQ",
+  "direction": 1,
+  "strength": 0.33885536171013675,
+  "target_weight": 0.16942768085506837,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.88",
+   "price vs 200d SMA": "+11.0%",
+   "realized vol (20d, annualized)": "16.3%",
+   "drawdown from 52w high": "-2.4%",
+   "60d return correlation to market index": "0.50",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": 1,
+  "strength": 0.22615635176382487,
+  "target_weight": 0.11307817588191243,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.98",
+   "price vs 200d SMA": "+23.7%",
+   "realized vol (20d, annualized)": "32.7%",
+   "drawdown from 52w high": "-8.1%",
+   "60d return correlation to market index": "0.38",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "META.NASDAQ",
+  "direction": 1,
+  "strength": 0.2200676823076491,
+  "target_weight": 0.11003384115382454,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.88",
+   "price vs 200d SMA": "+11.3%",
+   "realized vol (20d, annualized)": "19.2%",
+   "drawdown from 52w high": "-0.9%",
+   "60d return correlation to market index": "0.45",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "AVGO.NASDAQ",
+  "direction": 1,
+  "strength": 0.19667073341407793,
+  "target_weight": 0.09833536670703896,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.89",
+   "price vs 200d SMA": "+10.0%",
+   "realized vol (20d, annualized)": "24.3%",
+   "drawdown from 52w high": "-5.6%",
+   "60d return correlation to market index": "0.37",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": 1,
+  "strength": 0.12936098191542253,
+  "target_weight": 0.06468049095771126,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.89",
+   "price vs 200d SMA": "+18.2%",
+   "realized vol (20d, annualized)": "14.8%",
+   "drawdown from 52w high": "-0.6%",
+   "60d return correlation to market index": "0.40",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "NRG",
+  "direction": 1,
+  "strength": 0.11111111111111112,
+  "target_weight": 0.05555555555555556,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.99",
+   "price vs 200d SMA": "+29.4%",
+   "realized vol (20d, annualized)": "26.7%",
+   "drawdown from 52w high": "-2.0%",
+   "60d return correlation to market index": "0.18",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 0,
+  "date": "2018-01-02T00:00:00",
+  "fill_date": "2018-01-03T00:00:00",
+  "symbol": "ALGN",
+  "direction": 1,
+  "strength": 0.11111111111111112,
+  "target_weight": 0.05555555555555556,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.99",
+   "price vs 200d SMA": "+28.4%",
+   "realized vol (20d, annualized)": "50.9%",
+   "drawdown from 52w high": "-15.0%",
+   "60d return correlation to market index": "0.35",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "META.NASDAQ",
+  "direction": -1,
+  "strength": 0.2200676823076491,
+  "target_weight": 0.0,
+  "previous_weight": 0.11003384115382454,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.84",
+   "price vs 200d SMA": "+14.4%",
+   "realized vol (20d, annualized)": "15.8%",
+   "drawdown from 52w high": "-0.2%",
+   "60d return correlation to market index": "0.48",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "AAPL.NASDAQ",
+  "direction": -1,
+  "strength": 0.05605273676439454,
+  "target_weight": 0.1414013124728711,
+  "previous_weight": 0.16942768085506837,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.84",
+   "price vs 200d SMA": "+11.7%",
+   "realized vol (20d, annualized)": "16.5%",
+   "drawdown from 52w high": "-1.2%",
+   "60d return correlation to market index": "0.49",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "AVGO.NASDAQ",
+  "direction": -1,
+  "strength": 0.03162637254590328,
+  "target_weight": 0.08252218043408732,
+  "previous_weight": 0.09833536670703896,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.86",
+   "price vs 200d SMA": "+10.0%",
+   "realized vol (20d, annualized)": "21.6%",
+   "drawdown from 52w high": "-5.0%",
+   "60d return correlation to market index": "0.37",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "NFLX.NASDAQ",
+  "direction": 1,
+  "strength": 0.1648207929813713,
+  "target_weight": 0.08241039649068566,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.85",
+   "price vs 200d SMA": "+20.3%",
+   "realized vol (20d, annualized)": "25.9%",
+   "drawdown from 52w high": "-1.3%",
+   "60d return correlation to market index": "0.50",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": 1,
+  "strength": 0.11499903069053524,
+  "target_weight": 0.12218000630297889,
+  "previous_weight": 0.06468049095771126,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.86",
+   "price vs 200d SMA": "+23.4%",
+   "realized vol (20d, annualized)": "13.1%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.42",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 5,
+  "date": "2018-01-09T00:00:00",
+  "fill_date": "2018-01-10T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": 1,
+  "strength": 0.02792696794604027,
+  "target_weight": 0.12704165985493257,
+  "previous_weight": 0.11307817588191243,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.97",
+   "price vs 200d SMA": "+35.4%",
+   "realized vol (20d, annualized)": "34.3%",
+   "drawdown from 52w high": "-0.0%",
+   "60d return correlation to market index": "0.43",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 10,
+  "date": "2018-01-17T00:00:00",
+  "fill_date": "2018-01-18T00:00:00",
+  "symbol": "NFLX.NASDAQ",
+  "direction": -1,
+  "strength": 0.1648207929813713,
+  "target_weight": 0.0,
+  "previous_weight": 0.08241039649068566,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.84",
+   "price vs 200d SMA": "+23.8%",
+   "realized vol (20d, annualized)": "27.5%",
+   "drawdown from 52w high": "-1.8%",
+   "60d return correlation to market index": "0.46",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 10,
+  "date": "2018-01-17T00:00:00",
+  "fill_date": "2018-01-18T00:00:00",
+  "symbol": "TSLA.NASDAQ",
+  "direction": 1,
+  "strength": 0.1517953778774707,
+  "target_weight": 0.07589768893873534,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.85",
+   "price vs 200d SMA": "+3.9%",
+   "realized vol (20d, annualized)": "32.9%",
+   "drawdown from 52w high": "-9.8%",
+   "60d return correlation to market index": "0.27",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 10,
+  "date": "2018-01-17T00:00:00",
+  "fill_date": "2018-01-18T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": 1,
+  "strength": 0.011131641801269354,
+  "target_weight": 0.13260748075556725,
+  "previous_weight": 0.12704165985493257,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.98",
+   "price vs 200d SMA": "+34.7%",
+   "realized vol (20d, annualized)": "31.3%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.43",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": -1,
+  "strength": 0.16697428237485235,
+  "target_weight": 0.03869286511555271,
+  "previous_weight": 0.12218000630297889,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.83",
+   "price vs 200d SMA": "+31.0%",
+   "realized vol (20d, annualized)": "17.5%",
+   "drawdown from 52w high": "-0.4%",
+   "60d return correlation to market index": "0.40",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "AVGO.NASDAQ",
+  "direction": -1,
+  "strength": 0.16504436086817464,
+  "target_weight": 0.0,
+  "previous_weight": 0.08252218043408732,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.74",
+   "price vs 200d SMA": "+4.2%",
+   "realized vol (20d, annualized)": "23.4%",
+   "drawdown from 52w high": "-9.2%",
+   "60d return correlation to market index": "0.32",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "TSLA.NASDAQ",
+  "direction": -1,
+  "strength": 0.1517953778774707,
+  "target_weight": 0.0,
+  "previous_weight": 0.07589768893873534,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.67",
+   "price vs 200d SMA": "+3.2%",
+   "realized vol (20d, annualized)": "31.5%",
+   "drawdown from 52w high": "-10.2%",
+   "60d return correlation to market index": "0.25",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "AAPL.NASDAQ",
+  "direction": -1,
+  "strength": 0.13626967396103246,
+  "target_weight": 0.07326647549235488,
+  "previous_weight": 0.1414013124728711,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.88",
+   "price vs 200d SMA": "+10.4%",
+   "realized vol (20d, annualized)": "16.4%",
+   "drawdown from 52w high": "-2.8%",
+   "60d return correlation to market index": "0.50",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": -1,
+  "strength": 0.06341283838426931,
+  "target_weight": 0.10090106156343259,
+  "previous_weight": 0.13260748075556725,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.98",
+   "price vs 200d SMA": "+38.6%",
+   "realized vol (20d, annualized)": "30.9%",
+   "drawdown from 52w high": "-1.3%",
+   "60d return correlation to market index": "0.43",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "UNH.NYSE",
+  "direction": 1,
+  "strength": 0.38835550431796656,
+  "target_weight": 0.19417775215898328,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.82",
+   "price vs 200d SMA": "+24.8%",
+   "realized vol (20d, annualized)": "16.8%",
+   "drawdown from 52w high": "-0.1%",
+   "60d return correlation to market index": "0.53",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 15,
+  "date": "2018-01-24T00:00:00",
+  "fill_date": "2018-01-25T00:00:00",
+  "symbol": "MA.NYSE",
+  "direction": 1,
+  "strength": 0.29703480245046415,
+  "target_weight": 0.14851740122523208,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.82",
+   "price vs 200d SMA": "+23.1%",
+   "realized vol (20d, annualized)": "10.2%",
+   "drawdown from 52w high": "-0.8%",
+   "60d return correlation to market index": "0.52",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "UNH.NYSE",
+  "direction": -1,
+  "strength": 0.38835550431796656,
+  "target_weight": 0.0,
+  "previous_weight": 0.19417775215898328,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.80",
+   "price vs 200d SMA": "+19.4%",
+   "realized vol (20d, annualized)": "23.9%",
+   "drawdown from 52w high": "-4.7%",
+   "60d return correlation to market index": "0.59",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "MA.NYSE",
+  "direction": -1,
+  "strength": 0.29703480245046415,
+  "target_weight": 0.0,
+  "previous_weight": 0.14851740122523208,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.86",
+   "price vs 200d SMA": "+23.3%",
+   "realized vol (20d, annualized)": "12.5%",
+   "drawdown from 52w high": "-0.8%",
+   "60d return correlation to market index": "0.53",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "AAPL.NASDAQ",
+  "direction": -1,
+  "strength": 0.14653295098470975,
+  "target_weight": 0.0,
+  "previous_weight": 0.07326647549235488,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.76",
+   "price vs 200d SMA": "+5.6%",
+   "realized vol (20d, annualized)": "15.0%",
+   "drawdown from 52w high": "-6.6%",
+   "60d return correlation to market index": "0.56",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": -1,
+  "strength": 0.09069101201575407,
+  "target_weight": 0.05555555555555556,
+  "previous_weight": 0.10090106156343259,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.96",
+   "price vs 200d SMA": "+41.5%",
+   "realized vol (20d, annualized)": "30.1%",
+   "drawdown from 52w high": "-0.4%",
+   "60d return correlation to market index": "0.43",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": -1,
+  "strength": 0.07738573023110543,
+  "target_weight": 0.0,
+  "previous_weight": 0.03869286511555271,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.85",
+   "price vs 200d SMA": "+38.3%",
+   "realized vol (20d, annualized)": "15.6%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.35",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "TLT.NASDAQ",
+  "direction": 1,
+  "strength": 0.4,
+  "target_weight": 0.2,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.25",
+   "price vs 200d SMA": "-0.9%",
+   "realized vol (20d, annualized)": "8.8%",
+   "drawdown from 52w high": "-4.3%",
+   "60d return correlation to market index": "-0.10",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 20,
+  "date": "2018-01-31T00:00:00",
+  "fill_date": "2018-02-01T00:00:00",
+  "symbol": "GLD.NYSE",
+  "direction": 1,
+  "strength": 0.4,
+  "target_weight": 0.2,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.26",
+   "price vs 200d SMA": "+5.1%",
+   "realized vol (20d, annualized)": "9.0%",
+   "drawdown from 52w high": "-0.9%",
+   "60d return correlation to market index": "0.01",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "TLT.NASDAQ",
+  "direction": -1,
+  "strength": 0.4,
+  "target_weight": 0.0,
+  "previous_weight": 0.2,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.22",
+   "price vs 200d SMA": "-3.9%",
+   "realized vol (20d, annualized)": "8.9%",
+   "drawdown from 52w high": "-7.8%",
+   "60d return correlation to market index": "-0.26",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "GLD.NYSE",
+  "direction": -1,
+  "strength": 0.4,
+  "target_weight": 0.0,
+  "previous_weight": 0.2,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.34",
+   "price vs 200d SMA": "-1.2%",
+   "realized vol (20d, annualized)": "8.7%",
+   "drawdown from 52w high": "-5.0%",
+   "60d return correlation to market index": "-0.03",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "MA.NYSE",
+  "direction": 1,
+  "strength": 0.39242791554348383,
+  "target_weight": 0.19621395777174191,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.90",
+   "price vs 200d SMA": "+20.5%",
+   "realized vol (20d, annualized)": "19.7%",
+   "drawdown from 52w high": "-1.5%",
+   "60d return correlation to market index": "0.79",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "MSFT.NASDAQ",
+  "direction": 1,
+  "strength": 0.26756463351230747,
+  "target_weight": 0.13378231675615374,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.85",
+   "price vs 200d SMA": "+13.9%",
+   "realized vol (20d, annualized)": "20.4%",
+   "drawdown from 52w high": "-1.3%",
+   "60d return correlation to market index": "0.89",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": 1,
+  "strength": 0.14549256439604313,
+  "target_weight": 0.07274628219802157,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.94",
+   "price vs 200d SMA": "+26.3%",
+   "realized vol (20d, annualized)": "26.1%",
+   "drawdown from 52w high": "-2.2%",
+   "60d return correlation to market index": "0.77",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": 1,
+  "strength": 0.12312740981685037,
+  "target_weight": 0.11711926046398075,
+  "previous_weight": 0.05555555555555556,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.95",
+   "price vs 200d SMA": "+17.2%",
+   "realized vol (20d, annualized)": "33.5%",
+   "drawdown from 52w high": "-5.5%",
+   "60d return correlation to market index": "0.74",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 95,
+  "date": "2018-05-18T00:00:00",
+  "fill_date": "2018-05-21T00:00:00",
+  "symbol": "NFLX.NASDAQ",
+  "direction": 1,
+  "strength": 0.07138747673131521,
+  "target_weight": 0.035693738365657604,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.99",
+   "price vs 200d SMA": "+38.1%",
+   "realized vol (20d, annualized)": "24.3%",
+   "drawdown from 52w high": "-3.5%",
+   "60d return correlation to market index": "0.73",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "MSFT.NASDAQ",
+  "direction": -1,
+  "strength": 0.26756463351230747,
+  "target_weight": 0.0,
+  "previous_weight": 0.13378231675615374,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.82",
+   "price vs 200d SMA": "+18.3%",
+   "realized vol (20d, annualized)": "12.6%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.89",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "MA.NYSE",
+  "direction": -1,
+  "strength": 0.16856707099638318,
+  "target_weight": 0.11193042227355032,
+  "previous_weight": 0.19621395777174191,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.93",
+   "price vs 200d SMA": "+22.7%",
+   "realized vol (20d, annualized)": "14.3%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.79",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "NVDA.NASDAQ",
+  "direction": -1,
+  "strength": 0.1639343508934194,
+  "target_weight": 0.035152085017271045,
+  "previous_weight": 0.11711926046398075,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.96",
+   "price vs 200d SMA": "+23.8%",
+   "realized vol (20d, annualized)": "28.3%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.75",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "ALGN",
+  "direction": -1,
+  "strength": 0.11111111111111112,
+  "target_weight": 0.0,
+  "previous_weight": 0.05555555555555556,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.97",
+   "price vs 200d SMA": "+43.2%",
+   "realized vol (20d, annualized)": "23.2%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.72",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "JPM.NYSE",
+  "direction": 1,
+  "strength": 0.35033700289312836,
+  "target_weight": 0.17516850144656418,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.82",
+   "price vs 200d SMA": "+3.5%",
+   "realized vol (20d, annualized)": "23.5%",
+   "drawdown from 52w high": "-8.2%",
+   "60d return correlation to market index": "0.81",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "NFLX.NASDAQ",
+  "direction": 1,
+  "strength": 0.15579793550291612,
+  "target_weight": 0.11359270611711567,
+  "previous_weight": 0.035693738365657604,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.98",
+   "price vs 200d SMA": "+48.6%",
+   "realized vol (20d, annualized)": "20.3%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.72",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "NKTR",
+  "direction": 1,
+  "strength": 0.11111111111111112,
+  "target_weight": 0.05555555555555556,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "1.00",
+   "price vs 200d SMA": "-14.3%",
+   "realized vol (20d, annualized)": "165.5%",
+   "drawdown from 52w high": "-51.5%",
+   "60d return correlation to market index": "0.14",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 105,
+  "date": "2018-06-04T00:00:00",
+  "fill_date": "2018-06-05T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": 1,
+  "strength": 0.09393111700606555,
+  "target_weight": 0.11971184070105434,
+  "previous_weight": 0.07274628219802157,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.94",
+   "price vs 200d SMA": "+30.2%",
+   "realized vol (20d, annualized)": "11.8%",
+   "drawdown from 52w high": "0.0%",
+   "60d return correlation to market index": "0.77",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 110,
+  "date": "2018-06-11T00:00:00",
+  "fill_date": "2018-06-12T00:00:00",
+  "symbol": "JPM.NYSE",
+  "direction": -1,
+  "strength": 0.35033700289312836,
+  "target_weight": 0.0,
+  "previous_weight": 0.17516850144656418,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.79",
+   "price vs 200d SMA": "+5.2%",
+   "realized vol (20d, annualized)": "22.8%",
+   "drawdown from 52w high": "-6.2%",
+   "60d return correlation to market index": "0.80",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 110,
+  "date": "2018-06-11T00:00:00",
+  "fill_date": "2018-06-12T00:00:00",
+  "symbol": "AMZN.NASDAQ",
+  "direction": -1,
+  "strength": 0.09834729513426929,
+  "target_weight": 0.0705381931339197,
+  "previous_weight": 0.11971184070105434,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.95",
+   "price vs 200d SMA": "+30.2%",
+   "realized vol (20d, annualized)": "12.4%",
+   "drawdown from 52w high": "-0.4%",
+   "60d return correlation to market index": "0.76",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 110,
+  "date": "2018-06-11T00:00:00",
+  "fill_date": "2018-06-12T00:00:00",
+  "symbol": "NFLX.NASDAQ",
+  "direction": -1,
+  "strength": 0.048964171412998664,
+  "target_weight": 0.08911062041061633,
+  "previous_weight": 0.11359270611711567,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.99",
+   "price vs 200d SMA": "+45.5%",
+   "realized vol (20d, annualized)": "20.6%",
+   "drawdown from 52w high": "-1.6%",
+   "60d return correlation to market index": "0.72",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ },
+ {
+  "bar_index": 110,
+  "date": "2018-06-11T00:00:00",
+  "fill_date": "2018-06-12T00:00:00",
+  "symbol": "MSFT.NASDAQ",
+  "direction": 1,
+  "strength": 0.25566314799298373,
+  "target_weight": 0.12783157399649187,
+  "previous_weight": 0.0,
+  "features": {
+   "12-1 momentum (cross-sectional percentile)": "0.85",
+   "price vs 200d SMA": "+16.6%",
+   "realized vol (20d, annualized)": "13.4%",
+   "drawdown from 52w high": "-1.4%",
+   "60d return correlation to market index": "0.88",
+   "market regime (index vs its 200d SMA)": "RISK_ON"
+  }
+ }
+]

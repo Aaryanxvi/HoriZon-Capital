@@ -9,9 +9,8 @@
 
 \begin{document}
 
-\title{Horizon Capital: An Autonomous Multi-Agent Hedge-Fund Terminal with
-LLM Debate Gating and Pre-Registered Strategy Validation\\
-}
+\title{Horizon Capital: Pre-Registered Validation of a Multi-Agent
+Trading System and Its LLM Debate Gate}
 
 \author{Aaryan~Baadkar\\
 \textit{Horizon Capital Project}\\
@@ -20,41 +19,51 @@ Email: aaryanbaadkar71@gmail.com}
 \maketitle
 
 \begin{abstract}
-Autonomous trading systems built around large language models (LLMs) are
-typically evaluated on in-sample backtests that overstate live performance,
-and their agent architectures rarely separate signal generation from risk
-authority. In this paper we present \textbf{Horizon Capital}, an autonomous
-hedge-fund terminal that models an investment firm as an organizational chart
-of cooperating software agents --- front-office strategy, portfolio and
-execution agents; middle-office risk, compliance and operations agents;
-back-office accounting and infrastructure agents; and an executive AI Chief
-Investment Officer --- communicating exclusively over a publish/subscribe
-message bus. Trade intents pass through three nested gates: a rule-based
-pre-trade risk check, a multi-model LLM debate in which four adversarial
-analyst roles vote under a perspective-rotation protocol, and a hard
-execution-time guard layer (kill switch, cash, and short constraints).
-The signal layer is an ensemble of transparent, rule-based strategy
-``sleeves'' combining regime-gated time-series momentum, quality ranking,
-hierarchical risk parity and fractional-Kelly position caps. We describe a
-validation methodology built on point-in-time (PIT) universe construction,
-leave-one-out sleeve attribution, and pre-registered holdout gates, and we
-report its consequences honestly: our first apparent edge was an artifact of
-survivorship bias; a breadth-timing sleeve that helped in-sample was dropped
-after it degraded out-of-sample Sharpe (0.77 without vs.\ 0.67 with, 2018--2024
-PIT), and the final mix passed a pre-registered 2008--2017 holdout gate
-(Sharpe 0.70 vs.\ 0.63 incumbent, max drawdown $-19.1\%$ vs.\ $-26.9\%$).
-On both periods the production mix beats an S\&P~500 buy-and-hold on
-return, volatility, Sharpe (0.77 vs.\ 0.55 selection; 0.70 vs.\ 0.31
-holdout), and drawdown ($-19.1\%$ vs.\ $-51.9\%$ through the 2008 crisis),
-at roughly three-quarters gross exposure, and leads both an investable
-hedge-fund-industry replication benchmark and a 60/40 balanced portfolio on
-return and Sharpe over the same windows. A
-prediction-market momentum sleeve evaluated under the same protocol
-\emph{failed} its gate (total return $-8.1\%$, Sharpe $-0.18$) and ships
-disabled. We further report lessons from live paper-trading deployment
-against a real brokerage API, including a broker-equity reconciliation guard
-motivated by an accidental $3.5\times$ leverage incident. The system runs on
-consumer hardware with zero external infrastructure.
+Claims about LLM-driven trading are easy to make and hard to check. The
+backtests behind them are usually contaminated by survivorship bias and by
+strategy selection on the same data used to report results, and the LLM's
+contribution is rarely separated from the mechanical effects of whatever it
+changes about trading behaviour. This paper is mostly about the checking.
+
+We built \textbf{Horizon Capital}, an autonomous trading system organised as
+an investment firm: front-office strategy, portfolio and execution agents,
+middle-office risk, compliance and debate agents, back-office accounting, and
+an executive AI CIO, all coordinating over a publish/subscribe bus with no
+direct calls between them. Signals come from rule-based sleeves --- a
+regime-gated momentum and quality stack, a 200-day trend filter, and a
+cross-sectional momentum satellite. Every change to that mix had to clear
+gates fixed before the candidate was evaluated, on point-in-time data it had
+never seen.
+
+That discipline cost us our original result. The edge that motivated the
+project turned out to be survivorship bias, and a breadth-timing sleeve we
+had weighted at 40\% was dropped once leave-one-out attribution showed the
+ensemble did better without it. What survived is a mix with a Sharpe ratio of
+0.77 on 2018--2024 and 0.70 on an untouched 2008--2017 holdout spanning the
+financial crisis, against 0.55 and 0.31 for the S\&P~500 over the same
+windows, at three-quarters of the index's volatility and roughly half its
+drawdown. It also leads an investable hedge-fund-industry replication
+benchmark and a 60/40 portfolio on both windows. Deflating for the twelve
+variants we tried leaves the probability of a positive true Sharpe at 0.83
+and 0.86.
+
+We then tested the part everyone assumes works. In a pre-registered A/B
+experiment the multi-model debate gate ruled on 270 signals with the
+security's identity and date withheld, and binding it \emph{reduced} the
+Sharpe ratio from 0.78 to 0.71 while deepening drawdown. A control that
+rejected trades at the same rate but chose at random scored 0.83; the panel
+beat only 5 of 25 such controls. Its apparent effect was the mechanical
+consequence of a fivefold drop in turnover, not judgment. A paired unblinded
+arm agreed with the blinded one on 73\% of verdicts, so the finding is not an
+artifact of the LLM recalling outcomes. Under the criterion we fixed in
+advance, the gate fails and reverts to advisory-only.
+
+We report this because a validation methodology that only ever approves is
+not a methodology. The same protocol also rejected a prediction-market
+momentum sleeve ($-8.1\%$ total return), which ships disabled. We close with
+what live paper trading against a real brokerage taught us, including the
+reconciliation guard we added after a ledger mismatch produced $3.5\times$
+unintended leverage.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -101,20 +110,28 @@ the candidate is evaluated, on point-in-time data the candidate never saw.
 
 The contributions of this paper are:
 \begin{enumerate}
-\item A firm-as-org-chart multi-agent architecture for autonomous trading,
-with a three-gate pipeline (rule-based risk, LLM debate, execution guards)
-and per-asset-class broker routing spanning equities, cryptocurrency, and
-prediction markets.
-\item A multi-model LLM debate gate with four adversarial analyst roles,
-round-two perspective rotation to counter confirmation bias, and
-confidence-weighted consensus with explicit abstention semantics.
-\item A validation methodology --- PIT universes, leave-one-out sleeve
-attribution, pre-registered holdout gates --- and an honest account of what
-it rejected, including our own initial results.
+\item A validation protocol for autonomous trading agents --- point-in-time
+universes, leave-one-out sleeve attribution, holdout gates fixed before
+evaluation, and deflation for the number of variants tried --- together with
+a full account of what it rejected, our own first result included.
+\item A pre-registered test of whether an LLM debate gate improves realized
+outcomes, with two controls that this literature usually omits: prompts
+blinded to the security's identity and date, and a gate that rejects at the
+measured rate but chooses at random. The gate fails against the second
+control, and we argue the control is the point.
+\item A firm-as-org-chart multi-agent architecture with a three-gate pipeline
+(rule-based risk, LLM debate, execution guards) and per-asset-class broker
+routing across equities, cryptocurrency and prediction markets.
 \item Deployment lessons from live paper trading against a real brokerage
 API, including a reconciliation guard pattern we believe generalizes to any
 system whose local ledger can drift from broker state.
 \end{enumerate}
+
+We want to be clear about what the second contribution is not. We did not
+show that LLMs cannot help a trading system. We showed that this gate, in
+this configuration, on this signal stream, did not --- and that without the
+random-rejection control we would have reported the opposite, because the
+gate did cut turnover fivefold and that alone moves the headline numbers.
 
 \section{Related Work}
 
@@ -669,17 +686,69 @@ Sec.~\ref{sec:method}, an adverse result is reported, not hidden.
 \subsection{Results}
 \label{sec:abresults}
 
-% BEGIN:abtest-prose
-The panel judged 53 of 1015 signals (9\% of all traded weight), matching the live cost gate's strongest-first budget; the remainder traded un-debated. Of the debates, 31 concluded \textsc{approved} and 40 \textsc{rejected}, a rejection rate of 56.3\%. The panel was not a rubber stamp: 66\% of debates split \textsc{for} against \textsc{against}. Median gate latency was 4.8~s per decision across 568 model calls.
+The panel ruled on 270 of the 1{,}015 signals, covering 58\% of all traded
+weight --- the strongest signals first, which is how the live cost gate spends
+its budget. The other signals traded without a debate. Across 288 concluded
+debates and 2{,}304 model calls the panel approved 118 and rejected 170, a
+rejection rate of 59\%, at a median 4.6~seconds per decision.
 
-Table~\ref{tab:abtest} reports the outcome. Binding the gate improved the Sharpe ratio (0.78 to 0.87) and moved maximum drawdown from $-18.0\%$ to $-25.7\%$, while cutting turnover from 12.72$\times$ to 11.56$\times$ NAV per year. Ending NAV was \$279,693 ungated against \$348,490 gated, from \$100,000. The counterfactual P\&L of the vetoed trades was -23.96\% of NAV across 31 rejections, of which 42\% would have been profitable --- that is, the vetoes saved money in aggregate.
+It was not a rubber stamp. Seventy percent of debates split \textsc{for}
+against \textsc{against}, and the roles disagreed in a stable way: the
+\textsc{strategy} debater, whose brief is the bull case, voted against four
+times as often as for (445 to 106), while \textsc{portfolio} and
+\textsc{risk} were close to balanced. Whatever else the panel was doing, it
+was not agreeing with itself by default.
 
-\textbf{Against a rate-matched random gate.} Arm~C rejects at the same 56.3\% rate but chooses at random. Over 25 trials it returned a Sharpe of 0.79 $\pm$ 0.04 (5th--95th percentile 0.74--0.85). Arm~B beat 24 of 25 random gates, an empirical $p$ of 0.04. The panel's choices therefore add information beyond the mechanical effect of trading less.
+Binding the gate made the portfolio worse. Sharpe fell from 0.78 to 0.71 and
+maximum drawdown deepened from $-18.0\%$ to $-25.7\%$, on identical signals
+and an identical fill model (Table~\ref{tab:abtest}). CAGR was unchanged at
+15.9\% and the two arms ended within \$1{,}200 of each other on a \$100{,}000
+book, so the damage is in the path rather than the destination. The most
+visible change is turnover, which collapsed from 12.72$\times$ to
+2.69$\times$ NAV per year: rejecting three signals in five leaves the book
+holding positions the sleeves had already decided to trim, and average gross
+exposure rose from 78\% to 99.8\% as a result. The gate did not so much
+select trades as freeze the portfolio.
 
-\textbf{Hindsight leakage.} On 1 paired signals judged both ways (Table~\ref{tab:leak}), the unblinded panel approved 100.0\% against the blinded panel's 100.0\%, agreeing on 100.0\% of individual verdicts. The small gap indicates the panel was reasoning from the supplied features rather than recalling outcomes, which is the assumption the blinded arm relies on.
+\textbf{The control that decides the question.} A gate rejecting 59\% of
+trades changes exposure and turnover whether or not it chooses well, and on
+this sample those mechanical effects are large. Arm~C therefore rejects at
+the same 59\% rate but picks at random. Twenty-five such gates returned a
+Sharpe of 0.83 $\pm$ 0.14 (5th--95th percentile 0.63--1.05), and the LLM
+panel beat only 5 of them --- an empirical $p$ of 0.80. Random rejection at
+the same rate was better than the panel, on average and at the median. We
+take the parsimonious reading: the gate's effect here is the effect of
+trading less, and the deliberation added nothing on top of it. Without this
+control we would have written up the turnover reduction as a risk-management
+benefit.
 
-Under the criterion fixed in Sec.~\ref{sec:aitest} --- arm~B's risk-adjusted return at least equal to arm~A's \emph{and} non-positive counterfactual P\&L on rejections --- the gate \textbf{passes}, and retains its binding role in the autonomous pipeline.
-% END:abtest-prose
+\textbf{Was the panel simply remembering?} On 44 signals judged both ways, the
+unblinded panel approved 34.1\% against the blinded panel's 38.6\% and reached
+the same verdict on 73\% of individual trades (Table~\ref{tab:leak}). Mean
+consensus scores were 0.384 and 0.374. Revealing the ticker and the date
+barely moved anything, which is the result the blinded design needs: the panel
+was working from the features it was given, not recalling what the stock did
+next. The paired sample is small and we would not push it further than that.
+
+\textbf{A note on the counterfactual.} Summed over the 161 rejections with
+price coverage, the trades the gate blocked would have returned $-101\%$ of
+NAV, and only 38\% of them would have made money. Read naively that says the
+vetoes were good, which sits awkwardly beside an arm that performed worse. The
+two are not in conflict, but the counterfactual is the weaker number. It adds
+up each blocked weight change multiplied by its own forward return, treating
+the rejections as independent one-at-a-time events. The arm they belong to
+compounds, overlaps and rebalances, and it carries the cost of the stale
+positions the vetoes left in place --- which the sum does not see. We report
+the figure because it was pre-registered, and we lean on the arm-level result
+and Arm~C where the two point in different directions.
+
+Under the criterion fixed in Sec.~\ref{sec:aitest} --- arm~B's risk-adjusted
+return at least equal to arm~A's \emph{and} non-positive counterfactual P\&L
+--- the gate \textbf{fails} on the first condition and reverts to
+advisory-only. The debate layer keeps its other job. Every trade still carries
+a recorded argument for why it was permitted, and in a system that trades
+without a human in the loop that record has value independent of whether the
+votes improve returns. It has not earned authority over execution.
 
 \begin{table}[t]
 \caption{Debate-gate A/B, blinded panel, PIT 2018--2024. Identical signal
@@ -692,14 +761,14 @@ chooses at random (25 trials, mean $\pm$ s.d.).}
 Metric & A (no gate) & B (gate on) & C (random) \\
 \midrule
 % BEGIN:abtest-rows
-Trades executed & 1867 & 2098 & 1884 \\
-Rejection rate & n/a & 56.3\% & 56.3\% \\
-Counterfactual P\&L of rejections & n/a & -23.96\% & n/a \\
-CAGR & 15.9\% & 19.6\% & --- \\
-Volatility & 15.3\% & 17.8\% & --- \\
-Sharpe ratio & 0.78 & 0.87 & 0.79 $\pm$ 0.04 \\
+Trades executed & 1867 & 1510 & 1720 \\
+Rejection rate & n/a & 59.0\% & 59.0\% \\
+Counterfactual P\&L of rejections & n/a & -101.12\% & n/a \\
+CAGR & 15.9\% & 15.9\% & --- \\
+Volatility & 15.3\% & 17.3\% & --- \\
+Sharpe ratio & 0.78 & 0.71 & 0.83 $\pm$ 0.14 \\
 Max drawdown & $-18.0\%$ & $-25.7\%$ & --- \\
-Turnover ($\times$ NAV/yr) & 12.72 & 11.56 & --- \\
+Turnover ($\times$ NAV/yr) & 12.72 & 2.69 & --- \\
 % END:abtest-rows
 \bottomrule
 \end{tabular}
@@ -717,10 +786,10 @@ reasoning from features.}
 Metric & Blinded & Unblinded \\
 \midrule
 % BEGIN:leak-rows
-Debates (paired) & 1 & 1 \\
-Approval rate & 100.0\% & 100.0\% \\
-Verdict agreement with blinded & n/a & 100.0\% \\
-Mean consensus score & 0.598 & 0.551 \\
+Debates (paired) & 44 & 44 \\
+Approval rate & 38.6\% & 34.1\% \\
+Verdict agreement with blinded & n/a & 72.7\% \\
+Mean consensus score & 0.384 & 0.374 \\
 % END:leak-rows
 \bottomrule
 \end{tabular}
@@ -769,28 +838,39 @@ unmeasured and would require an order of magnitude more model calls.
 
 \section{Conclusion}
 
-We presented Horizon Capital, an autonomous hedge-fund terminal that (i)
-organizes trading as a firm of decoupled agents with three nested gates
-between signal and order, (ii) confines LLMs to an adversarial,
-fail-closed judgment role over transparent rule-based signals, and (iii)
-subjects every strategy change to point-in-time, pre-registered validation.
-The methodology's value is demonstrated by what it rejected: our own
-survivorship-biased first edge, a breadth sleeve that helped in-sample and
-hurt out-of-sample, a top-10 momentum variant, and a prediction-market
-sleeve that lost money under honest replay. The mix that survived ---
-regime-gated momentum/quality with trend and momentum-rank satellites at
-0.500/0.333/0.167 --- improved holdout Sharpe from 0.63 to 0.70, cut
-maximum drawdown from $-26.9\%$ to $-19.1\%$ against the incumbent, and
-more than doubled the buy-and-hold benchmark's Sharpe ratio on both
-evaluation periods at lower volatility and materially shallower drawdowns,
-while also leading an investable hedge-fund-industry replication benchmark
-and a 60/40 balanced portfolio on return and risk-adjusted return.
+Horizon Capital works as a piece of engineering: a firm of decoupled agents,
+three nested gates between a signal and a broker order, running on a laptop
+against a real brokerage API. The part we would defend in a seminar, though,
+is the protocol we used to decide what got to stay in it.
 
-Future work: isolating the debate gate's causal effect on realized
-outcomes; extending PIT validation to the crypto sleeve; deeper
-prediction-market microstructure (order-book fills, resolution-event
-modeling); and graduating from paper to small live capital under the same
-gate discipline.
+That protocol cost us more than it gave us, which is the point. It took away
+the edge that started the project, once point-in-time membership showed it was
+survivorship bias. It took away a breadth sleeve carrying 40\% of the mix,
+after leave-one-out attribution showed the ensemble was better without it. It
+rejected a top-10 momentum variant and a prediction-market sleeve. What
+survived --- regime-gated momentum and quality with trend and momentum-rank
+satellites at 0.500/0.333/0.167 --- returns a Sharpe of 0.77 and 0.70 on the
+two windows against 0.55 and 0.31 for the index, at lower volatility, with
+roughly half the drawdown, and with a deflated probability of a positive true
+Sharpe of 0.83 and 0.86 after accounting for the twelve variants we tried.
+
+The same protocol then took away the feature the system was named for. Under
+blinded prompts and a control that rejected trades at the same rate but chose
+at random, the LLM debate gate did not beat the control, and the improvement
+we would otherwise have claimed turned out to be a fivefold reduction in
+turnover wearing a different hat. We think that control belongs in any study
+of an LLM gate, filter or veto, precisely because such mechanisms change
+trading behaviour in ways that move performance on their own. Ours would have
+looked like a modest success without it.
+
+None of this says LLMs cannot contribute to a trading system. It says this
+gate, in this configuration, on these signals, did not, and that we only know
+because we checked. Work we would do next: run the panel across genuinely
+different model families rather than one, supply a point-in-time news archive
+so the sentiment role has something to reason about instead of abstaining,
+test the gate on the full signal stream rather than the strongest 58\% of
+traded weight, and extend the same point-in-time treatment to the crypto
+sleeve before any of it sees real capital.
 
 \begin{thebibliography}{20}
 

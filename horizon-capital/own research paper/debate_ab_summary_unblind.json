@@ -1,0 +1,200 @@
+{
+ "mode": "unblind",
+ "window": [
+  "2018-01-01",
+  "2024-12-31"
+ ],
+ "signals_total": 1015,
+ "signals_debated": 44,
+ "coverage_pct": 4.334975369458121,
+ "undebated_policy": "passthrough",
+ "weight_coverage_pct": 10.638406390756616,
+ "arm_a": {
+  "CAGR%": 15.9,
+  "vol%": 15.3,
+  "Sharpe": 0.78,
+  "maxDD%": -18.0,
+  "avgGross%": 78.0,
+  "fills": 1867,
+  "turnover": 12.72047756502723
+ },
+ "arm_b": {
+  "CAGR%": 17.9,
+  "vol%": 16.0,
+  "Sharpe": 0.86,
+  "maxDD%": -16.1,
+  "avgGross%": 85.6,
+  "fills": 1863,
+  "turnover": 11.192356870273894
+ },
+ "arm_c": {
+  "sharpe_mean": 0.8251999999999999,
+  "sharpe_std": 0.049728864857344166,
+  "sharpe_p5": 0.762,
+  "sharpe_p95": 0.908,
+  "fills_mean": 1822.92,
+  "trials": 25,
+  "beat": 18,
+  "p_empirical": 0.28
+ },
+ "gate": {
+  "debates": 44,
+  "errors": 0,
+  "approved": 15,
+  "rejected": 29,
+  "median_latency_ms": 4571,
+  "llm_calls": 352,
+  "disagreement_pct": 81.81818181818183,
+  "by_role": {
+   "STRATEGY": {
+    "FOR": 10,
+    "AGAINST": 69,
+    "ABSTAIN": 9
+   },
+   "RISK": {
+    "ABSTAIN": 34,
+    "FOR": 29,
+    "AGAINST": 25
+   },
+   "SENTIMENT": {
+    "ABSTAIN": 27,
+    "FOR": 32,
+    "AGAINST": 29
+   },
+   "PORTFOLIO": {
+    "ABSTAIN": 24,
+    "AGAINST": 33,
+    "FOR": 31
+   }
+  },
+  "by_provider": {
+   "openai": {
+    "FOR": 102,
+    "ABSTAIN": 94,
+    "AGAINST": 156
+   }
+  }
+ },
+ "counterfactual": {
+  "total_pct": -18.866201826168076,
+  "counted": 29,
+  "win_rate": 37.93103448275862
+ },
+ "examples": [
+  {
+   "date": "2020-01-21",
+   "symbol": "COST.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 79.27837654328545,
+   "contrib_pct": -15.85567530865709,
+   "held_to": "2022-07-28"
+  },
+  {
+   "date": "2019-06-17",
+   "symbol": "GLD.NYSE",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 8.880703612199525,
+   "contrib_pct": -1.776140722439905,
+   "held_to": "2019-08-06"
+  },
+  {
+   "date": "2018-07-31",
+   "symbol": "COST.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 7.2172528534380165,
+   "contrib_pct": -1.4434505706876033,
+   "held_to": "2018-09-19"
+  },
+  {
+   "date": "2019-06-17",
+   "symbol": "TLT.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 5.871397682086155,
+   "contrib_pct": -1.1742795364172312,
+   "held_to": "2019-08-06"
+  },
+  {
+   "date": "2018-10-24",
+   "symbol": "SPY.NYSE",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 5.097647513409864,
+   "contrib_pct": -1.0195295026819728,
+   "held_to": "2018-11-07"
+  },
+  {
+   "date": "2019-02-06",
+   "symbol": "TLT.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 4.396479623408633,
+   "contrib_pct": -0.8792959246817268,
+   "held_to": "2019-05-17"
+  },
+  {
+   "date": "2018-10-10",
+   "symbol": "GLD.NYSE",
+   "action": "BUY",
+   "dw_pct": 20.0,
+   "fwd_ret_pct": 8.091073327569198,
+   "contrib_pct": 1.6182146655138396,
+   "held_to": "2019-02-06"
+  },
+  {
+   "date": "2018-05-18",
+   "symbol": "GLD.NYSE",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": -7.596599648408331,
+   "contrib_pct": 1.5193199296816662,
+   "held_to": "2018-10-10"
+  },
+  {
+   "date": "2018-09-26",
+   "symbol": "COST.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": -7.435017452393621,
+   "contrib_pct": 1.4870034904787244,
+   "held_to": "2019-02-21"
+  },
+  {
+   "date": "2018-10-10",
+   "symbol": "TLT.NASDAQ",
+   "action": "BUY",
+   "dw_pct": 20.0,
+   "fwd_ret_pct": 7.165926606557793,
+   "contrib_pct": 1.4331853213115586,
+   "held_to": "2019-02-06"
+  },
+  {
+   "date": "2019-05-17",
+   "symbol": "GLD.NYSE",
+   "action": "BUY",
+   "dw_pct": 20.0,
+   "fwd_ret_pct": 4.953946655775798,
+   "contrib_pct": 0.9907893311551598,
+   "held_to": "2019-06-17"
+  },
+  {
+   "date": "2019-05-17",
+   "symbol": "TLT.NASDAQ",
+   "action": "BUY",
+   "dw_pct": 20.0,
+   "fwd_ret_pct": 4.630686185157362,
+   "contrib_pct": 0.9261372370314725,
+   "held_to": "2019-06-17"
+  }
+ ],
+ "nav_end": {
+  "arm_a": 279693.04224787164,
+  "arm_b": 316958.85302311165,
+  "initial": 100000.0
+ },
+ "acceptance_pass": true,
+ "placebo_verdict": "NOT distinguishable from simply trading less"
+}

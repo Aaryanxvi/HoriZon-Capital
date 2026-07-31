@@ -5,10 +5,10 @@
   "2024-12-31"
  ],
  "signals_total": 1015,
- "signals_debated": 49,
- "coverage_pct": 4.827586206896555,
+ "signals_debated": 270,
+ "coverage_pct": 26.600985221674875,
  "undebated_policy": "passthrough",
- "weight_coverage_pct": 8.470048698471626,
+ "weight_coverage_pct": 58.05448309612981,
  "arm_a": {
   "CAGR%": 15.9,
   "vol%": 15.3,
@@ -19,68 +19,86 @@
   "turnover": 12.72047756502723
  },
  "arm_b": {
-  "CAGR%": 19.2,
-  "vol%": 17.8,
-  "Sharpe": 0.85,
+  "CAGR%": 15.9,
+  "vol%": 17.3,
+  "Sharpe": 0.71,
   "maxDD%": -25.7,
-  "avgGross%": 88.9,
-  "fills": 2105,
-  "turnover": 11.677279255239418
+  "avgGross%": 99.8,
+  "fills": 1510,
+  "turnover": 2.6860957478452328
  },
  "arm_c": {
-  "sharpe_mean": 0.7884,
-  "sharpe_std": 0.03759574444002937,
-  "sharpe_p5": 0.74,
-  "sharpe_p95": 0.83,
-  "fills_mean": 1887.6,
+  "sharpe_mean": 0.8264,
+  "sharpe_std": 0.14045298145642904,
+  "sharpe_p5": 0.63,
+  "sharpe_p95": 1.048,
+  "fills_mean": 1720.16,
   "trials": 25,
-  "beat": 24,
-  "p_empirical": 0.040000000000000036
+  "beat": 5,
+  "p_empirical": 0.8
  },
  "gate": {
-  "debates": 67,
+  "debates": 288,
   "errors": 0,
-  "approved": 30,
-  "rejected": 37,
-  "median_latency_ms": 4825,
-  "llm_calls": 536,
-  "disagreement_pct": 68.65671641791045,
+  "approved": 118,
+  "rejected": 170,
+  "median_latency_ms": 4597,
+  "llm_calls": 2304,
+  "disagreement_pct": 69.79166666666666,
   "by_role": {
    "STRATEGY": {
-    "FOR": 27,
-    "AGAINST": 98,
-    "ABSTAIN": 9
+    "FOR": 106,
+    "AGAINST": 445,
+    "ABSTAIN": 25
    },
    "RISK": {
-    "AGAINST": 57,
-    "FOR": 40,
-    "ABSTAIN": 37
+    "AGAINST": 221,
+    "FOR": 172,
+    "ABSTAIN": 183
    },
    "SENTIMENT": {
-    "ABSTAIN": 43,
-    "FOR": 44,
-    "AGAINST": 47
+    "ABSTAIN": 175,
+    "FOR": 189,
+    "AGAINST": 212
    },
    "PORTFOLIO": {
-    "ABSTAIN": 32,
-    "FOR": 58,
-    "AGAINST": 44
+    "ABSTAIN": 185,
+    "FOR": 192,
+    "AGAINST": 199
    }
   },
   "by_provider": {
    "openai": {
-    "FOR": 169,
-    "AGAINST": 246,
-    "ABSTAIN": 121
+    "FOR": 659,
+    "AGAINST": 1077,
+    "ABSTAIN": 568
    }
   }
  },
  "counterfactual": {
-  "total_pct": -22.760859928044997,
-  "counted": 28,
-  "win_rate": 42.857142857142854
+  "total_pct": -101.11652773045516,
+  "counted": 161,
+  "win_rate": 37.88819875776397
  },
  "examples": [
+  {
+   "date": "2020-01-21",
+   "symbol": "COST.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 79.27837654328545,
+   "contrib_pct": -15.85567530865709,
+   "held_to": "2022-07-28"
+  },
+  {
+   "date": "2020-08-03",
+   "symbol": "LLY.NYSE",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": 76.05277900000651,
+   "contrib_pct": -15.210555800001302,
+   "held_to": "2021-08-13"
+  },
   {
    "date": "2018-01-24",
    "symbol": "TSLA.NASDAQ",
@@ -89,6 +107,15 @@
    "fwd_ret_pct": 163.4220436363702,
    "contrib_pct": -12.403355433645661,
    "held_to": "2020-02-19"
+  },
+  {
+   "date": "2023-11-03",
+   "symbol": "ORCL.NYSE",
+   "action": "SELL",
+   "dw_pct": -14.135294561425058,
+   "fwd_ret_pct": 62.54116207338632,
+   "contrib_pct": -8.840377481211407,
+   "held_to": "2024-10-25"
   },
   {
    "date": "2018-06-11",
@@ -100,101 +127,74 @@
    "held_to": "2021-04-14"
   },
   {
-   "date": "2018-01-31",
-   "symbol": "AAPL.NASDAQ",
-   "action": "SELL",
-   "dw_pct": -7.326647549235488,
-   "fwd_ret_pct": 40.416984986471945,
-   "contrib_pct": -2.9612100399862222,
-   "held_to": "2018-10-03"
-  },
-  {
-   "date": "2019-06-17",
-   "symbol": "GLD.NYSE",
+   "date": "2023-06-28",
+   "symbol": "LLY.NYSE",
    "action": "SELL",
    "dw_pct": -20.0,
-   "fwd_ret_pct": 8.880703612199525,
-   "contrib_pct": -1.776140722439905,
-   "held_to": "2019-08-06"
+   "fwd_ret_pct": 28.026247211694,
+   "contrib_pct": -5.6052494423388,
+   "held_to": "2023-09-08"
   },
   {
-   "date": "2018-07-31",
-   "symbol": "COST.NASDAQ",
-   "action": "SELL",
-   "dw_pct": -20.0,
-   "fwd_ret_pct": 7.2172528534380165,
-   "contrib_pct": -1.4434505706876033,
-   "held_to": "2018-09-19"
-  },
-  {
-   "date": "2019-06-17",
-   "symbol": "TLT.NASDAQ",
-   "action": "SELL",
-   "dw_pct": -20.0,
-   "fwd_ret_pct": 5.871397682086155,
-   "contrib_pct": -1.1742795364172312,
-   "held_to": "2019-08-06"
-  },
-  {
-   "date": "2018-06-04",
-   "symbol": "ALGN",
-   "action": "SELL",
-   "dw_pct": -5.555555555555556,
-   "fwd_ret_pct": -39.24710827245037,
-   "contrib_pct": 2.180394904025021,
-   "held_to": "2024-12-31"
-  },
-  {
-   "date": "2019-06-10",
+   "date": "2023-11-03",
    "symbol": "SPY.NYSE",
    "action": "BUY",
    "dw_pct": 20.0,
-   "fwd_ret_pct": 9.07120912866941,
-   "contrib_pct": 1.8142418257338822,
-   "held_to": "2020-03-04"
+   "fwd_ret_pct": 36.86465029240551,
+   "contrib_pct": 7.372930058481102,
+   "held_to": "2024-12-31"
   },
   {
-   "date": "2018-05-18",
-   "symbol": "GLD.NYSE",
-   "action": "SELL",
-   "dw_pct": -20.0,
-   "fwd_ret_pct": -7.596599648408331,
-   "contrib_pct": 1.5193199296816662,
-   "held_to": "2018-10-10"
-  },
-  {
-   "date": "2018-09-26",
-   "symbol": "COST.NASDAQ",
-   "action": "SELL",
-   "dw_pct": -20.0,
-   "fwd_ret_pct": -7.435017452393621,
-   "contrib_pct": 1.4870034904787244,
-   "held_to": "2019-02-21"
-  },
-  {
-   "date": "2018-10-10",
+   "date": "2022-12-12",
    "symbol": "TLT.NASDAQ",
-   "action": "BUY",
-   "dw_pct": 20.0,
-   "fwd_ret_pct": 7.165926606557793,
-   "contrib_pct": 1.4331853213115586,
-   "held_to": "2019-02-06"
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": -17.171404380084997,
+   "contrib_pct": 3.434280876017,
+   "held_to": "2023-11-03"
   },
   {
-   "date": "2019-05-17",
-   "symbol": "GLD.NYSE",
-   "action": "BUY",
-   "dw_pct": 20.0,
-   "fwd_ret_pct": 4.953946655775798,
-   "contrib_pct": 0.9907893311551598,
-   "held_to": "2019-06-17"
+   "date": "2020-09-15",
+   "symbol": "TLT.NASDAQ",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": -16.934275675934284,
+   "contrib_pct": 3.3868551351868574,
+   "held_to": "2021-05-12"
+  },
+  {
+   "date": "2021-11-08",
+   "symbol": "JPM.NYSE",
+   "action": "SELL",
+   "dw_pct": -16.16797942150821,
+   "fwd_ret_pct": -19.96169866983465,
+   "contrib_pct": 3.2274033331223446,
+   "held_to": "2023-04-10"
+  },
+  {
+   "date": "2023-09-08",
+   "symbol": "ORCL.NYSE",
+   "action": "SELL",
+   "dw_pct": -20.0,
+   "fwd_ret_pct": -14.163123934369693,
+   "contrib_pct": 2.8326247868739385,
+   "held_to": "2023-09-22"
+  },
+  {
+   "date": "2024-10-11",
+   "symbol": "LLY.NYSE",
+   "action": "SELL",
+   "dw_pct": -14.924555065119872,
+   "fwd_ret_pct": -17.384770004269512,
+   "contrib_pct": 2.5945995722316457,
+   "held_to": "2024-12-31"
   }
  ],
  "nav_end": {
   "arm_a": 279693.04224787164,
-  "arm_b": 341009.8572418702,
+  "arm_b": 280864.078117402,
   "initial": 100000.0
  },
- "acceptance_pass": true,
- "placebo_verdict": "judgment adds beyond trading less"
+ "acceptance_pass": false,
+ "placebo_verdict": "NOT distinguishable from simply trading less"
 }

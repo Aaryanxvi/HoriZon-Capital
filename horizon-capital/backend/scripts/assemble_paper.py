@@ -232,7 +232,13 @@ def main() -> None:
 
     tex = _sub_block(tex, "abtest-rows", abtest_rows(s))
     tex = _sub_block(tex, "leak-rows", leak_rows)
-    tex = _sub_block(tex, "abtest-prose", results_prose(s, leak))
+    # The results prose was generated once and has since been rewritten by hand;
+    # its markers are gone deliberately. Regenerating would overwrite the edited
+    # text with the template, so only fill it if the markers are still present.
+    if "% BEGIN:abtest-prose" in tex:
+        tex = _sub_block(tex, "abtest-prose", results_prose(s, leak))
+    else:
+        print("  (results prose is hand-edited; leaving it alone)")
 
     # Title: no longer a pending draft.
     tex = _sub_once(tex,
