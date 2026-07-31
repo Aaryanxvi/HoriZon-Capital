@@ -155,11 +155,24 @@ def build_curves(rebuild: bool) -> dict[str, pd.Series]:
             print(f"  replaying {wname}/{aname} ...")
             eq, _ = run(LIVE_CFG, weights, bars, closes, opens, cal, 100_000.0, cfg_uni)
             curves[f"{wname}/{aname}"] = eq.reindex(cal).dropna()
-        for col, label in ((spy_col, "SPY"), ("QAI.US", "QAI"), ("AOR.US", "AOR")):
-            if col in closes.columns:
-                s = closes[col].loc[cal[0]:cal[-1]].dropna()
-                if len(s) > 250:
-                    curves[f"{wname}/{label}"] = s / s.iloc[0] * 100_000.0
+        # The PIT bar cache holds index members and anchors only, so the peer
+        # ETFs have to be fetched separately rather than silently omitted.
+        import asyncio
+
+        from app.data_layer.batch_bars import fetch_batch
+        peers = asyncio.run(fetch_batch(["QAI.US", "AOR.US"], period="max"))
+        peer_close = {k: v["close"] for k, v in peers.items()}
+        sources = {"SPY": closes[spy_col], "QAI": peer_close.get("QAI.US"),
+                   "AOR": peer_close.get("AOR.US")}
+        for label, series in sources.items():
+            if series is None:
+                print(f"  [warn] {label} unavailable; row omitted, not zero-filled")
+                continue
+            s = series.loc[cal[0]:cal[-1]].dropna()
+            if len(s) > 250:
+                curves[f"{wname}/{label}"] = s / s.iloc[0] * 100_000.0
+            else:
+                print(f"  [warn] {label} covers only {len(s)} days of {wname}")
     pd.to_pickle(curves, CURVES)
     print(f"Cached {len(curves)} curves -> {CURVES.name}")
     return curves

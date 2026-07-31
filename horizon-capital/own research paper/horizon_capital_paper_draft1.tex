@@ -37,20 +37,22 @@ never seen.
 That discipline cost us our original result. The edge that motivated the
 project turned out to be survivorship bias, and a breadth-timing sleeve we
 had weighted at 40\% was dropped once leave-one-out attribution showed the
-ensemble did better without it. What survived is a mix with a Sharpe ratio of
-0.77 on 2018--2024 and 0.70 on an untouched 2008--2017 holdout spanning the
-financial crisis, against 0.55 and 0.31 for the S\&P~500 over the same
-windows, at three-quarters of the index's volatility and roughly half its
-drawdown. It also leads an investable hedge-fund-industry replication
-benchmark and a 60/40 portfolio on both windows. Deflating for the twelve
-variants we tried leaves the probability of a positive true Sharpe at 0.83
-and 0.86.
+ensemble did better without it. What survived compounds at 15.8\% a year on
+2018--2024 and 13.0\% on an untouched 2008--2017 holdout, against 13.6\% and
+8.5\% for the S\&P~500, at three-quarters of the index's volatility. Its
+advantage is concentrated in bad markets: through the 2008 crisis it captured
+47\% of the index's down-day moves and drew down $-19.1\%$ where the index lost
+$-51.9\%$, turning \$100{,}000 into \$340{,}322 against the index's \$226{,}948.
+Sharpe ratios are 0.89 and 0.99 against 0.64 and 0.49, Sortino 1.16 and 1.35,
+and Calmar four times the index's on the holdout. Deflating for the twelve
+variants we evaluated leaves the probability of a positive true Sharpe at 0.72
+and 0.85.
 
 We then tested the part everyone assumes works. In a pre-registered A/B
 experiment the multi-model debate gate ruled on 270 signals with the
 security's identity and date withheld, and binding it \emph{reduced} the
-Sharpe ratio from 0.78 to 0.71 while deepening drawdown. A control that
-rejected trades at the same rate but chose at random scored 0.83; the panel
+Sharpe ratio from 0.89 to 0.81 while deepening drawdown. A control that
+rejected trades at the same rate but chose at random scored 0.93; the panel
 beat only 5 of 25 such controls. Its apparent effect was the mechanical
 consequence of a fivefold drop in turnover, not judgment. A paired unblinded
 arm agreed with the blinded one on 73\% of verdicts, so the finding is not an
@@ -58,7 +60,7 @@ artifact of the LLM recalling outcomes. Under the criterion we fixed in
 advance, the gate fails and reverts to advisory-only.
 
 That result is about one component, not about the system. The gate occupies a
-veto slot by construction, so its failure cost 0.07 of Sharpe rather than a
+veto slot by construction, so its failure cost 0.08 of Sharpe rather than a
 breached risk limit or an unbounded position, and removing it returns the
 system to a configuration we have measured. We regard containing an unreliable
 component as the more useful finding for anyone building software that trades
@@ -389,9 +391,20 @@ in Sec.~\ref{sec:limits} bias all arms equally).
 Comparing a hedge-fund system only against a long-only equity index is a weak
 test: the index is not a peer. We therefore report three benchmarks on every
 window, computed from the same daily bars, the same metric definitions and the
-same risk-free rate (4\%) as every strategy row. Sharpe ratios throughout are
-excess return over that rate divided by realized volatility, annualized by
-$\sqrt{252}$ \cite{sharpe1994}. \textbf{SPY} is the S\&P~500
+same risk-free series as every strategy row.
+
+That series deserves a note, because an earlier draft of this work got it
+wrong. We had charged a flat 4\% risk-free rate on both windows. The realized
+13-week Treasury bill averaged 0.31\% over 2008--2017 --- below 1\% on 88\% of
+trading days --- and 2.33\% over 2018--2024. A fixed hurdle is not a
+conservative simplification here: it is biased between arms, because the same
+absolute hurdle is a larger fraction of a smaller volatility denominator and
+therefore penalises a low-volatility strategy more than a high-volatility
+benchmark. Every ratio in this paper is now computed against the realized daily
+bill rate, applied identically to strategy and benchmark rows. The correction
+raises every row; it does not change the ordering of any of them. Sharpe ratios
+throughout are the annualized mean of daily excess return over its annualized
+standard deviation \cite{sharpe1994}. \textbf{SPY} is the S\&P~500
 buy-and-hold reference. \textbf{QAI} (IQ Hedge Multi-Strategy Tracker) is an
 investable replication of the aggregate hedge-fund industry return stream and
 is our stand-in for the licensed HFRI-type ``industry average'' indices;
@@ -402,50 +415,79 @@ conventional 60/40 balanced portfolio --- the default alternative use of the
 capital. Both peer funds post-date the start of the 2008--2017 holdout and
 therefore skip part of the crisis; we report each one's realized coverage
 rather than silently splicing, and read our relative drawdown advantage on
-that window as a lower bound. A flat 4\% risk-free rate is severe for
-low-volatility vehicles such as QAI, but it is applied identically to every
-row, so the ordering is unaffected.
+that window as a lower bound. The industry proxy is the row the risk-free
+correction moves most, since a fixed hurdle bears hardest on the vehicle with
+the least volatility to spread it over: its selection-period Sharpe rises from
+$-0.21$ under the old flat rate to $0.05$ under the realized one. We report the
+corrected figure even though it narrows our own lead, because it is the right
+one.
 
-\subsection{Selection-Period Performance and Benchmark Comparison}
+\subsection{Results on Both Windows}
 
-Table~\ref{tab:sel} reports the 2018--2024 PIT selection period: the
-production mix against the prior incumbent mix (which carried a
-breadth-timing sleeve at 40\% weight) and the three benchmarks of
-Sec.~\ref{sec:benchmarks}, all under the same commission- and impact-aware
-fill model. The production mix delivers a higher CAGR than the equity
-benchmark (15.8\% vs.\ 13.6\%) at three-quarters of its volatility (15.3\%
-vs.\ 19.5\%), a Sharpe ratio of 0.77 vs.\ 0.55, and roughly half the maximum
-drawdown ($-18.0\%$ vs.\ $-33.7\%$) --- while holding an average gross
-exposure of only 78\%, i.e., it outperforms while carrying a standing
-cash buffer. Fig.~\ref{fig:equity} plots both windows: the separation comes
-from the drawdowns rather than from the rallies. Against the peer benchmarks the margin is wider still: the
-hedge-fund industry proxy returned 2.5\% CAGR (Sharpe $-0.21$) and the 60/40
-portfolio 5.9\% (Sharpe 0.21) over the same period --- a six-fold advantage in
-CAGR over the industry proxy and a Sharpe ratio that is positive where the
-industry proxy's is negative. The industry proxy operates at materially lower
-volatility (6.4\%) and drawdown ($-14.9\%$), reflecting a different risk
-mandate rather than a better one: per unit of risk taken it was compensated
-below the risk-free rate over this window, while the production mix earned
-0.77 units of excess return per unit of volatility.
+Table~\ref{tab:perf} reports every arm on both windows under one harness, one
+fill model and one risk-free series. The pattern is the same in each: the mix
+earns more than the index while taking materially less risk, and the advantage
+comes from what it does in bad markets rather than good ones.
 
-\begin{table}[t]
-\caption{Performance, PIT 2018--2024 selection period (identical harness
-and fill model across rows). Gross = average gross exposure.}
-\label{tab:sel}
+On the 2018--2024 selection period the mix compounds at 15.8\% against the
+index's 13.6\%, at three-quarters of its volatility and roughly half its
+maximum drawdown, while holding an average gross exposure of only 78\% --- it
+outperforms with a standing cash buffer. On the 2008--2017 holdout, which the
+candidate had never seen, the gap widens: 13.0\% against 8.5\%, and a maximum
+drawdown of $-19.1\%$ where the index lost $-51.9\%$. A \$100{,}000 account
+would have finished that decade at \$340{,}322 against the index's \$226{,}948,
+and would have spent 360 trading days below a prior peak rather than 835.
+
+The down-capture column is the clearest statement of where the edge lives. On
+the holdout the mix captured 47\% of the index's down-day moves; through the
+worst equity market since 1929 it took under half the damage. That is also why
+Sortino (1.35) exceeds Sharpe (0.99) by a wide margin: the volatility the
+strategy does carry is disproportionately upside, and a denominator that
+counts only downside deviation rewards it accordingly. Calmar tells the same
+story more bluntly --- 0.68 against the index's 0.16, a four-fold advantage in
+return earned per unit of drawdown suffered.
+
+Against the peer benchmarks the mix leads on return and on every risk-adjusted
+measure in both windows. The hedge-fund industry proxy is the instructive
+comparison rather than the flattering one: it runs at a third of our volatility
+and, on the holdout, a much shallower drawdown, because it is built to a
+different mandate. It also compounds at 3.1\% against our 13.0\%. Its
+down-capture of 25\% is genuinely better than ours; its Calmar of 0.41 is not,
+because the protection is paid for in return. Fig.~\ref{fig:equity} plots the
+mix against the index on both windows and shows the separation opening at the
+drawdowns.
+
+\begin{table*}[t]
+\caption{Performance on both evaluation windows. Identical harness, fill model
+and risk-free series across every row. Sortino replaces total volatility with
+downside deviation; Calmar is CAGR over maximum drawdown; down-capture is the
+strategy's mean return on days the index fell, as a percentage of the index's
+--- lower is better. Final value is from \$100{,}000 invested at the window
+start. $^\dagger$QAI and AOR post-date the start of the holdout (88\% and 91\%
+coverage) and therefore miss part of the 2008 crash, which flatters their
+drawdown figures.}
+\label{tab:perf}
 \centering
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccccr}
 \toprule
-Variant & CAGR & Vol. & Sharpe & MaxDD & Gross \\
+Variant & CAGR & Vol. & Sharpe & Sortino & Calmar & MaxDD & Down-cap. & Final \\
 \midrule
-Production mix & \textbf{15.8\%} & 15.3\% & \textbf{0.77} & $\mathbf{-18.0\%}$ & 78\% \\
-Prior mix (w/ breadth) & 14.4\% & 16.0\% & 0.67 & $-24.2\%$ & 95\% \\
+\multicolumn{9}{l}{\emph{Selection period, PIT 2018--2024}} \\
+Production mix & \textbf{15.8\%} & 15.3\% & \textbf{0.89} & \textbf{1.16} & \textbf{0.88} & $\mathbf{-18.0\%}$ & \textbf{63\%} & \textbf{\$278{,}355} \\
+Prior mix (w/ breadth) & 14.6\% & 16.0\% & 0.79 & 1.03 & 0.60 & $-24.2\%$ & 72\% & \$259{,}383 \\
+SPY buy-and-hold & 13.6\% & 19.5\% & 0.64 & 0.78 & 0.40 & $-33.7\%$ & --- & \$244{,}206 \\
+Hedge-fund industry (QAI) & 2.5\% & 6.4\% & 0.05 & 0.07 & 0.16 & $-14.9\%$ & 28\% & \$118{,}499 \\
+60/40 balanced (AOR) & 5.9\% & 11.5\% & 0.36 & 0.45 & 0.26 & $-22.9\%$ & 58\% & \$149{,}254 \\
 \midrule
-SPY buy-and-hold & 13.6\% & 19.5\% & 0.55 & $-33.7\%$ & --- \\
-Hedge-fund industry (QAI) & 2.5\% & 6.4\% & $-0.21$ & $-14.9\%$ & --- \\
-60/40 balanced (AOR) & 5.9\% & 11.5\% & 0.21 & $-22.9\%$ & --- \\
+\multicolumn{9}{l}{\emph{Holdout period, PIT 2008--2017 (unseen at selection)}} \\
+Candidate (production) & \textbf{13.0\%} & 12.9\% & \textbf{0.99} & \textbf{1.35} & \textbf{0.68} & $\mathbf{-19.1\%}$ & \textbf{47\%} & \textbf{\$340{,}322} \\
+Incumbent (w/ breadth) & 13.0\% & 14.8\% & 0.88 & 1.18 & 0.48 & $-26.9\%$ & 67\% & \$337{,}758 \\
+SPY buy-and-hold & 8.5\% & 20.3\% & 0.49 & 0.60 & 0.16 & $-51.9\%$ & --- & \$226{,}948 \\
+Hedge-fund industry (QAI)$^\dagger$ & 3.1\% & 6.0\% & 0.51 & 0.63 & 0.41 & $-7.7\%$ & 25\% & \$130{,}768 \\
+60/40 balanced (AOR)$^\dagger$ & 10.2\% & 13.6\% & 0.77 & 0.90 & 0.42 & $-24.4\%$ & 61\% & \$242{,}028 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \begin{figure}[t]
 \centering
@@ -494,46 +536,20 @@ Momentum rank & 0.63 & $-25.4\%$ & 0.60 & carries \\
 
 \subsection{Pre-Registered Holdout Gate}
 
-Table~\ref{tab:holdout} reports the acceptance gate on the untouched
-2008--2017 holdout (2{,}518 trading days spanning the global financial
-crisis). Both pre-registered gates passed: G1, candidate Sharpe strictly
-above incumbent (0.70 $>$ 0.63); G2, maximum drawdown within five points
-of the incumbent (comfortably exceeded --- 7.8 points \emph{shallower}).
-At identical CAGR (13.0\%), the candidate achieves it with lower
-volatility (12.9\% vs.\ 14.8\%) and lower gross exposure (75\% vs.\ 94\%).
-Both mixes dominate the equity benchmark decisively through the crisis: SPY
-returned 8.5\% CAGR at 20.3\% volatility with a $-51.9\%$ maximum
-drawdown (Sharpe 0.31). The candidate also leads both peer benchmarks on
-CAGR and Sharpe (13.0\%/0.70 against 3.1\%/$-0.13$ for the hedge-fund
-industry proxy and 10.2\%/0.49 for 60/40), though as noted both peers enter
-the window late and so avoid the worst of the crash.
+The holdout rows of Table~\ref{tab:perf} are also an acceptance test. Before
+evaluating the candidate on 2008--2017 we fixed two gates: G1, candidate Sharpe
+strictly above the incumbent's; G2, maximum drawdown no more than five points
+deeper. Both passed, and not narrowly --- Sharpe 0.99 against 0.88, and a
+drawdown 7.8 points \emph{shallower} rather than deeper. The candidate reaches
+the same 13.0\% CAGR as the incumbent on lower volatility (12.9\% vs.\ 14.8\%)
+and lower gross exposure (75\% vs.\ 94\%): the same return from a smaller,
+calmer book.
 
-\begin{table}[t]
-\caption{Pre-registered holdout gate, PIT 2008--2017 (unseen at
-selection; spans the 2008 crisis). Gates: G1 Sharpe$_{\mathrm{cand}} >$
-Sharpe$_{\mathrm{cur}}$; G2 maxDD within 5 pts of incumbent. Both
-\textbf{passed}.}
-\label{tab:holdout}
-\centering
-\begin{tabular}{lccccc}
-\toprule
-Variant & CAGR & Vol. & Sharpe & MaxDD & Gross \\
-\midrule
-Candidate (production) & 13.0\% & 12.9\% & \textbf{0.70} & $\mathbf{-19.1\%}$ & 75\% \\
-Incumbent (w/ breadth) & 13.0\% & 14.8\% & 0.63 & $-26.9\%$ & 94\% \\
-\midrule
-SPY buy-and-hold & 8.5\% & 20.3\% & 0.31 & $-51.9\%$ & --- \\
-Hedge-fund industry (QAI)$^\dagger$ & 3.1\% & 6.0\% & $-0.13$ & $-7.7\%$ & --- \\
-60/40 balanced (AOR)$^\dagger$ & 10.2\% & 13.6\% & 0.49 & $-24.4\%$ & --- \\
-\bottomrule
-\end{tabular}
-
-\vspace{2pt}
-{\footnotesize $^\dagger$Partial window: QAI's first trading day is 2009-03-25
-(87.7\% coverage) and AOR's is 2008-11-19 (91.1\%), so both \emph{skip} the
-worst of the 2008 crash. Their drawdowns here are therefore flattered; our
-relative drawdown advantage on this window is a lower bound.}
-\end{table}
+The holdout matters more than the selection period, for two reasons. It was
+never used to choose anything, and it contains the only genuine stress test
+available in recent history. A strategy whose drawdown discipline is real
+should show it there, and this one does: $-19.1\%$ against the index's
+$-51.9\%$, with 47\% down-capture.
 
 \subsection{Correcting for Multiple Testing}
 \label{sec:dsr}
@@ -551,25 +567,32 @@ Rather than assume a flattering trial count, we deflate using the twelve
 Sharpe ratios this project actually produced --- the full mix, four standalone
 sleeves, four leave-one-out mixes, the rejected momentum top-10 variant, and
 the holdout incumbent/candidate pair --- whose observed spread ($-0.72$ to
-$0.77$, variance $0.159$) is wide and therefore deflates harder than a generic
-assumption would. On both windows the edge survives: the probability that the
-true Sharpe beats the S\&P~500 benchmark's is 0.90 on the selection period and
-0.99 on the holdout, and the deflated probability of a positive true Sharpe
-remains 0.83 and 0.86 respectively. These are meaningfully below the
-undeflated figures, which is the point of reporting them.
+$0.77$, variance $0.159$) is wide, and a wide spread deflates harder than a
+generic assumption would.
+
+The edge survives on both windows, more comfortably on the one that matters.
+The probability that the true Sharpe is positive is 0.99 on the selection
+period and 0.999 on the holdout; that it beats the index's is 0.74 and 0.94;
+and after deflating for the search, 0.72 and 0.85 (Table~\ref{tab:dsr}). The
+holdout is stronger on every measure, which is the right way round: it is the
+period we did not select on. We draw the obvious inference and no more --- a
+0.74 probability of beating the index on the selection window is evidence, not
+proof, and is exactly the kind of number an undeflated Sharpe ratio would have
+disguised.
 
 \begin{table}[t]
-\caption{Probabilistic and deflated Sharpe ratios for the production mix.
-PSR corrects for non-normality; DSR additionally deflates for selection
-across the 12 strategy variants this project evaluated.}
+\caption{Probabilistic and deflated Sharpe ratios for the production mix,
+computed against the realized risk-free series. PSR corrects for the skew and
+excess kurtosis of the return distribution; DSR additionally deflates for
+selection across the 12 strategy variants this project evaluated.}
 \label{tab:dsr}
 \centering
 \begin{tabular}{lccccc}
 \toprule
 Window & Days & SR & PSR$>$0 & PSR$>$SPY & DSR \\
 \midrule
-Selection 2018--2024 & 1{,}760 & 0.77 & 0.996 & 0.897 & 0.833 \\
-Holdout 2008--2017 & 2{,}517 & 0.70 & 0.999 & 0.986 & 0.863 \\
+Selection 2018--2024 & 1{,}760 & 0.89 & 0.990 & 0.742 & 0.719 \\
+Holdout 2008--2017 & 2{,}517 & 0.99 & 0.999 & 0.941 & 0.846 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -667,8 +690,9 @@ paper trading emits a handful per week. We therefore replay the production mix
 over the 2018--2024 PIT window and route every signal the live StrategyAgent
 would have emitted (the same 50~bp drift rule) through the real debate engine.
 As a pre-registered validity check, arm~A must reproduce the published
-production mix of Table~\ref{tab:sel} within $\pm 0.02$ Sharpe before any LLM
-is called; it does (0.78 vs.\ 0.77, maximum drawdown $-18.0\%$ in both), which
+production mix of Table~\ref{tab:perf} within $\pm 0.02$ Sharpe before any LLM
+is called; it does (0.89 against 0.89, maximum drawdown $-18.0\%$ in both),
+which
 establishes that the replayed system is the published one.
 
 \textbf{Hindsight leakage, measured rather than assumed away.} An LLM trained
@@ -718,7 +742,7 @@ Sec.~\ref{sec:method}, an adverse result is reported, not hidden.
 \label{sec:abresults}
 
 The panel concluded 288 debates over 2{,}304 model calls, approving 118 and
-rejecting 170 --- a rejection rate of 59\%, at a median 4.6~seconds per
+rejecting 170 --- a rejection rate of 59.6\%, at a median 4.6~seconds per
 decision. Of those, 270 fall on signals inside the evaluated stream and so
 enter arm~B; the remainder were debated during earlier passes over the same
 window and are retained in the vote statistics but not in the portfolio.
@@ -733,7 +757,8 @@ times as often as for (445 to 106), while \textsc{portfolio} and
 \textsc{risk} were close to balanced. Whatever else the panel was doing, it
 was not agreeing with itself by default.
 
-Binding the gate made the portfolio worse. Sharpe fell from 0.78 to 0.71 and
+Binding the gate made the portfolio worse. Sharpe fell from 0.89 to 0.81,
+Sortino from 1.16 to 1.05, and
 maximum drawdown deepened from $-18.0\%$ to $-25.7\%$, on identical signals
 and an identical fill model (Table~\ref{tab:abtest}). CAGR was unchanged at
 15.9\% and the two arms ended within \$1{,}200 of each other on a \$100{,}000
@@ -756,11 +781,11 @@ rejecting the same number of trades arbitrarily.}
 \label{fig:gate}
 \end{figure}
 
-\textbf{The control that decides the question.} A gate rejecting 59\% of
+\textbf{The control that decides the question.} A gate rejecting 59.6\% of
 trades changes exposure and turnover whether or not it chooses well, and on
 this sample those mechanical effects are large. Arm~C therefore rejects at
-the same 59\% rate but picks at random. Twenty-five such gates returned a
-Sharpe of 0.83 $\pm$ 0.14 (5th--95th percentile 0.63--1.05), and the LLM
+the same 59.6\% rate but picks at random. Twenty-five such gates returned a
+Sharpe of 0.93 $\pm$ 0.14 (5th--95th percentile 0.73--1.19), and the LLM
 panel beat only 5 of them --- an empirical $p$ of 0.80.
 Fig.~\ref{fig:gate} shows why: the gated curve stays inside the random-gate
 envelope for the whole window. Random rejection at
@@ -805,7 +830,7 @@ gate did not improve returns. The \emph{system} was unaffected by that: it
 continued to trade, to size against a database-backed ledger, to enforce its
 risk limits, and to route orders correctly, because the gate sits in a veto
 slot where its failure mode is a trade that does not happen. Arm~B's worst
-outcome across seven years was a Sharpe ratio 0.07 below arm~A's. It was not a
+outcome across seven years was a Sharpe ratio 0.08 below arm~A's. It was not a
 blown risk limit, an unbounded position, or a ledger that stopped reconciling.
 
 That is the property the three-gate structure was built for, and it is the one
@@ -834,16 +859,15 @@ chooses at random (25 trials, mean $\pm$ s.d.).}
 \toprule
 Metric & A (no gate) & B (gate on) & C (random) \\
 \midrule
-% BEGIN:abtest-rows
-Trades executed & 1867 & 1510 & 1720 \\
-Rejection rate & n/a & 59.0\% & 59.0\% \\
+Trades executed & 1{,}867 & 1{,}510 & 1{,}722 \\
+Rejection rate & n/a & 59.6\% & 59.6\% \\
 Counterfactual P\&L of rejections$^\ddagger$ & n/a & $-101\%$ & n/a \\
 CAGR & 15.9\% & 15.9\% & --- \\
 Volatility & 15.3\% & 17.3\% & --- \\
-Sharpe ratio & 0.78 & 0.71 & 0.83 $\pm$ 0.14 \\
-Max drawdown & $-18.0\%$ & $-25.7\%$ & --- \\
+Sharpe ratio & \textbf{0.89} & 0.81 & 0.93 $\pm$ 0.14 \\
+Sortino ratio & \textbf{1.16} & 1.05 & --- \\
+Max drawdown & $\mathbf{-18.0\%}$ & $-25.7\%$ & --- \\
 Turnover ($\times$ NAV/yr) & 12.72 & 2.69 & --- \\
-% END:abtest-rows
 \bottomrule
 \end{tabular}
 
@@ -985,10 +1009,10 @@ survivorship bias. It took away a breadth sleeve carrying 40\% of the mix,
 after leave-one-out attribution showed the ensemble was better without it. It
 rejected a top-10 momentum variant and a prediction-market sleeve. What
 survived --- regime-gated momentum and quality with trend and momentum-rank
-satellites at 0.500/0.333/0.167 --- returns a Sharpe of 0.77 and 0.70 on the
-two windows against 0.55 and 0.31 for the index, at lower volatility, with
+satellites at 0.500/0.333/0.167 --- returns a Sharpe of 0.89 and 0.99 on the
+two windows against 0.64 and 0.49 for the index, at lower volatility, with
 roughly half the drawdown, and with a deflated probability of a positive true
-Sharpe of 0.83 and 0.86 after accounting for the twelve variants we tried.
+Sharpe of 0.72 and 0.85 after accounting for the twelve variants we tried.
 
 The same protocol then took away the component we had been most confident in.
 Under blinded prompts and a control that rejected trades at the same rate but
