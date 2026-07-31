@@ -271,7 +271,10 @@ long-duration Treasuries and gold; in \textsc{risk-on} regimes the sleeve
 ranks the point-in-time S\&P~500 universe by 12--1 time-series momentum
 \cite{jegadeesh1993returns} and quality \cite{asness2019qmj}, takes the top
 five names, weights them by hierarchical risk parity
-\cite{lopezdeprado2016hrp}, and caps each weight at half-Kelly
+\cite{lopezdeprado2016hrp} --- chosen over mean-variance optimization
+\cite{markowitz1952} because the latter's weights are notoriously sensitive to
+estimation error in the covariance matrix at this universe size --- and caps
+each weight at half-Kelly
 \cite{kelly1956}.
 \item \textbf{Trend filter} (0.333, weekly). Faber's 200-day moving-average
 rule \cite{faber2007tactical} on the index proxy --- long above trend, cash
@@ -372,7 +375,9 @@ in Sec.~\ref{sec:limits} bias all arms equally).
 Comparing a hedge-fund system only against a long-only equity index is a weak
 test: the index is not a peer. We therefore report three benchmarks on every
 window, computed from the same daily bars, the same metric definitions and the
-same risk-free rate (4\%) as every strategy row. \textbf{SPY} is the S\&P~500
+same risk-free rate (4\%) as every strategy row. Sharpe ratios throughout are
+excess return over that rate divided by realized volatility, annualized by
+$\sqrt{252}$ \cite{sharpe1994}. \textbf{SPY} is the S\&P~500
 buy-and-hold reference. \textbf{QAI} (IQ Hedge Multi-Strategy Tracker) is an
 investable replication of the aggregate hedge-fund industry return stream and
 is our stand-in for the licensed HFRI-type ``industry average'' indices;
@@ -798,7 +803,8 @@ Mean consensus score & 0.384 & 0.374 \\
 \label{sec:limits}
 
 The validated results are backtests on daily bars plus a live
-\emph{paper}-trading deployment; no real capital has traded. This asymmetry
+\emph{paper}-trading deployment (Sec.~\ref{sec:live}); no real capital has
+traded. This asymmetry
 matters most for the peer comparison of Sec.~\ref{sec:benchmarks}: the
 hedge-fund and balanced benchmarks are realized, investable, net-of-fee return
 streams carrying management costs and capacity constraints, whereas our rows
