@@ -241,9 +241,11 @@ fully-autonomous mode), and execution-time guards.}
 
 A trade intent traverses:
 \begin{equation*}
-\text{Strategy} \xrightarrow{\text{SIGNAL}} \text{Risk}
-\rightarrow \text{Portfolio (+ Debate)} \rightarrow \text{Execution}
-\rightarrow \text{Broker}.
+\begin{aligned}
+\text{Strategy} \;\xrightarrow{\;\textsc{signal}\;}\; &\text{Risk}
+  \;\rightarrow\; \text{Portfolio} \;(+\,\text{Debate})\\
+  &\rightarrow\; \text{Execution} \;\rightarrow\; \text{Broker}.
+\end{aligned}
 \end{equation*}
 The RiskAgent enforces per-position weight caps (20\% of NAV) and daily-loss
 limits symbol-agnostically. The PortfolioAgent --- sole owner of NAV --- sizes
@@ -317,10 +319,12 @@ among four adversarial analyst roles --- \textsc{strategy} (bull case),
 and \textsc{portfolio} (fit with existing exposure). Each debater receives
 the same grounded context (signal metadata, market regime, cached sentiment,
 portfolio risk metrics) with explicit instructions to reason only from the
-data provided, and returns a structured vote:
+data provided, and returns a free-text \texttt{argument} together with
 \begin{equation*}
-\{\texttt{argument},\ \texttt{vote} \in \{\text{FOR},
-\text{AGAINST}, \text{ABSTAIN}\},\ \texttt{confidence} \in [0,1]\}.
+\begin{aligned}
+\texttt{vote} \;&\in\; \{\textsc{for},\ \textsc{against},\ \textsc{abstain}\},\\
+\texttt{confidence} \;&\in\; [0,1].
+\end{aligned}
 \end{equation*}
 
 \textbf{Provider diversity.} Roles are assigned round-robin (or pinned by
@@ -337,12 +341,13 @@ fit) with the round-one transcript in context, and must engage the strongest
 opposing argument. This forces genuine consideration of counterarguments
 and measurably reduces same-model agreement bias \cite{du2023improving}.
 
-\textbf{Consensus.} With $F$, $A$ the FOR and AGAINST vote sets over both
-rounds and $c_i$ vote confidences, the trade is approved iff
+\textbf{Consensus.} With $F$, $A$ the \textsc{for} and \textsc{against} vote
+sets over both rounds and $c_i$ the vote confidences, the trade is approved iff
 \begin{equation}
-\frac{\sum_{i \in F} c_i}{\sum_{i \in F \cup A} c_i} > 0.55
-\quad \text{and} \quad
-\frac{|F|}{|F| + |A|} \geq 0.6,
+\begin{aligned}
+\frac{\sum_{i \in F} c_i}{\sum_{i \in F \cup A} c_i} \;&>\; 0.55,\\[2pt]
+\frac{|F|}{|F| + |A|} \;&\geq\; 0.6,
+\end{aligned}
 \end{equation}
 i.e., both the confidence-weighted and the raw FOR ratios must clear
 thresholds; abstentions count toward neither side. Malformed model output
