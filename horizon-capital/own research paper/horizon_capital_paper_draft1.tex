@@ -842,29 +842,31 @@ Mean consensus score & 0.384 & 0.374 \\
 \section{Limitations}
 \label{sec:limits}
 
-The validated results are backtests on daily bars plus a live
-\emph{paper}-trading deployment (Sec.~\ref{sec:live}); no real capital has
-traded. This asymmetry
-matters most for the peer comparison of Sec.~\ref{sec:benchmarks}: the
-hedge-fund and balanced benchmarks are realized, investable, net-of-fee return
-streams carrying management costs and capacity constraints, whereas our rows
-charge commissions and market impact but no management or performance fee and
-assume the strategy's own capacity is unbounded. The comparison is therefore
-favorable to us by construction, and the peer rows should be read as an
-indication that the mix is in a competitive range rather than as evidence of
-a realized excess return over the industry. Free daily
-data omits many delisted symbols (85\% coverage of the point-in-time
-union on 2018--2024, 71\% on 2008--2017, where the gap is GFC-era
-delistings); this residual survivorship bias affects all compared arms and
-the benchmark-relative ordering equally, but absolute return levels should
-be read with it in mind. Sharpe
-estimates on a single historical path overstate certainty
-\cite{bailey2014deflated}; Sec.~\ref{sec:dsr} deflates for this but cannot
-eliminate it. LLM judgments inherit the biases of their training corpora.
-The prediction-market study covers few markets over a short window.
+\textbf{No real capital.} Everything here is a backtest on daily bars plus a
+live \emph{paper}-trading deployment (Sec.~\ref{sec:live}).
 
-Four limitations attach specifically to the debate-gate experiment of
-Sec.~\ref{sec:aitest}. First, it is a \emph{replay}: the panel judges
+\textbf{The peer comparison is tilted in our favour.} The hedge-fund and
+balanced benchmarks are realized, investable, net-of-fee return streams
+carrying management costs and capacity constraints. Our rows charge
+commissions and market impact but no management or performance fee, and assume
+the strategy's own capacity is unbounded. The peer rows should be read as an
+indication that the mix is in a competitive range, not as evidence of realized
+excess return over the industry.
+
+\textbf{Residual survivorship bias.} Free daily data omits many delisted
+securities: we recovered 85\% of the point-in-time union on 2018--2024 and 71\%
+on 2008--2017, where the shortfall is concentrated in crisis-era delistings.
+Every arm and benchmark is affected identically, so the ordering should hold,
+but absolute return levels are optimistic by an amount we cannot measure
+without a paid survivorship-free vendor.
+
+\textbf{One historical path.} A Sharpe ratio estimated from a single
+realization overstates certainty \cite{bailey2014deflated}. Sec.~\ref{sec:dsr}
+deflates for the variants we tried, which narrows the problem without removing
+it. The prediction-market study is weaker still: few markets, short window.
+
+\textbf{The debate-gate experiment.} Four limitations attach to it
+specifically. First, it is a \emph{replay}: the panel judges
 historical signals rather than trading forward, which buys the sample size the
 pre-registered metrics need at the cost of the leakage risk quantified in
 Table~\ref{tab:leak}. Blinding removes the security's identity and date, but
@@ -880,6 +882,13 @@ contributes little to the reported verdicts. Fourth, the gate was evaluated in
 its \emph{deployed} configuration, judging the strongest signals within a
 budget rather than every signal; the effect of gating the full stream is
 unmeasured and would require an order of magnitude more model calls.
+
+\textbf{LLM judgments inherit the biases of their training corpora}, and we
+have no way to audit what those are for a closed model. This bears on the
+blinding argument: we can show the panel behaved almost identically with and
+without the ticker, which rules out one specific failure, but not that its
+priors about momentum or volatility are well calibrated to the period it was
+judging.
 
 \section{Conclusion}
 
@@ -899,9 +908,9 @@ two windows against 0.55 and 0.31 for the index, at lower volatility, with
 roughly half the drawdown, and with a deflated probability of a positive true
 Sharpe of 0.83 and 0.86 after accounting for the twelve variants we tried.
 
-The same protocol then took away the feature the system was named for. Under
-blinded prompts and a control that rejected trades at the same rate but chose
-at random, the LLM debate gate did not beat the control, and the improvement
+The same protocol then took away the component we had been most confident in.
+Under blinded prompts and a control that rejected trades at the same rate but
+chose at random, the LLM debate gate did not beat the control, and the improvement
 we would otherwise have claimed turned out to be a fivefold reduction in
 turnover wearing a different hat. We think that control belongs in any study
 of an LLM gate, filter or veto, precisely because such mechanisms change
