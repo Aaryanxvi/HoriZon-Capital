@@ -1,0 +1,29 @@
+{
+ "full_sharpe": 0.7925018598096025,
+ "sleeves": {
+  "breadth_alpha": {
+   "solo_sharpe": 0.4423972312357827,
+   "solo_maxdd": -35.21493182384934,
+   "loo_sharpe": 0.8868765942529991,
+   "verdict": "drags"
+  },
+  "research_stack": {
+   "solo_sharpe": 0.7175408624987456,
+   "solo_maxdd": -16.437583132630806,
+   "loo_sharpe": 0.6263126296767472,
+   "verdict": "carries"
+  },
+  "trend_filter": {
+   "solo_sharpe": -0.050031841057344414,
+   "solo_maxdd": -4.02351535216127,
+   "loo_sharpe": 0.7634191140985918,
+   "verdict": "neutral"
+  },
+  "momentum_rank": {
+   "solo_sharpe": 0.6963617866340431,
+   "solo_maxdd": -25.38946975907067,
+   "loo_sharpe": 0.7385027791759882,
+   "verdict": "carries"
+  }
+ }
+}

@@ -503,22 +503,33 @@ in dash pattern as well as color so the figure survives grayscale printing.}
 
 \subsection{Sleeve Attribution}
 
-Table~\ref{tab:loo} decomposes the ensemble. Each sleeve is shown
-standalone and via leave-one-out (LOO): the mix re-run with that sleeve
-removed and weights renormalized. Under the pre-registered rule (LOO is
-decisive), a sleeve whose removal \emph{raises} mix Sharpe drags. The
-breadth sleeve --- 40\% of the prior mix --- raised mix Sharpe from 0.67
-to 0.77 when removed, and was dropped. The research stack is load-bearing
-(removal costs $-0.16$ Sharpe); the trend filter is near-neutral on Sharpe
-but earns its weight as a drawdown damper (solo maxDD $-4.0\%$);
-momentum-rank carries ($-0.07$). Standalone daily-return correlations
-between sleeves range 0.40--0.63, supporting the ensemble construction. A
-top-10 variant of momentum-rank was separately evaluated and \emph{failed}
-its gate (mix Sharpe 0.63 $<$ 0.67); top-3 was retained.
+Table~\ref{tab:loo} decomposes the ensemble. Each sleeve is shown standalone
+and via leave-one-out (LOO): the mix re-run with that sleeve removed and
+weights renormalized. Under the pre-registered rule --- LOO is decisive, not
+standalone performance --- a sleeve whose removal \emph{raises} mix Sharpe
+drags, and the breadth sleeve raised it from 0.79 to 0.89. It had carried 40\%
+of the weight. It was dropped.
+
+The rest of the decomposition is why the ensemble is an ensemble rather than a
+single sleeve. The research stack is load-bearing: removing it costs 0.17 of
+Sharpe, more than any other sleeve contributes. The trend filter is the
+interesting case. Standalone it is the worst sleeve in the book, with a Sharpe
+of $-0.05$ --- it spends most of its life in cash and earns almost nothing.
+Removing it costs 0.03. It is carried not for return but for what it does to
+the shape of the drawdown, with a solo maximum drawdown of $-4.0\%$ against
+the ensemble's $-18.0\%$, and dropping it would be a decision to accept a
+worse crisis in exchange for a rounding error of Sharpe. Momentum rank carries
+0.05. Standalone daily-return correlations between the sleeves range
+0.40--0.63, which is the diversification the construction is buying.
+
+A top-10 variant of momentum rank was evaluated separately under the same rule
+and \emph{failed} its gate; top-3 was retained.
 
 \begin{table}[t]
 \caption{Per-sleeve attribution, PIT 2018--2024. LOO = mix re-run without
-that sleeve (weights renormalized). Full-mix Sharpe = 0.67.}
+that sleeve (weights renormalized). Full-mix Sharpe = 0.79. Recomputed against
+the realized risk-free series; all four verdicts are unchanged from the
+flat-rate computation under which the drop decision was originally made.}
 \label{tab:loo}
 \centering
 \begin{tabular}{lcccc}
@@ -526,10 +537,10 @@ that sleeve (weights renormalized). Full-mix Sharpe = 0.67.}
 & \multicolumn{2}{c}{Standalone} & \multicolumn{2}{c}{Leave-one-out} \\
 Sleeve & Sharpe & MaxDD & Sharpe & Verdict \\
 \midrule
-Breadth-timing & 0.33 & $-35.2\%$ & 0.77 & drags (dropped) \\
-Research stack & 0.60 & $-16.4\%$ & 0.51 & carries \\
-Trend filter & $-0.72$ & $-4.0\%$ & 0.65 & neutral/hedge \\
-Momentum rank & 0.63 & $-25.4\%$ & 0.60 & carries \\
+Breadth-timing & 0.44 & $-35.2\%$ & \textbf{0.89} & drags (dropped) \\
+Research stack & 0.72 & $-16.4\%$ & 0.63 & carries \\
+Trend filter & $-0.05$ & $-4.0\%$ & 0.76 & neutral/hedge \\
+Momentum rank & 0.70 & $-25.4\%$ & 0.74 & carries \\
 \bottomrule
 \end{tabular}
 \end{table}
