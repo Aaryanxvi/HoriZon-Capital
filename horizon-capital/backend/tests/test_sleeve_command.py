@@ -27,6 +27,9 @@ def handler(monkeypatch, tmp_path):
         ("polymarket_sleeve_enabled", False),
         ("polymarket_sleeve_weight", 0.05),
         ("polymarket_markets", ""),
+        # Pinned: discovery on in the developer's .env would satisfy the
+        # "needs markets" guard and the test would pass for the wrong reason.
+        ("polymarket_discovery_enabled", False),
     ):
         monkeypatch.setattr(settings, attr, value)
 
