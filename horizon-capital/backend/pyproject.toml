@@ -48,6 +48,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Real Polymarket trading. v2 only — the archived v1 `py-clob-client` signs an
+# order version the CLOB rejects outright since the v2 migration.
+polymarket = [
+    "py-clob-client-v2>=1.1.0,<2.0",
+]
 dev = [
     "pytest>=8.0,<10.0",
     "pytest-asyncio>=0.23,<2.0",

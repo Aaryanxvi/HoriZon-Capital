@@ -51,6 +51,13 @@ class DataManager:
         crypto_symbols = [s.strip() for s in settings.crypto_symbols.split(",") if s.strip()]
         all_symbols = [s.strip() for s in settings.all_symbols if s.strip()]
 
+        if settings.crypto_discovery_enabled:
+            from app.data_layer.crypto_universe import refresh_crypto_universe
+
+            for sym in await refresh_crypto_universe():
+                if sym not in crypto_symbols:
+                    crypto_symbols.append(sym)
+
         for feed in self._feeds:
             feed.on_tick(self._handle_tick)
             feed.on_ohlcv(self._handle_ohlcv)
@@ -90,6 +97,14 @@ class DataManager:
             kv = get_kv_store()
             await kv.hset(redis_key, mapping=tick.to_redis_dict())
             await kv.expire(redis_key, 3600)
+            # Also mirror to the price key everything else reads (REPL, position
+            # marking). Tick-only feeds — Polymarket — never emit OHLCV, so
+            # without this their symbols showed no price at all.
+            if tick.last_price and tick.last_price > 0:
+                await kv.set(f"horizon:price:{tick.symbol}", str(tick.last_price))
+                await kv.set(
+                    f"horizon:price:{tick.symbol}:ts", datetime.now(UTC).isoformat()
+                )
             channel = f"horizon.market.{tick.exchange}.{tick.symbol}"
             await kv.publish(channel, json.dumps(tick.to_redis_dict()))
         except Exception:

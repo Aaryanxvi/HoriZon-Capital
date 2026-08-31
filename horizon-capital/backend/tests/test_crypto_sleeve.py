@@ -127,6 +127,101 @@ async def test_alpaca_crypto_payload(monkeypatch):
     assert captured["payload"]["time_in_force"] == "day"
 
 
+async def test_alpaca_crypto_sell_clamped_to_available(monkeypatch):
+    """Alpaca takes the crypto fee in the base asset, so a full exit over-sells.
+
+    Buying 0.00016 BTC leaves 0.0001596 sellable; selling the recorded 0.00016
+    is rejected with "insufficient balance for BTC" and the position can never
+    be closed. Positions come back as ``BTCUSD`` while orders take ``BTC/USD``.
+    """
+    broker = AlpacaBroker()
+    captured = {}
+
+    class PositionsResponse:
+        status_code = 200
+
+        def json(self):
+            return [{"symbol": "BTCUSD", "qty": "0.0001596",
+                     "qty_available": "0.0001596"}]
+
+    class OrderResponse:
+        status_code = 200
+
+        def json(self):
+            return {"id": "x", "status": "accepted", "filled_qty": "0",
+                    "filled_avg_price": None}
+
+    async def fake_get(self, url, headers=None, **kwargs):
+        assert url.endswith("/v2/positions"), f"per-symbol GET 404s: {url}"
+        return PositionsResponse()
+
+    async def fake_post(self, url, json=None, headers=None):
+        captured["payload"] = json
+        return OrderResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+    await broker.execute({
+        "symbol": "BTC-USD", "side": "SELL", "quantity": 0.00016,
+        "order_type": "MARKET", "id": "sell-1",
+    })
+    assert captured["payload"]["qty"] == "0.0001596"
+
+
+async def test_alpaca_crypto_sell_refused_without_position(monkeypatch):
+    broker = AlpacaBroker()
+
+    class EmptyPositions:
+        status_code = 200
+
+        def json(self):
+            return []
+
+    async def fake_get(self, url, headers=None, **kwargs):
+        return EmptyPositions()
+
+    async def fail_post(self, url, json=None, headers=None):
+        raise AssertionError("must not place a sell with no position")
+
+    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    monkeypatch.setattr("httpx.AsyncClient.post", fail_post)
+
+    assert await broker.execute({
+        "symbol": "ETH-USD", "side": "SELL", "quantity": 1.0,
+        "order_type": "MARKET", "id": "sell-2",
+    }) is None
+
+
+async def test_alpaca_equity_sell_not_clamped(monkeypatch):
+    """Equities settle without a base-asset fee — no extra position read."""
+    broker = AlpacaBroker()
+    captured = {}
+
+    class OrderResponse:
+        status_code = 200
+
+        def json(self):
+            return {"id": "x", "status": "accepted", "filled_qty": "0",
+                    "filled_avg_price": None}
+
+    async def fail_get(self, url, headers=None, **kwargs):
+        raise AssertionError("equity sell should not read positions")
+
+    async def fake_post(self, url, json=None, headers=None):
+        captured["payload"] = json
+        return OrderResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient.get", fail_get)
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+    await broker.execute({
+        "symbol": "AAPL.NASDAQ", "side": "SELL", "quantity": 5,
+        "order_type": "MARKET", "id": "sell-3",
+    })
+    assert captured["payload"]["qty"] == "5"
+
+
 async def test_alpaca_positions_normalize_crypto(monkeypatch):
     broker = AlpacaBroker()
 

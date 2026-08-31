@@ -102,6 +102,15 @@ class DebateResult:
 # Prompt builder
 # ------------------------------------------------------------------
 
+def _instrument_type(symbol: str) -> str:
+    """What kind of thing is being traded — debaters reason differently on each."""
+    if symbol.endswith(".POLY"):
+        return "prediction market (Polymarket YES share, price = implied probability)"
+    if symbol.endswith(("-USD", "-USDT")):
+        return "crypto (24/7 market)"
+    return "equity"
+
+
 def _build_user_prompt(
     symbol: str,
     action: str,
@@ -114,11 +123,42 @@ def _build_user_prompt(
     lines = [
         "## Proposed Trade",
         f"- Symbol: {symbol}",
+        f"- Instrument: {_instrument_type(symbol)}",
         f"- Action: {action}",
         f"- Signal strength: {signal_data.get('strength', 'N/A')}",
+        # Without this the debaters read a 0.02 rebalance step as "no
+        # conviction" and reject every routine position build.
+        "  (strength = size of the rebalance step, |target - current| / 50%,"
+        " NOT a confidence score. Judge the position itself, not this number.)",
         f"- Strategy: {signal_data.get('strategy_name', 'N/A')}",
         f"- Target price: {signal_data.get('target_price', 'N/A')}",
         f"- Stop loss: {signal_data.get('stop_loss', 'N/A')}",
+    ]
+
+    target_w = signal_data.get("target_weight")
+    prev_w = signal_data.get("previous_weight")
+    if target_w is not None:
+        lines.append(
+            f"- Portfolio intent: move this holding to {float(target_w):.2%} of NAV"
+            + (f" (from {float(prev_w):.2%})" if prev_w is not None else "")
+        )
+
+    question = signal_data.get("market_question")
+    if question:
+        lines.append("")
+        lines.append("## Prediction Market")
+        lines.append(f"- Question: {question}")
+        prob = signal_data.get("market_probability")
+        if prob is not None:
+            lines.append(
+                f"- Current YES probability: {float(prob):.1%}"
+                " (the price IS the market's implied probability; a YES share"
+                " pays $1 if the event resolves true, $0 otherwise)"
+            )
+        if signal_data.get("market_end_date"):
+            lines.append(f"- Resolves: {signal_data['market_end_date']}")
+
+    lines += [
         "",
         "## Market Regime",
         f"- Current regime: {regime or 'UNKNOWN'}",

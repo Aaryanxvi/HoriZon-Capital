@@ -167,6 +167,10 @@ class DebateAgent(BaseAgent):
         # Get regime for context
         regime = signal_payload.get("regime")
         sentiment = await self._get_sentiment_context(symbol)
+        signal_payload = {
+            **signal_payload,
+            **await self._get_market_context(symbol),
+        }
 
         engine = MultiModelDebateEngine(
             registry=provider_registry,
@@ -308,6 +312,35 @@ class DebateAgent(BaseAgent):
         except Exception:
             return None
 
+    @staticmethod
+    async def _get_market_context(symbol: str) -> dict:
+        """Extra prompt context for prediction markets.
+
+        A ``.POLY`` ticker is an unreadable slug — without the question text and
+        the implied probability the debaters argue about a symbol they cannot
+        interpret. Never raises: missing context just means a thinner prompt.
+        """
+        if not symbol.endswith(".POLY"):
+            return {}
+        try:
+            import json
+
+            from app.core.kv_store import get_kv_store
+
+            kv = get_kv_store()
+            out: dict = {}
+            meta_raw = await kv.get(f"horizon:pm:meta:{symbol}")
+            if meta_raw:
+                meta = json.loads(meta_raw)
+                out["market_question"] = meta.get("question")
+                out["market_end_date"] = meta.get("end_date")
+            price = await kv.get(f"horizon:price:{symbol}")
+            if price:
+                out["market_probability"] = float(price)
+            return out
+        except Exception:
+            return {}
+
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
@@ -329,6 +362,10 @@ class DebateAgent(BaseAgent):
                     f"{result.for_count} for, {result.against_count} against, "
                     f"{result.abstain_count} abstain"
                 )
+            # Never let a provider outage read as a considered verdict.
+            errors = getattr(result, "error_count", 0)
+            if errors:
+                reason = f"[{errors} debater(s) failed: provider error] {reason}"[:250]
 
             async with _get_session_factory()() as session:
                 await session.execute(
@@ -354,9 +391,70 @@ class DebateAgent(BaseAgent):
                         "now": datetime.now(UTC),
                     },
                 )
+                await DebateAgent._persist_arguments(session, result)
                 await session.commit()
         except Exception as exc:
             logger.warning("debate_persist_error", error=str(exc))
+
+    @staticmethod
+    async def _persist_arguments(session, result) -> None:
+        """Store every debater's argument so the reasoning survives the process.
+
+        Written in the caller's transaction: an orphaned argument row (or a
+        session with its arguments silently dropped) is worse than neither.
+        Multi-round results carry provider + round on each argument; the
+        single-reasoner engine only has the flat list, so fall back to that.
+        """
+        rows: list[dict] = []
+        round_args = getattr(result, "round_arguments", None) or {}
+        if round_args:
+            for round_number, args in sorted(round_args.items()):
+                for arg in args:
+                    rows.append({
+                        "id": str(uuid.uuid4()),
+                        "session_id": result.session_id,
+                        "agent_id": getattr(arg, "provider", "") or "unknown",
+                        "role": (
+                            f"{arg.role} (as {arg.rotated_from})"
+                            if getattr(arg, "rotated_from", "")
+                            else arg.role
+                        ),
+                        "argument": arg.argument,
+                        "vote": arg.vote,
+                        "confidence": float(arg.confidence or 0.0),
+                        "round_number": int(getattr(arg, "round_number", round_number)),
+                        "now": datetime.now(UTC),
+                    })
+        else:
+            for arg in getattr(result, "arguments", []) or []:
+                rows.append({
+                    "id": str(uuid.uuid4()),
+                    "session_id": result.session_id,
+                    "agent_id": getattr(arg, "provider", "") or "unknown",
+                    "role": arg.role,
+                    "argument": arg.argument,
+                    "vote": arg.vote,
+                    "confidence": float(arg.confidence or 0.0),
+                    "round_number": 1,
+                    "now": datetime.now(UTC),
+                })
+
+        if not rows:
+            return
+
+        await session.execute(
+            text(
+                """
+                INSERT INTO debate_arguments
+                    (id, session_id, agent_id, role, argument, vote,
+                     confidence, round_number, created_at)
+                VALUES
+                    (:id, :session_id, :agent_id, :role, :argument, :vote,
+                     :confidence, :round_number, :now)
+                """
+            ),
+            rows,
+        )
 
     @staticmethod
     async def _persist_auto_rejection(

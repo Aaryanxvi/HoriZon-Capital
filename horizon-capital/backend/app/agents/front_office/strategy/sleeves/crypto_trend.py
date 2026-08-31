@@ -4,6 +4,10 @@ UNVALIDATED — no pre-registered gate pass. Default-disabled; enable via
 CRYPTO_SLEEVE_ENABLED. Do not enable in the validated live mix without a
 fresh gate.
 
+Universe is BTC/ETH by default, or the top-N by market cap (stablecoins and
+wrapped/staked derivatives removed, broker-tradability enforced) when
+CRYPTO_DISCOVERY_ENABLED is set — see ``data_layer/crypto_universe.py``.
+
 Reference: Faber, "A Quantitative Approach to Tactical Asset Allocation" (2007).
 Same 200-day SMA rule as ``trend_filter.py`` applied to crypto instead of SPY,
 with a vol damper instead of a hard cash-out (crypto trend regimes stay intact
@@ -33,11 +37,18 @@ class CryptoTrendSleeve(BaseSleeve):
     _VOL_LOOKBACK = _VOL_LOOKBACK
     _VOL_CAP = _VOL_CAP
 
+    def universe(self) -> tuple[str, ...]:
+        """BTC/ETH, or the market-cap-ranked list when discovery is on."""
+        from app.data_layer.crypto_universe import crypto_universe
+
+        return crypto_universe() or self._UNIVERSE
+
     def compute(
         self, bars: dict[str, pd.DataFrame], as_of: pd.Timestamp
     ) -> list[SleeveSignal]:
         signals: list[SleeveSignal] = []
-        for symbol in self._UNIVERSE:
+        universe = self.universe()
+        for symbol in universe:
             df = bars.get(symbol)
             if df is None:
                 continue
@@ -51,7 +62,7 @@ class CryptoTrendSleeve(BaseSleeve):
             if not in_trend:
                 continue
 
-            weight = 1.0 / len(self._UNIVERSE)
+            weight = 1.0 / len(universe)
             # 365 not 252 — crypto trades every day.
             ann_vol = close.pct_change().iloc[-self._VOL_LOOKBACK:].std() * (365 ** 0.5)
             if ann_vol > self._VOL_CAP:

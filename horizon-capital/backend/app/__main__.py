@@ -63,6 +63,11 @@ def main() -> None:
         action="store_true",
         help="Wipe the local SQLite DB and KV store before starting",
     )
+    parser.add_argument(
+        "--skip-setup",
+        action="store_true",
+        help="Boot straight into the terminal, skipping the onboarding wizard",
+    )
 
     args = parser.parse_args()
 
@@ -97,7 +102,9 @@ def main() -> None:
 
     # Run onboarding on every startup. The wizard's update mode handles the
     # case where .env already exists — it lets the user keep current values.
-    if args.setup or args.command == "run":
+    # --skip-setup goes straight to the terminal for an already-configured
+    # install (--setup still forces the wizard).
+    if args.setup or (args.command == "run" and not args.skip_setup):
         from app.tui.onboarding import run_onboarding
 
         try:
@@ -527,6 +534,20 @@ async def _run_with_tui(orchestrator) -> None:
             "cio",
             "cio why",
             "cio confirm halt",
+            "pm",
+            "pm add",
+            "pm remove",
+            "pm auto on",
+            "pm auto off",
+            "pm scan",
+            "crypto",
+            "crypto auto on",
+            "crypto auto off",
+            "crypto scan",
+            "sleeve",
+            "sleeve on",
+            "sleeve off",
+            "sleeve weight",
             "settings",
             "quit",
             "exit",

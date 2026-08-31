@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -41,15 +42,21 @@ class DebateResult:
     session_id: str
     symbol: str
     proposed_action: str
-    decision: str  # APPROVED, REJECTED
+    decision: str  # APPROVED, REJECTED, INCONCLUSIVE
     consensus_score: float
     arguments: list[DebateArgument] = field(default_factory=list)
     for_count: int = 0
     against_count: int = 0
     abstain_count: int = 0
+    error_count: int = 0  # debaters whose provider call failed outright
 
 
 logger = get_logger("debate.multi_model")
+
+# Rate-limit retry policy for debater calls.
+_RATE_LIMIT_RETRIES = 2
+_RATE_LIMIT_BASE_DELAY = 2.0
+_RATE_LIMIT_MAX_DELAY = 20.0
 
 
 # ------------------------------------------------------------------
@@ -90,6 +97,46 @@ class MultiModelDebateResult(DebateResult):
 # Provider-agnostic reasoner
 # ------------------------------------------------------------------
 
+def _apply_debate_model(provider: BaseLLMProvider) -> BaseLLMProvider:
+    """Swap in ``settings.debate_model`` when one is configured.
+
+    A debate is ~8 calls per signal, so the flagship model burns an org's
+    tokens-per-minute allowance fast; a small model keeps every debater
+    answering. Empty setting = provider default. The name must belong to the
+    provider actually serving the debate.
+    """
+    model = (settings.debate_model or "").strip()
+    if not model:
+        return provider
+    try:
+        return provider.with_model(model)
+    except Exception as exc:
+        logger.warning(
+            "debate_model_override_failed",
+            provider=provider.provider_name, model=model, error=str(exc),
+        )
+        return provider
+
+
+def _rate_limit_delay(exc: Exception, attempt: int) -> float:
+    """Seconds to wait before retrying a rate-limited call.
+
+    Providers state the wait in the error ("try again in 1.235s"); honour it
+    when present, otherwise back off exponentially.
+    """
+    match = re.search(r"try again in (\d+(?:\.\d+)?)(m?s)", str(exc), re.IGNORECASE)
+    if match:
+        value = float(match.group(1))
+        seconds = value / 1000.0 if match.group(2).lower() == "ms" else value
+        return min(max(seconds + 0.25, 0.5), _RATE_LIMIT_MAX_DELAY)
+    return min(_RATE_LIMIT_BASE_DELAY * (2 ** attempt), _RATE_LIMIT_MAX_DELAY)
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    blob = str(exc).lower()
+    return "429" in blob or "rate limit" in blob or "rate_limit" in blob
+
+
 async def _call_provider(
     provider: BaseLLMProvider,
     system_prompt: str,
@@ -99,23 +146,46 @@ async def _call_provider(
 
     Each agent produces a JSON response with {argument, vote, confidence}.
     The structured format enables automated aggregation across providers.
+
+    A failed call returns vote ``ERROR``, NOT ``ABSTAIN``: an abstention is a
+    debater's considered position and counts toward consensus, while a 429 is
+    the debater never having spoken. Conflating them let rate-limit noise vote
+    trades down.
     """
     messages = [{"role": "user", "content": user_prompt}]
 
-    try:
-        raw = await provider.complete(
-            system_prompt=system_prompt,
-            messages=messages,
-            temperature=0.7,
-        )
-        return _parse_debate_response(raw)
-    except Exception as exc:
-        logger.error("provider_call_error", provider=provider.provider_name, error=str(exc))
-        return {
-            "argument": f"Error from {provider.provider_name}: {str(exc)[:200]}",
-            "vote": "ABSTAIN",
-            "confidence": 0.0,
-        }
+    last_exc: Exception | None = None
+    for attempt in range(_RATE_LIMIT_RETRIES + 1):
+        try:
+            raw = await provider.complete(
+                system_prompt=system_prompt,
+                messages=messages,
+                temperature=0.7,
+            )
+            return _parse_debate_response(raw)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _RATE_LIMIT_RETRIES and _is_rate_limited(exc):
+                delay = _rate_limit_delay(exc, attempt)
+                logger.warning(
+                    "provider_rate_limited_retrying",
+                    provider=provider.provider_name,
+                    attempt=attempt + 1,
+                    delay=round(delay, 2),
+                )
+                await asyncio.sleep(delay)
+                continue
+            break
+
+    logger.error(
+        "provider_call_error",
+        provider=provider.provider_name, error=str(last_exc),
+    )
+    return {
+        "argument": f"Error from {provider.provider_name}: {str(last_exc)[:200]}",
+        "vote": "ERROR",
+        "confidence": 0.0,
+    }
 
 
 def _parse_debate_response(raw: str) -> dict[str, Any]:
@@ -256,7 +326,7 @@ class MultiModelDebateEngine:
                 providers[role] = provider
             rr_index += 1
 
-        return providers
+        return {role: _apply_debate_model(p) for role, p in providers.items()}
 
     async def run_debate(
         self,
@@ -341,16 +411,20 @@ class MultiModelDebateEngine:
         # ------------------------------------------------------------------
         # Aggregate votes (confidence-weighted consensus)
         # ------------------------------------------------------------------
-        for_votes = [a for a in all_arguments if a.vote == "FOR"]
-        against_votes = [a for a in all_arguments if a.vote == "AGAINST"]
-        abstain_votes = [a for a in all_arguments if a.vote == "ABSTAIN"]
+        # A failed provider call is not a vote. Counting errors as abstentions
+        # let one rate-limited minute reject every trade in the queue.
+        error_votes = [a for a in all_arguments if a.vote == "ERROR"]
+        spoke = [a for a in all_arguments if a.vote != "ERROR"]
+        for_votes = [a for a in spoke if a.vote == "FOR"]
+        against_votes = [a for a in spoke if a.vote == "AGAINST"]
+        abstain_votes = [a for a in spoke if a.vote == "ABSTAIN"]
 
         total_non_abstain = len(for_votes) + len(against_votes)
 
         # Confidence-weighted consensus score
         if for_votes:
             total_for_confidence = sum(a.confidence for a in for_votes)
-            total_confidence = sum(a.confidence for a in all_arguments if a.vote != "ABSTAIN")
+            total_confidence = sum(a.confidence for a in spoke if a.vote != "ABSTAIN")
             consensus_score = round(
                 total_for_confidence / total_confidence if total_confidence > 0 else 0.0,
                 4,
@@ -360,12 +434,21 @@ class MultiModelDebateEngine:
 
         # Decision: confidence-weighted FOR ratio > threshold AND raw FOR ratio > MIN_FOR_RATIO
         for_ratio = len(for_votes) / total_non_abstain if total_non_abstain > 0 else 0.0
-        decision = (
-            "APPROVED"
-            if consensus_score > self.APPROVAL_THRESHOLD
-            and for_ratio >= self.MIN_FOR_RATIO
-            else "REJECTED"
-        )
+        if not spoke:
+            # Nobody actually debated — say so rather than reporting a verdict
+            # nobody reached. Callers treat anything != APPROVED as "don't act".
+            decision = "INCONCLUSIVE"
+            logger.warning(
+                "debate_inconclusive_all_providers_failed",
+                symbol=symbol, errors=len(error_votes),
+            )
+        else:
+            decision = (
+                "APPROVED"
+                if consensus_score > self.APPROVAL_THRESHOLD
+                and for_ratio >= self.MIN_FOR_RATIO
+                else "REJECTED"
+            )
 
         result = MultiModelDebateResult(
             session_id=session_id,
@@ -377,6 +460,7 @@ class MultiModelDebateEngine:
             for_count=len(for_votes),
             against_count=len(against_votes),
             abstain_count=len(abstain_votes),
+            error_count=len(error_votes),
             rounds=len(round_arguments),
             providers_used=providers_used,
             perspective_rotation_applied=self.max_rounds >= 2,

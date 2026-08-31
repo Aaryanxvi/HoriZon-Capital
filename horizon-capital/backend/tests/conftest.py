@@ -21,6 +21,9 @@ def _isolated_horizon_data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "system_mode", SystemMode.PAPER_TRADING, raising=False)
     monkeypatch.setattr(settings, "cio_mode", CIOMode.HUMAN, raising=False)
     monkeypatch.setattr(settings, "execution_broker", "PAPER", raising=False)
+    # Provider default: a real DEBATE_MODEL in .env would re-wrap every fake
+    # provider via with_model() and break identity assertions.
+    monkeypatch.setattr(settings, "debate_model", "", raising=False)
 
     # Drop cached modules so they pick up the new env var.
     import sys

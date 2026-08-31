@@ -88,10 +88,13 @@ class CryptoFeed(BaseFeed):
                 await asyncio.sleep(self._poll_interval)
 
     async def _fetch_prices(self, client: httpx.AsyncClient) -> None:
+        from app.data_layer.crypto_universe import coingecko_id
+
         cg_ids = []
         id_to_symbol: dict[str, str] = {}
         for sym in self._symbols:
-            cg_id = _SYMBOL_TO_CG_ID.get(sym)
+            # Static map first; discovery fills in coins it hasn't heard of.
+            cg_id = _SYMBOL_TO_CG_ID.get(sym) or coingecko_id(sym)
             if cg_id:
                 cg_ids.append(cg_id)
                 id_to_symbol[cg_id] = sym

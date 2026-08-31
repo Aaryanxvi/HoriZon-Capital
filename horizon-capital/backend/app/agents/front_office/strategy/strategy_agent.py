@@ -137,28 +137,37 @@ class StrategyAgent(BaseAgent):
         self._bar_count = 0  # increments per completed poll
 
     def _ensure_symbols(self) -> list[str]:
-        """Resolve the trading universe once (lazy — may hit the network)."""
+        """Resolve the trading universe (equities cached; 24/7 names re-read).
+
+        The equity universe is resolved once (lazy — may hit the network). Crypto
+        and Polymarket names are appended fresh on every call: with discovery on,
+        both lists change while the process is running, and a symbol cached at
+        startup would pin the sleeve to a stale market forever.
+        """
         if not self._symbols:
             from app.data_layer.universe import get_universe
             self._symbols = get_universe(self._universe_source)
-            if settings.crypto_sleeve_enabled:
-                for cs in CryptoTrendSleeve._UNIVERSE:
-                    if cs not in self._symbols:
-                        self._symbols.append(cs)
-            if settings.polymarket_sleeve_enabled:
-                from app.data_layer.polymarket_feed import pm_symbol
-
-                for slug in settings.polymarket_markets.split(","):
-                    slug = slug.strip()
-                    if not slug:
-                        continue
-                    ps = pm_symbol(slug)
-                    if ps not in self._symbols:
-                        self._symbols.append(ps)
             logger.info(
                 "universe_loaded", source=self._universe_source, n=len(self._symbols)
             )
-        return self._symbols
+
+        symbols = list(self._symbols)
+        seen = set(symbols)
+
+        def _add(symbol: str) -> None:
+            if symbol not in seen:
+                seen.add(symbol)
+                symbols.append(symbol)
+
+        if settings.crypto_sleeve_enabled:
+            for cs in CryptoTrendSleeve().universe():
+                _add(cs)
+        if settings.polymarket_sleeve_enabled:
+            from app.data_layer.polymarket_feed import active_slugs, pm_symbol
+
+            for slug in active_slugs():
+                _add(pm_symbol(slug))
+        return symbols
 
     # ------------------------------------------------------------------
     # BaseAgent hooks
@@ -221,9 +230,22 @@ class StrategyAgent(BaseAgent):
         """Fetch daily OHLCV for the whole universe in one batched, cached call."""
         from app.data_layer.batch_bars import fetch_batch
 
+        # Both refreshes are TTL-guarded no-ops when discovery is off or the
+        # cache is warm — the strategy agent runs them so signals track the
+        # current market list even if the data feeds aren't up.
+        if settings.crypto_sleeve_enabled:
+            from app.data_layer.crypto_universe import refresh_crypto_universe
+
+            await refresh_crypto_universe()
+        if settings.polymarket_sleeve_enabled:
+            from app.data_layer.polymarket_feed import refresh_discovery
+
+            await refresh_discovery()
+
         symbols = self._ensure_symbols()
         try:
-            bars = await fetch_batch(symbols)
+            # .POLY has no yfinance ticker — it comes from the CLOB below.
+            bars = await fetch_batch([s for s in symbols if not s.endswith(".POLY")])
         except Exception as exc:
             logger.error("batch_fetch_error", error=str(exc))
             return {}

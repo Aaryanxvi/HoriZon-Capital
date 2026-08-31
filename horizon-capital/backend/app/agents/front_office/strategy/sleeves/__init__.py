@@ -15,11 +15,13 @@ Sleeves:
 - ``momentum_rank``:  Monthly 12-1 momentum top-3.
 - ``gap_fade``:       Buy QQQ on open after gap-down (intraday thesis; NOT used
                       live — degenerate on daily bars. Kept for reference only).
-- ``crypto_trend``:   Faber 200d SMA gate on BTC/ETH. UNVALIDATED, default-off —
-                      enable via CRYPTO_SLEEVE_ENABLED.
+- ``crypto_trend``:   Faber 200d SMA gate on BTC/ETH, or on the top-N coins by
+                      market cap when CRYPTO_DISCOVERY_ENABLED. UNVALIDATED,
+                      default-off — enable via CRYPTO_SLEEVE_ENABLED.
 - ``polymarket_momentum``: 7d probability momentum on Polymarket YES prices,
-                      tail-filtered. UNVALIDATED, default-off — enable via
-                      POLYMARKET_SLEEVE_ENABLED.
+                      tail-filtered. Markets are hand-listed and/or discovered
+                      hourly when POLYMARKET_DISCOVERY_ENABLED. UNVALIDATED,
+                      default-off — enable via POLYMARKET_SLEEVE_ENABLED.
 """
 
 from app.agents.front_office.strategy.sleeves.breadth_alpha import BreadthAlphaSleeve

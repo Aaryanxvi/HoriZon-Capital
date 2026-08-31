@@ -69,6 +69,42 @@ class AlpacaBroker:
             logger.error("alpaca_account_http_error", error=str(exc))
             return None
 
+    async def _clamp_to_available(self, alpaca_symbol: str, qty: float) -> float:
+        """Cap a crypto SELL at the qty Alpaca says is actually sellable.
+
+        Alpaca charges the crypto taker fee in the base asset: buying 0.00016 BTC
+        leaves 0.0001596 BTC in the account. Selling the recorded position size
+        then fails with "insufficient balance for BTC", so a full exit could
+        never close — the fee makes local qty permanently larger than broker qty.
+        Reads the whole position list and matches on the slash-stripped symbol:
+        orders take ``BTC/USD`` but positions come back as ``BTCUSD``, so a
+        per-symbol GET 404s. Fail-open on a read failure: send the original qty
+        and let the broker decide.
+        """
+        wanted = alpaca_symbol.replace("/", "").upper()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/v2/positions", headers=self.headers
+                )
+            if resp.status_code != 200:
+                return float(qty)
+            available = 0.0
+            for pos in resp.json():
+                if str(pos.get("symbol", "")).replace("/", "").upper() == wanted:
+                    available = float(pos.get("qty_available", 0.0))
+                    break
+        except Exception as exc:
+            logger.warning("alpaca_position_read_failed", error=str(exc))
+            return float(qty)
+
+        if available < float(qty):
+            logger.info(
+                "alpaca_sell_qty_clamped",
+                symbol=alpaca_symbol, requested=float(qty), available=available,
+            )
+        return min(float(qty), available)
+
     async def execute(self, order: dict) -> dict | None:
         """Place an order via the Alpaca API.
 
@@ -95,6 +131,11 @@ class AlpacaBroker:
         is_crypto = _is_crypto_symbol(symbol)
         if is_crypto:
             alpaca_symbol = symbol.replace("-", "/")  # BTC-USD -> BTC/USD
+            if side == "sell":
+                qty = await self._clamp_to_available(alpaca_symbol, qty)
+                if qty <= 0:
+                    logger.error("alpaca_no_position_to_sell", symbol=alpaca_symbol)
+                    return None
 
         payload: dict = {
             "symbol": alpaca_symbol,

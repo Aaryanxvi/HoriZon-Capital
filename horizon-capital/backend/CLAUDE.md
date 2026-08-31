@@ -107,6 +107,17 @@ Three nested gates: RiskAgent → DebateAgent (binding only in FULLY_AUTONOMOUS)
 - **GapFadeSleeve** — 10%, daily. Buy QQQ on overnight gap-down ≥0.3%, exit at close.
 - **MomentumRankSleeve** — 10%, monthly. 12-1 cross-sectional momentum, top-3.
 
+Optional, UNVALIDATED, default-off (REPL `sleeve on <name>`):
+- **CryptoTrendSleeve** — Faber 200d SMA + vol damper. Universe is BTC/ETH, or top-N
+  by market cap with `CRYPTO_DISCOVERY_ENABLED` (`crypto auto on N`) — stablecoins and
+  wrapped/staked derivatives excluded, intersected with broker-tradable assets and with
+  what the bar source can price (`data_layer/crypto_universe.py`).
+- **PolymarketMomentumSleeve** — 7d probability momentum, tails filtered. Markets come from
+  `POLYMARKET_MARKETS` plus, with `POLYMARKET_DISCOVERY_ENABLED` (`pm auto on N`), an hourly
+  Gamma sweep of the most-traded open markets (`data_layer/polymarket_feed.refresh_discovery`).
+  Real orders additionally need `POLYMARKET_REAL_TRADING` + wallet key + funder + py-clob-client;
+  without them `.POLY` routes to PaperBroker.
+
 (`base_strategy.py`, `momentum_strategy.py`, `mean_reversion_strategy.py`, `simple_strategies.py` are older standalone primitives, NOT wired into the sleeve agent.)
 
 ## MessageType (`core/messaging.py`)
@@ -124,7 +135,8 @@ Three nested gates: RiskAgent → DebateAgent (binding only in FULLY_AUTONOMOUS)
 
 ## REPL Commands (`tui/commands.py`)
 
-help, status, portfolio, positions, orders, signals, backtest (+ results/list/compare), risk, sentiment, debate (+ why), agents, health, performance, config, approve, reject, pending, trades, pnl, cio, watchlist, buy, sell, strategy, dashboard, settings, model/models (list/agents/set/clear), quit/exit. Tab completion via readline in `__main__.py`. (No `stress-test`/`alerts`/`report` commands.)
+help, status, portfolio, positions, orders, signals, backtest (+ results/list/compare), risk, sentiment, debate (+ why), agents, health, performance, config, approve, reject, pending, trades, pnl, cio, watchlist, buy, sell, strategy, dashboard, settings, model/models (list/agents/set/clear), sleeve (on/off/weight),
+pm (add/remove/auto/scan), crypto (auto/scan), quit/exit. Tab completion via readline in `__main__.py`. (No `stress-test`/`alerts`/`report` commands.)
 
 ## LLM Routing (`llm/`)
 

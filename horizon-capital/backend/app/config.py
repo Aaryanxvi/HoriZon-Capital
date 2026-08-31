@@ -235,6 +235,12 @@ class Settings(BaseSettings):
     # save tokens. debate_min_strength skips debate for weak signals entirely.
     debate_max_per_day: int = 15
     debate_min_strength: float = 0.0
+    # Model used for debater roles. Blank = each provider's default. A debate is
+    # ~8 calls, so the flagship model exhausts an org's tokens-per-minute quota
+    # quickly and debaters start coming back 429 (they then vote ERROR and are
+    # excluded from consensus). Must name a model of whichever provider serves
+    # the debate — e.g. "gpt-4o-mini" for openai.
+    debate_model: str = ""
 
     # Portfolio risk overlay (Moreira-Muir vol targeting + Faber 200d trend gate).
     # Applied by StrategyAgent to aggregated sleeve weights. OFF by default until
@@ -249,18 +255,40 @@ class Settings(BaseSettings):
     crypto_sleeve_enabled: bool = False
     crypto_sleeve_weight: float = 0.10
 
+    # Crypto auto-discovery: rank CoinGecko by market cap instead of the static
+    # BTC/ETH pair. Stablecoins + wrapped/staked derivatives are excluded, and the
+    # list is intersected with what the execution broker can actually fill.
+    crypto_discovery_enabled: bool = False
+    crypto_discovery_top_n: int = 5
+
     # Polymarket prediction markets. Data + paper trading need NO account (public
     # Gamma/CLOB APIs). Real trading additionally requires POLYMARKET_REAL_TRADING=true,
-    # a funded Polygon USDC wallet key, and `pip install py-clob-client`.
+    # a funded Polygon USDC wallet key, and `pip install py-clob-client-v2`
+    # (the v1 `py-clob-client` is archived — CLOB v2 rejects the orders it signs).
     polymarket_markets: str = ""  # comma-separated market slugs; empty = feature off
     polymarket_real_trading: bool = False
     polymarket_private_key: str = ""
     polymarket_funder_address: str = ""
+    # CLOB signature type: 0 = EOA signs for itself, 1 = email/magic proxy wallet,
+    # 2 = browser-wallet proxy. Wrong value signs for the wrong address and every
+    # order comes back rejected, so it must match how the funder wallet was made.
+    polymarket_signature_type: int = 1
 
     # Polymarket sleeve — UNVALIDATED (no gate pass). Default off. Run
     # scripts/backtest_polymarket.py and pass a pre-registered gate before enabling.
     polymarket_sleeve_enabled: bool = False
     polymarket_sleeve_weight: float = 0.05
+
+    # Polymarket auto-discovery: poll Gamma for the most-traded open markets
+    # instead of a hand-typed slug list. Discovered slugs are unioned with
+    # POLYMARKET_MARKETS, refreshed hourly, and filtered on 24h volume + how far
+    # out the market resolves (a market resolving tomorrow has no 7d momentum
+    # left to ride; one resolving in two years ties up capital).
+    polymarket_discovery_enabled: bool = False
+    polymarket_discovery_top_n: int = 10
+    polymarket_discovery_min_volume_24h: float = 25_000.0
+    polymarket_discovery_min_days: int = 10
+    polymarket_discovery_max_days: int = 180
 
     # Sentiment sizing damper — UNVALIDATED signal, default off.
     sentiment_sizing_enabled: bool = False

@@ -146,7 +146,7 @@ async def test_polymarket_broker_none_without_client(monkeypatch):
     )
 
     import sys
-    monkeypatch.setitem(sys.modules, "py_clob_client.clob_types", None)
+    monkeypatch.setitem(sys.modules, "py_clob_client_v2.clob_types", None)
 
     broker = PolymarketBroker()
     fill = await broker.execute({"id": "o1", "symbol": "PM-x.POLY", "side": "BUY", "quantity": 10})

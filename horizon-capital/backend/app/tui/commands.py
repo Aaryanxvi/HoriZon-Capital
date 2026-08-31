@@ -31,6 +31,37 @@ def _format_fill_time(ts) -> str:
     return ts.strftime("%m-%d %H:%M")
 
 
+# Optional (UNVALIDATED) sleeves toggleable from the REPL.
+# name -> (enabled env key, enabled attr, weight env key, weight attr)
+_OPTIONAL_SLEEVES = {
+    "crypto": (
+        "CRYPTO_SLEEVE_ENABLED", "crypto_sleeve_enabled",
+        "CRYPTO_SLEEVE_WEIGHT", "crypto_sleeve_weight",
+    ),
+    "polymarket": (
+        "POLYMARKET_SLEEVE_ENABLED", "polymarket_sleeve_enabled",
+        "POLYMARKET_SLEEVE_WEIGHT", "polymarket_sleeve_weight",
+    ),
+}
+
+
+def _optional_weight_total(*, override: tuple[str, bool, float] | None = None) -> float:
+    """Sum of weights the enabled optional sleeves would carve out of the base mix.
+
+    ``override`` = (name, enabled, weight) applies a pending change before summing,
+    so a toggle can be rejected before it is written to .env.
+    """
+    total = 0.0
+    for name, (_, attr, _, w_attr) in _OPTIONAL_SLEEVES.items():
+        enabled = getattr(settings, attr)
+        weight = getattr(settings, w_attr)
+        if override and override[0] == name:
+            _, enabled, weight = override
+        if enabled:
+            total += weight
+    return total
+
+
 HELP_TEXT = """
 [bold cyan]Horizon Capital Terminal Commands[/bold cyan]
 
@@ -49,6 +80,7 @@ HELP_TEXT = """
   [green]risk[/] [reset]       Show risk metrics. `risk reset` clears kill-switch halt.
   [green]sentiment[/]           Show latest sentiment data
   [green]debate[/]              Show recent debate summaries
+  [green]debate[/] <id|SYMBOL>  Full transcript: every debater, vote, and round
   [green]agents[/]              Show agent configuration
   [green]health[/]              Show system health
   [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
@@ -75,8 +107,23 @@ HELP_TEXT = """
   [green]watchlist add[/] <SYM>  Add a US symbol (e.g. NVDA.NASDAQ, JPM.NYSE)
   [green]watchlist remove[/] <SYM>  Remove a symbol from watchlist
 
+  [bold yellow]Optional sleeves (UNVALIDATED — off by default):[/bold yellow]
+  [green]sleeve[/]              Show crypto / polymarket sleeve state
+  [green]sleeve on[/] <name>    Enable a sleeve (crypto | polymarket)
+  [green]sleeve off[/] <name>   Disable a sleeve
+  [green]sleeve weight[/] <name> <0-1>  Set a sleeve's slice of the book
+
   [bold yellow]Polymarket:[/bold yellow]
-  [green]pm[/]                  List configured Polymarket markets (price, 24h volume)
+  [green]pm[/]                  List active Polymarket markets (price, 24h volume)
+  [green]pm add[/] <slug|url>   Add a market (slug from the polymarket.com URL)
+  [green]pm remove[/] <slug>    Remove a market
+  [green]pm auto[/] on|off [N]  Auto-discover the top-N most-traded open markets
+  [green]pm scan[/]             Re-run discovery now (bypasses the hourly cache)
+
+  [bold yellow]Crypto:[/bold yellow]
+  [green]crypto[/]              Show the crypto sleeve universe (static or discovered)
+  [green]crypto auto[/] on|off [N]  Auto-discover the top-N coins by market cap
+  [green]crypto scan[/]         Re-run discovery now (bypasses the 24h cache)
 
   [green]journal[/] [YYYY-MM-DD]  Show the trade journal (default: today)
 
@@ -140,6 +187,9 @@ class CommandHandler:
             "cio": self._cmd_cio,
             "watchlist": self._cmd_watchlist,
             "pm": self._cmd_pm,
+            "crypto": self._cmd_crypto,
+            "sleeve": self._cmd_sleeve,
+            "sleeves": self._cmd_sleeve,
             "journal": self._cmd_journal,
             "buy": self._cmd_buy,
             "sell": self._cmd_sell,
@@ -652,12 +702,19 @@ class CommandHandler:
         return "\n".join(lines)
 
     async def _cmd_debate(self, args: list[str]) -> str:
-        """Show recent debate history."""
+        """Show recent debates, or one debate in full.
+
+        debate                  — last 10 sessions
+        debate <id|SYMBOL>      — full reasoning, every debater, every round
+        """
         from sqlalchemy import text
 
         def _get_sf():
             from app.core.runtime import get_session_factory
             return get_session_factory()
+
+        if args:
+            return await self._debate_detail(args[0])
 
         try:
             async with _get_sf()() as session:
@@ -693,9 +750,83 @@ class CommandHandler:
                     f"[{dec_color}]{decision:10s}[/]  {score:>7s}"
                     f"  [dim]{reason}[/dim]"
                 )
+            lines.append(
+                "[dim]debate <id|SYMBOL> for the full argument transcript[/dim]"
+            )
             return "\n".join(lines)
         except Exception as exc:
             return f"[red]debate failed:[/red] {exc}"
+
+    async def _debate_detail(self, key: str) -> str:
+        """Full transcript for one debate: every debater, every round."""
+        from sqlalchemy import text
+
+        def _get_sf():
+            from app.core.runtime import get_session_factory
+            return get_session_factory()
+
+        try:
+            async with _get_sf()() as session:
+                # Accept a session-id prefix (what `debate` prints) or a symbol.
+                row = (await session.execute(text("""
+                    SELECT id, symbol, proposed_action, final_decision,
+                           consensus_score, reason, total_rounds, created_at
+                    FROM debate_sessions
+                    WHERE id LIKE :prefix OR UPPER(symbol) LIKE :symbol
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """), {"prefix": f"{key}%", "symbol": f"%{key.upper()}%"})).fetchone()
+
+                if row is None:
+                    return f"[yellow]No debate found for '{key}'.[/yellow]"
+
+                args_rows = (await session.execute(text("""
+                    SELECT agent_id, role, argument, vote, confidence, round_number
+                    FROM debate_arguments
+                    WHERE session_id = :sid
+                    ORDER BY round_number, role
+                """), {"sid": row.id})).fetchall()
+
+            decision = row.final_decision or "--"
+            dec_color = (
+                "green" if decision == "APPROVED"
+                else "red" if decision == "REJECTED"
+                else "dim"
+            )
+            score = f"{row.consensus_score:.2f}" if row.consensus_score else "--"
+            lines = [
+                f"[bold]{row.symbol}[/bold]  {row.proposed_action or ''}  "
+                f"[{dec_color}]{decision}[/]  consensus {score}  "
+                f"[dim]{row.total_rounds or 1} round(s) · {str(row.id)[:8]}[/dim]",
+                "",
+            ]
+
+            if not args_rows:
+                lines.append(f"[dim]{row.reason or 'no reasoning recorded'}[/dim]")
+                lines.append(
+                    "[dim]No per-debater arguments stored — this debate ran before "
+                    "argument persistence, or was auto-approved without an LLM.[/dim]"
+                )
+                return "\n".join(lines)
+
+            vote_color = {"FOR": "green", "AGAINST": "red"}
+            current_round = None
+            for a in args_rows:
+                if a.round_number != current_round:
+                    current_round = a.round_number
+                    lines.append(f"[bold cyan]── Round {current_round} ──[/bold cyan]")
+                colour = vote_color.get(a.vote, "yellow")
+                lines.append(
+                    f"  [bold]{a.role}[/bold] [dim]({a.agent_id})[/dim]  "
+                    f"[{colour}]{a.vote}[/]  conf {float(a.confidence or 0):.2f}"
+                )
+                for para in str(a.argument or "").split("\n"):
+                    if para.strip():
+                        lines.append(f"    {para.strip()}")
+                lines.append("")
+            return "\n".join(lines).rstrip()
+        except Exception as exc:
+            return f"[red]debate detail failed:[/red] {exc}"
 
     async def _cmd_agents(self, args: list[str]) -> str:
         """Show agent configuration."""
@@ -1243,18 +1374,165 @@ class CommandHandler:
             "Restart for changes to take effect."
         )
 
-    async def _cmd_pm(self, args: list[str]) -> str:
-        """List configured Polymarket markets with current mid price + 24h volume."""
-        from app.core.kv_store import get_kv_store
-        from app.data_layer.polymarket_feed import pm_symbol
+    async def _cmd_sleeve(self, args: list[str]) -> str:
+        """Enable/disable/weight the optional sleeves. Usage:
 
-        slugs = [s.strip() for s in settings.polymarket_markets.split(",") if s.strip()]
-        if not slugs:
-            return "[dim]No Polymarket markets configured (set POLYMARKET_MARKETS).[/dim]"
+        sleeve                        — show state
+        sleeve on|off <name>          — toggle (crypto | polymarket)
+        sleeve weight <name> <0-1>    — set the sleeve's slice of the book
+        """
+        sub = args[0].lower() if args else "list"
+
+        if sub in ("list", "status"):
+            lines = [
+                "[bold]Optional sleeves[/bold] "
+                "[yellow](UNVALIDATED — no pre-registered gate pass)[/yellow]",
+            ]
+            for name, (_, attr, _, w_attr) in _OPTIONAL_SLEEVES.items():
+                state = (
+                    "[green]ON [/green]" if getattr(settings, attr) else "[dim]off[/dim]"
+                )
+                lines.append(f"  {name:11s} {state}  weight={getattr(settings, w_attr):.0%}")
+            total = _optional_weight_total()
+            lines.append(f"  [dim]equity mix scaled to {1.0 - total:.0%}[/dim]")
+            if not (
+                settings.polymarket_markets.strip()
+                or settings.polymarket_discovery_enabled
+            ):
+                lines.append(
+                    "  [dim]polymarket needs markets first: "
+                    "`pm add <slug>` or `pm auto on`[/dim]"
+                )
+            lines.append(
+                "[dim]sleeve on|off <name> | sleeve weight <name> <0-1>[/dim]"
+            )
+            return "\n".join(lines)
+
+        names = " | ".join(_OPTIONAL_SLEEVES)
+        if sub not in ("on", "off", "weight"):
+            return f"Usage: sleeve | sleeve on|off <{names}> | sleeve weight <name> <0-1>"
+        if len(args) < 2 or args[1].lower() not in _OPTIONAL_SLEEVES:
+            return f"Usage: sleeve {sub} <{names}>" + (" <0-1>" if sub == "weight" else "")
+
+        name = args[1].lower()
+        env_key, attr, w_key, w_attr = _OPTIONAL_SLEEVES[name]
+
+        if sub == "weight":
+            try:
+                weight = float(args[2])
+            except (IndexError, ValueError):
+                return "Usage: sleeve weight <name> <0-1>"
+            if not 0.0 < weight < 1.0:
+                return "[red]Weight must be between 0 and 1 (exclusive).[/red]"
+            total = _optional_weight_total(
+                override=(name, getattr(settings, attr), weight)
+            )
+            if total >= 1.0:
+                return (
+                    f"[red]Optional sleeves would take {total:.0%} of the book — "
+                    "must stay under 100%.[/red]"
+                )
+            self._update_env(w_key, str(weight))
+            setattr(settings, w_attr, weight)
+            return (
+                f"[green]{name} sleeve weight = {weight:.0%}.[/green] "
+                "Restart for the strategy agent to pick it up."
+            )
+
+        enable = sub == "on"
+        if enable:
+            has_markets = (
+                settings.polymarket_markets.strip()
+                or settings.polymarket_discovery_enabled
+            )
+            if name == "polymarket" and not has_markets:
+                return (
+                    "[yellow]No markets configured — add one first "
+                    "(`pm add <slug>`) or turn on discovery (`pm auto on`).[/yellow]"
+                )
+            total = _optional_weight_total(
+                override=(name, True, getattr(settings, w_attr))
+            )
+            if total >= 1.0:
+                return (
+                    f"[red]Optional sleeves would take {total:.0%} of the book — "
+                    "lower a weight first (`sleeve weight <name> <0-1>`).[/red]"
+                )
+        self._update_env(env_key, "true" if enable else "false")
+        setattr(settings, attr, enable)
+        if not enable:
+            return (
+                f"[green]{name} sleeve disabled.[/green] "
+                "Restart for the strategy agent to pick it up."
+            )
+        return (
+            f"[green]{name} sleeve enabled at {getattr(settings, w_attr):.0%}.[/green] "
+            "[yellow]UNVALIDATED — carved pro-rata out of the validated equity "
+            "mix.[/yellow] Restart for the strategy agent to pick it up."
+        )
+
+    async def _cmd_pm(self, args: list[str]) -> str:
+        """List active Polymarket markets, add/remove one, or drive discovery.
+
+        pm | pm add <slug|url> | pm remove <slug> | pm auto on|off [N] | pm scan
+        """
+        from app.core.kv_store import get_kv_store
+        from app.data_layer.polymarket_feed import (
+            configured_slugs,
+            discovered_slugs,
+            pm_symbol,
+            refresh_discovery,
+        )
+
+        slugs = configured_slugs()
+
+        if args and args[0].lower() == "auto":
+            return await self._pm_auto(args[1:])
+
+        if args and args[0].lower() == "scan":
+            if not settings.polymarket_discovery_enabled:
+                return "[yellow]Discovery is off — `pm auto on` first.[/yellow]"
+            found = await refresh_discovery(force=True)
+            return (
+                f"[green]Discovery scan complete: {len(found)} market(s).[/green]\n"
+                "[dim]Run `pm` to see them.[/dim]"
+            )
+
+        if args and args[0].lower() in ("add", "remove"):
+            action = args[0].lower()
+            if len(args) < 2:
+                return f"Usage: pm {action} <market-slug>"
+            # Accept a pasted market URL as well as a bare slug.
+            slug = args[1].strip().rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+            if action == "add":
+                if slug in slugs:
+                    return f"[yellow]{slug} already configured.[/yellow]"
+                slugs.append(slug)
+            else:
+                if slug not in slugs:
+                    return f"[yellow]{slug} not configured.[/yellow]"
+                slugs.remove(slug)
+            new_csv = ",".join(slugs)
+            self._update_env("POLYMARKET_MARKETS", new_csv)
+            settings.polymarket_markets = new_csv
+            verb = "added" if action == "add" else "removed"
+            return (
+                f"[green]{slug} {verb}.[/green] "
+                "Restart for the feed to pick it up."
+            )
+
+        found = discovered_slugs()
+        if not slugs and not found:
+            hint = (
+                "try `pm add <slug>` or `pm auto on`"
+                if not settings.polymarket_discovery_enabled
+                else "discovery found nothing yet — try `pm scan`"
+            )
+            return f"[dim]No Polymarket markets configured — {hint}.[/dim]"
 
         kv = get_kv_store()
         lines = ["[bold]Polymarket markets:[/bold]"]
-        for slug in slugs:
+        for slug in slugs + found:
             symbol = pm_symbol(slug)
             price_str = await kv.get(f"horizon:price:{symbol}")
             volume_str = await kv.get(f"horizon:volume:{symbol}")
@@ -1266,8 +1544,127 @@ class CommandHandler:
             question = question[:60]
             price = f"{float(price_str):.4f}" if price_str else "n/a"
             volume = f"{float(volume_str):,.0f}" if volume_str else "n/a"
-            lines.append(f"  [green]{symbol}[/green]  {question}  mid={price}  vol24h={volume}")
+            tag = " [dim](auto)[/dim]" if slug in found else ""
+            lines.append(
+                f"  [green]{symbol}[/green]  {question}  mid={price}  vol24h={volume}{tag}"
+            )
+        if settings.polymarket_discovery_enabled:
+            lines.append(
+                f"[dim]auto-discovery ON — top {settings.polymarket_discovery_top_n} "
+                f"by 24h volume, refreshed hourly[/dim]"
+            )
         return "\n".join(lines)
+
+    async def _pm_auto(self, args: list[str]) -> str:
+        """`pm auto on|off [N]` — toggle Gamma discovery, optionally set top-N."""
+        from app.data_layer.polymarket_feed import refresh_discovery
+
+        if not args or args[0].lower() not in ("on", "off"):
+            state = "ON" if settings.polymarket_discovery_enabled else "off"
+            return (
+                f"Polymarket auto-discovery: [bold]{state}[/bold] "
+                f"(top {settings.polymarket_discovery_top_n}, "
+                f"min 24h vol ${settings.polymarket_discovery_min_volume_24h:,.0f}, "
+                f"resolving in {settings.polymarket_discovery_min_days}-"
+                f"{settings.polymarket_discovery_max_days}d)\n"
+                "[dim]pm auto on|off [N][/dim]"
+            )
+
+        enable = args[0].lower() == "on"
+        if len(args) > 1:
+            try:
+                top_n = int(args[1])
+            except ValueError:
+                return "[red]N must be a whole number.[/red]"
+            if not 1 <= top_n <= 50:
+                return "[red]N must be between 1 and 50.[/red]"
+            self._update_env("POLYMARKET_DISCOVERY_TOP_N", str(top_n))
+            settings.polymarket_discovery_top_n = top_n
+
+        self._update_env("POLYMARKET_DISCOVERY_ENABLED", "true" if enable else "false")
+        settings.polymarket_discovery_enabled = enable
+        if not enable:
+            return (
+                "[green]Polymarket auto-discovery off.[/green] "
+                "Configured markets (`pm add`) still trade. Restart to drop the rest."
+            )
+
+        found = await refresh_discovery(force=True)
+        return (
+            f"[green]Polymarket auto-discovery on — top "
+            f"{settings.polymarket_discovery_top_n} by 24h volume, "
+            f"{len(found)} market(s) found.[/green]\n"
+            "[dim]The sleeve must also be on: `sleeve on polymarket`.[/dim]"
+        )
+
+    async def _cmd_crypto(self, args: list[str]) -> str:
+        """`crypto` | `crypto auto on|off [N]` | `crypto scan`."""
+        from app.data_layer.crypto_universe import (
+            DEFAULT_UNIVERSE,
+            crypto_universe,
+            refresh_crypto_universe,
+        )
+
+        sub = args[0].lower() if args else "list"
+
+        if sub == "scan":
+            if not settings.crypto_discovery_enabled:
+                return "[yellow]Discovery is off — `crypto auto on` first.[/yellow]"
+            universe = await refresh_crypto_universe(force=True)
+            return f"[green]Crypto universe: {', '.join(universe)}[/green]"
+
+        if sub == "auto":
+            rest = args[1:]
+            if not rest or rest[0].lower() not in ("on", "off"):
+                state = "ON" if settings.crypto_discovery_enabled else "off"
+                return (
+                    f"Crypto auto-discovery: [bold]{state}[/bold] "
+                    f"(top {settings.crypto_discovery_top_n} by market cap)\n"
+                    "[dim]crypto auto on|off [N][/dim]"
+                )
+            enable = rest[0].lower() == "on"
+            if len(rest) > 1:
+                try:
+                    top_n = int(rest[1])
+                except ValueError:
+                    return "[red]N must be a whole number.[/red]"
+                if not 1 <= top_n <= 25:
+                    return "[red]N must be between 1 and 25.[/red]"
+                self._update_env("CRYPTO_DISCOVERY_TOP_N", str(top_n))
+                settings.crypto_discovery_top_n = top_n
+
+            self._update_env("CRYPTO_DISCOVERY_ENABLED", "true" if enable else "false")
+            settings.crypto_discovery_enabled = enable
+            if not enable:
+                return (
+                    f"[green]Crypto auto-discovery off.[/green] "
+                    f"Universe back to {', '.join(DEFAULT_UNIVERSE)}."
+                )
+            universe = await refresh_crypto_universe(force=True)
+            return (
+                f"[green]Crypto auto-discovery on — {', '.join(universe)}[/green]\n"
+                "[dim]The sleeve must also be on: `sleeve on crypto`.[/dim]"
+            )
+
+        if sub not in ("list", "status"):
+            return "Usage: crypto | crypto auto on|off [N] | crypto scan"
+
+        universe = crypto_universe()
+        source = (
+            f"auto (top {settings.crypto_discovery_top_n} by market cap)"
+            if settings.crypto_discovery_enabled
+            else "static"
+        )
+        sleeve_state = (
+            f"[green]ON[/green] at {settings.crypto_sleeve_weight:.0%}"
+            if settings.crypto_sleeve_enabled
+            else "[dim]off[/dim]"
+        )
+        return (
+            f"[bold]Crypto universe[/bold] ({source}): {', '.join(universe)}\n"
+            f"  sleeve: {sleeve_state}\n"
+            "[dim]crypto auto on|off [N] | crypto scan | sleeve on crypto[/dim]"
+        )
 
     async def _cmd_journal(self, args: list[str]) -> str:
         """Show the trade journal. Usage: journal | journal YYYY-MM-DD"""
@@ -1292,23 +1689,16 @@ class CommandHandler:
 
     @staticmethod
     def _update_env(key: str, value: str) -> None:
-        """Update a key in the backend .env file."""
-        import os
-        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-        lines = []
-        found = False
-        if os.path.exists(env_path):
-            with open(env_path) as f:
-                for line in f:
-                    if line.strip().startswith(key + "="):
-                        lines.append(f"{key}={value}\n")
-                        found = True
-                    else:
-                        lines.append(line)
-        if not found:
-            lines.append(f"{key}={value}\n")
-        with open(env_path, "w") as f:
-            f.writelines(lines)
+        """Update a key in the backend .env file — the one pydantic actually reads.
+
+        parents[2] is ``backend/``: commands.py -> tui -> app -> backend. Writing
+        to ``app/.env`` (parents[1]) silently dropped every REPL config change.
+        """
+        from pathlib import Path
+
+        from app.tui.settings_panel import _write_env_key
+
+        _write_env_key(str(Path(__file__).resolve().parents[2] / ".env"), key, value)
 
     # ------------------------------------------------------------------ #
     # Manual trading commands
