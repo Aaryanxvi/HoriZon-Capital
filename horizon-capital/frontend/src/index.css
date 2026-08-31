@@ -2,18 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Warm-paper light theme, low-contrast dark theme. One variable set per mode. */
+:root {
+  --paper: 250 249 245;
+  --surface: 255 255 255;
+  --raised: 245 243 237;
+  --rail: 240 238 230;
+  --line: 228 224 213;
+  --ink: 31 30 29;
+  --soft: 107 104 98;
+  --faint: 150 146 138;
+  --clay: 201 100 66;
+  --up: 33 122 82;
+  --down: 185 58 45;
+  --warn: 176 122 20;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: 31 30 29;
+  --surface: 38 38 36;
+  --raised: 46 45 43;
+  --rail: 26 25 24;
+  --line: 58 56 53;
+  --ink: 244 243 238;
+  --soft: 166 162 154;
+  --faint: 124 120 113;
+  --clay: 217 119 87;
+  --up: 74 176 128;
+  --down: 226 106 92;
+  --warn: 212 160 62;
+  color-scheme: dark;
+}
+
 @layer base {
-  body {
-    @apply bg-horizon-darker text-gray-100 antialiased;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  html,
+  body,
+  #root {
+    height: 100%;
   }
 
-  /* Clean thin scrollbar (Claude Desktop style) */
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04";
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 10px;
+    height: 10px;
   }
 
   ::-webkit-scrollbar-track {
@@ -21,65 +59,75 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full;
+    @apply rounded-full border-4 border-transparent bg-faint/40 bg-clip-content;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-white/20;
+    @apply bg-faint/70 bg-clip-content;
   }
 
-  /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    scrollbar-color: rgb(var(--faint) / 0.4) transparent;
   }
 
-  /* Clean focus */
-  *:focus {
-    @apply outline-none;
+  :focus-visible {
+    @apply outline-none ring-2 ring-clay/50;
   }
 
-  *:focus-visible {
-    @apply outline-none ring-1 ring-accent-blue/40 ring-offset-0;
+  /* Tabular numerals everywhere money and metrics are shown. */
+  .nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-horizon-card/80 border border-horizon-border/60 rounded-xl p-4 backdrop-blur-sm;
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line
+           bg-surface px-3 py-1.5 text-sm font-medium text-ink transition
+           hover:bg-raised active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply bg-accent-blue hover:bg-accent-blue/80 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors;
-  }
-
-  .btn-danger {
-    @apply bg-accent-red/90 hover:bg-accent-red/70 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors;
-  }
-
-  .btn-success {
-    @apply bg-accent-green/90 hover:bg-accent-green/70 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors;
+    @apply border-transparent bg-clay text-white hover:bg-clay/90;
   }
 
   .btn-ghost {
-    @apply text-gray-400 hover:text-gray-200 hover:bg-white/5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors;
+    @apply border-transparent bg-transparent hover:bg-raised;
   }
 
-  .text-positive {
-    @apply text-accent-green;
+  .th {
+    @apply px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-faint;
   }
 
-  .text-negative {
-    @apply text-accent-red;
+  .td {
+    @apply px-3 py-2 text-sm text-ink;
+  }
+
+  .row-hover {
+    @apply transition-colors hover:bg-raised/60;
   }
 }
 
-/* Subtle page transitions */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Rich-exported terminal output: keep its colours, inherit our layout. */
+.rich-output pre,
+.rich-output code {
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  background: transparent !important;
 }
 
-main > * {
-  animation: fadeIn 0.2s ease-out;
+/* Electron drag regions for the frameless window. */
+.drag {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
 }

@@ -1,14 +1,13 @@
 {
   "name": "horizon-capital-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Horizon Capital — AI Hedge Fund Desktop App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "dev": "electron .",
+    "icon": "python ../desktop/make_icon.py",
     "dist": "electron-builder"
-  },
-  "dependencies": {
-    "electron-is-dev": "^2.0.0"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -20,6 +19,7 @@
     "directories": {
       "output": "dist"
     },
+    "files": ["main.js", "backend.js", "preload.js", "tray.js", "splash.html", "icons/**/*"],
     "extraResources": [
       {
         "from": "../backend-dist/",
@@ -36,10 +36,21 @@
       "target": "nsis",
       "icon": "icons/icon.ico"
     },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.finance",
+      "icon": "icons/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office",
+      "icon": "icons/icon.ico"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "icons/icon.ico"
+      "installerIcon": "icons/icon.ico",
+      "shortcutName": "Horizon Capital"
     }
   }
 }

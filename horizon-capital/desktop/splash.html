@@ -1,68 +1,97 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Horizon Capital</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #080b11;
-      color: #e2e8f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      -webkit-app-region: drag;
-      user-select: none;
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .icon {
-      width: 40px;
-      height: 40px;
-      background: rgba(107, 138, 253, 0.15);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    .icon-inner {
-      width: 16px;
-      height: 16px;
-      background: #6b8afd;
-      border-radius: 4px;
-    }
-    .title {
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
-      color: #e2e8f0;
-      margin-bottom: 6px;
-    }
-    .subtitle {
-      font-size: 11px;
-      color: #4a5568;
-      margin-bottom: 28px;
-      letter-spacing: 0.3px;
-    }
-    .loader {
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(107, 138, 253, 0.15);
-      border-top-color: #6b8afd;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div class="icon"><div class="icon-inner"></div></div>
-  <div class="title">Horizon Capital</div>
-  <div class="subtitle">Starting up...</div>
-  <div class="loader"></div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'"
+    />
+    <title>Horizon Capital</title>
+    <style>
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      body {
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      .card {
+        width: 380px;
+        padding: 28px 30px;
+        border-radius: 16px;
+        background: #faf9f5;
+        border: 1px solid #e4e0d5;
+        box-shadow: 0 18px 40px rgba(20, 18, 15, 0.18);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: #c96442;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        display: grid;
+        place-items: center;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1f1e1d;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #6b6862;
+      }
+      .bar {
+        margin-top: 16px;
+        height: 3px;
+        border-radius: 999px;
+        background: #e4e0d5;
+        overflow: hidden;
+      }
+      .bar span {
+        display: block;
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: #c96442;
+        animation: slide 1.4s ease-in-out infinite;
+      }
+      @keyframes slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+      }
+      .foot {
+        margin-top: 16px;
+        font-size: 11px;
+        color: #96928a;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">
+        <div class="mark">H</div>
+        <h1>Horizon Capital</h1>
+      </div>
+      <p>Starting the engine — storage, agents and market data.</p>
+      <div class="bar"><span></span></div>
+      <div class="foot">First run takes longer while the local database is built.</div>
+    </div>
+  </body>
 </html>

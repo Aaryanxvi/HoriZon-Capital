@@ -1,6 +1,6 @@
 # Horizon Capital — Backend
 
-Autonomous AI hedge-fund platform modeled as a firm org chart. **Primary product is the desktop terminal agent** (Rich TUI + REPL via `python -m app`). FastAPI + React GUI is a secondary tier wrapped into an Electron desktop app.
+Autonomous AI hedge-fund platform modeled as a firm org chart. **Primary product is the desktop terminal agent** (Rich TUI + REPL via `python -m app`). The Electron desktop app is a second front end onto the *same* engine — same agents, same commands (see "Desktop app" below).
 
 ## Quick Start
 
@@ -120,6 +120,38 @@ Optional, UNVALIDATED, default-off (REPL `sleeve on <name>`):
 
 (`base_strategy.py`, `momentum_strategy.py`, `mean_reversion_strategy.py`, `simple_strategies.py` are older standalone primitives, NOT wired into the sleeve agent.)
 
+## Desktop app
+
+One process: SQLite/KV storage + agents + workers + API + the built React UI.
+`desktop_entry.py` picks a free port, sets `HORIZON_RUN_AGENTS=1`, and prints
+`READY:<port>` once uvicorn is actually listening (Electron waits for that line).
+
+- `main.py` lifespan starts the org chart in-process **only** when `HORIZON_RUN_AGENTS=1`,
+  so plain `uvicorn app.main:app` is unchanged. It also attaches a `TerminalDashboard`
+  via `tui/dashboard_feed.py` — REPL commands (`portfolio`, `signals`, `risk`) read
+  dashboard state, so without it the desktop terminal would answer differently.
+- `tui/dashboard_feed.py` — bus→dashboard routing + initial DB/KV load, **shared** with
+  `__main__._run_with_tui` so the two front ends cannot drift.
+- `api/desktop.py` (`/api/desktop/*`) — LOCAL-native reads (raw SQL + KV, no ORM/asyncpg),
+  controls, and the REPL bridge:
+  - reads: `overview, positions, equity-curve, orders, fills, pending, signals, agents,
+    debates[/{id}], risk, performance, alerts, watchlist, config, onboarding`
+  - controls: `POST control/halt` (sets `horizon:system:halted` + kill switch),
+    `POST control/settings` (allow-listed env keys, coerced through the pydantic field
+    type, written with `settings_panel._write_env_key`, mirrored onto live `settings`),
+    `POST control/engine` (start/stop/restart agents)
+  - REPL: `POST command` and `WS ws/terminal` run `CommandHandler` and return Rich output
+    rendered to text **and** HTML (`render_markup`; `export_text(clear=False)` — clearing
+    empties the HTML export). `dashboard`/`settings`/`quit` map to app screens.
+  - `WS ws/live` fans the bus out to the UI through one process-wide subscription
+    (`MemoryBus.unsubscribe` drops *all* handlers on a channel, so per-client subscribe
+    would let one disconnect silence everyone).
+- `api/v1` mounts **only** in POSTGRES mode — it imports asyncpg and the ORM.
+- Electron (`desktop/`): frameless window + custom titlebar, tray, single-instance lock,
+  window-state persistence, `sandbox: true`, external links opened in the browser,
+  backend spawned via the `py -3.14`/`python3` launcher probe and killed with
+  `taskkill /T` on Windows. `make_icon.py` regenerates `icons/icon.ico`.
+
 ## MessageType (`core/messaging.py`)
 
 `TICK, OHLCV, FEATURE_UPDATE, SIGNAL, RISK_CHECK, RISK_ALERT, DEBATE_START, DEBATE_VOTE, DEBATE_CONCLUSION, ORDER_NEW, ORDER_FILL, ORDER_CANCEL, PORTFOLIO_UPDATE, HEALTH_CHECK, SENTIMENT_UPDATE, AGENT_STATUS, HEARTBEAT, SETTINGS_UPDATED, CIO_ADVISORY, CIO_OVERRIDE`. Channels are dot-namespaced `horizon.<area>.<sub>`, wildcard subscriptions.
@@ -146,9 +178,9 @@ Per-department setting `ai_<dept>` = auto|claude|openai|gemini|none; per-agent o
 
 ```bash
 python run_tests.py                  # root: sets LOCAL/PAPER env, runs backend/tests/test_smoke.py
-python -m pytest tests/ -v           # 22 files in backend/tests/ (asyncio_mode=auto)
+python -m pytest tests/ -v           # 48 files in backend/tests/ (asyncio_mode=auto)
 ```
-Two test trees: `backend/tests/` (22 files: smoke, integration, e2e, 9 CIO, feeds, strategy) and root `tests/unit/` (3 files: drift, features, VaR). `pyproject` `testpaths=["../tests"]`. Known: `test_cio_mode_default` fails when `.env` sets CIO_MODE=AI; hmmlearn won't build on py3.14 (handled gracefully); redis-dependent smoke test skips when redis absent.
+Two test trees: `backend/tests/` (48 files: smoke, integration, e2e, 9 CIO, feeds, strategy, desktop API) and root `tests/unit/` (3 files: drift, features, VaR). `pyproject` `testpaths=["../tests"]`. Known: several tests assert factory defaults and fail against a configured developer `.env` (`test_cio_mode_default` with CIO_MODE=AI; the sleeve-mix tests with CRYPTO/POLYMARKET_SLEEVE_ENABLED=true); hmmlearn won't build on py3.14 (handled gracefully); redis-dependent smoke test skips when redis absent.
 
 ## Linting
 

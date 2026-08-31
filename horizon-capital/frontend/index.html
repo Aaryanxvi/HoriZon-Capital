@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>Horizon Capital</title>
     <style>
-      body {
-        background-color: #060910;
-      }
+      /* Paint the shell colour before the bundle loads so there is no flash. */
+      html { background: #faf9f5; }
+      html.dark { background: #1f1e1d; }
     </style>
   </head>
   <body>

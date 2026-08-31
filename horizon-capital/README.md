@@ -44,6 +44,32 @@ python -m app config
 
 No Docker required. Runs with SQLite + in-memory message bus by default.
 
+## Desktop app
+
+The same engine with a window instead of a terminal — agents, storage, API and UI
+all run in one process. Nothing about the trading logic changes; the app's Terminal
+screen is the REPL itself, over a websocket.
+
+```bash
+# Dev: build the UI once, then launch the app (it starts the backend for you)
+cd frontend && npm install && npm run build
+cd ../desktop && npm install && npm start
+
+# Installer (Windows NSIS / macOS dmg / Linux AppImage)
+python build_desktop.py
+```
+
+Screens: Overview, Portfolio, Trading (manual ticket + approvals), Signals (sleeve
+toggles), Agents, Debates, Risk, Performance, Terminal, Settings. The title bar keeps
+**Halt**, the trading-mode switch and engine start/stop one click away on every screen,
+and first run opens a setup wizard that writes the same `.env` the CLI reads.
+
+Backend alone, no window:
+
+```bash
+cd backend && HORIZON_RUN_AGENTS=1 python desktop_entry.py 8000   # http://127.0.0.1:8000
+```
+
 ## Architecture
 
 ```
