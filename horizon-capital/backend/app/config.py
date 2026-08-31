@@ -293,6 +293,10 @@ class Settings(BaseSettings):
     # Sentiment sizing damper — UNVALIDATED signal, default off.
     sentiment_sizing_enabled: bool = False
 
+    # Trade journal decision-chain enrichment (why a fill happened). On by
+    # default; toggle at runtime via REPL `journal why on|off`.
+    journal_decision_chain: bool = True
+
     @property
     def all_symbols(self) -> list[str]:
         symbols = []

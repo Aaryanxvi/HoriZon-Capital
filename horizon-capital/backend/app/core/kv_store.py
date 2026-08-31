@@ -83,6 +83,8 @@ class PersistentKVStore(MemoryKVStore):
         # had no writer and is removed.)
         "horizon:system:halted",
         "horizon:system:halted:ack",
+        "horizon:report:eod:last_date",
+        "horizon:brief:push:last_date",
     }
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:

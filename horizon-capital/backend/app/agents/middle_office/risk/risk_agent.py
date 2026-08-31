@@ -226,6 +226,20 @@ class RiskAgent(BaseAgent):
             },
         )
 
+        if var_95 * 100 >= _s.risk_var_limit_pct:
+            await self.emit(
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "action": "VAR_BREACH",
+                    "alert_type": "VAR_BREACH",
+                    "var_pct": round(var_95 * 100, 2),
+                    "limit_pct": _s.risk_var_limit_pct,
+                    "severity": "HIGH",
+                    "timestamp": now.isoformat(),
+                },
+            )
+
         # Kill switch is sticky: once triggered it remains until a human
         # clears it via ``horizon:system:halted:ack``. Auto-lifting masks
         # systemic issues and lets strategies churn straight back in.

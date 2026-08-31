@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC
+from pathlib import Path
 
 import structlog
 from rich.console import Console
@@ -67,6 +68,7 @@ HELP_TEXT = """
 
   [green]help[/]                Show this help
   [green]status[/]              Show all agent statuses
+  [green]brief[/]               Morning briefing: P&L, regime, risk, pending, stops, debates
   [green]portfolio[/]           Show current portfolio (NAV, cash, positions)
   [green]positions[/]           Show open positions from the database
   [green]orders[/] [all]        Show recent orders (default: last 20)
@@ -83,7 +85,9 @@ HELP_TEXT = """
   [green]debate[/] <id|SYMBOL>  Full transcript: every debater, vote, and round
   [green]agents[/]              Show agent configuration
   [green]health[/]              Show system health
+  [green]doctor[/]              Self-check all subsystems (db, bus, LLM, data, alerts, broker)
   [green]performance[/] [period] Show performance metrics (1d/7d/30d/90d/YTD/ALL)
+  [green]report[/]              Generate today's EOD report now (markdown, emailed if SMTP set)
   [green]config[/]              Show current configuration
 
   [bold yellow]Order Approval (HUMAN_APPROVAL mode):[/bold yellow]
@@ -125,7 +129,7 @@ HELP_TEXT = """
   [green]crypto auto[/] on|off [N]  Auto-discover the top-N coins by market cap
   [green]crypto scan[/]         Re-run discovery now (bypasses the 24h cache)
 
-  [green]journal[/] [YYYY-MM-DD]  Show the trade journal (default: today)
+  [green]journal[/] [YYYY-MM-DD | SYMBOL | why on|off]  Show the trade journal (default: today)
 
   [bold yellow]Manual Trading:[/bold yellow]
   [green]buy[/] <SYMBOL> [qty]   Place a manual BUY order (default qty: auto-size)
@@ -167,6 +171,7 @@ class CommandHandler:
         handlers = {
             "help": self._cmd_help,
             "status": self._cmd_status,
+            "brief": self._cmd_brief,
             "portfolio": self._cmd_portfolio,
             "positions": self._cmd_positions,
             "orders": self._cmd_orders,
@@ -177,7 +182,9 @@ class CommandHandler:
             "debate": self._cmd_debate,
             "agents": self._cmd_agents,
             "health": self._cmd_health,
+            "doctor": self._cmd_doctor,
             "performance": self._cmd_performance,
+            "report": self._cmd_report,
             "config": self._cmd_config,
             "approve": self._cmd_approve,
             "reject": self._cmd_reject,
@@ -321,6 +328,28 @@ class CommandHandler:
 
             return "\n".join(lines)
         return "[yellow]Orchestrator not available.[/yellow]"
+
+    async def _cmd_brief(self, args: list[str]) -> str:
+        from app.services.morning_brief import build_morning_brief
+        return await build_morning_brief(orchestrator=self._orchestrator)
+
+    async def _cmd_doctor(self, args: list[str]) -> str:
+        from app.services.doctor import run_doctor
+        return await run_doctor(orchestrator=self._orchestrator)
+
+    async def _cmd_report(self, args: list[str]) -> str:
+        from datetime import datetime as _dt
+
+        from app.workers.eod_report_worker import EODReportWorker
+
+        worker = EODReportWorker(orchestrator=self._orchestrator)
+        await worker._generate_and_send()
+
+        today_str = _dt.now(UTC).strftime("%Y-%m-%d")
+        path = Path.home() / ".horizon-capital" / "reports" / f"eod_{today_str}.md"
+        if path.exists():
+            return f"[green]EOD report generated:[/green] {path}"
+        return "[red]Report generation failed — check logs.[/red]"
 
     async def _cmd_portfolio(self, args: list[str]) -> str:
         p = self._dashboard._portfolio if self._dashboard else {}
@@ -1667,16 +1696,20 @@ class CommandHandler:
         )
 
     async def _cmd_journal(self, args: list[str]) -> str:
-        """Show the trade journal. Usage: journal | journal YYYY-MM-DD"""
+        """Show the trade journal. Usage: journal [YYYY-MM-DD | SYMBOL | why on|off]"""
         import re
         from datetime import datetime as _dt
 
         from app.services.trade_journal import DEFAULT_JOURNAL_DIR
 
+        if args and args[0] == "why":
+            return self._cmd_journal_why(args[1:])
+
+        if args and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args[0]):
+            return await self._cmd_journal_symbol(args[0].upper())
+
         if args:
             date_str = args[0]
-            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
-                return "Usage: journal [YYYY-MM-DD]"
         else:
             date_str = _dt.now(UTC).strftime("%Y-%m-%d")
 
@@ -1686,6 +1719,61 @@ class CommandHandler:
                 return f"[dim]No journal for {date_str}.[/dim]"
             return "[dim]No journal entries today.[/dim]"
         return path.read_text(encoding="utf-8")
+
+    def _cmd_journal_why(self, args: list[str]) -> str:
+        """Toggle or report the trade-journal decision-chain enrichment setting."""
+        from app.config import settings
+
+        if not args:
+            state = "on" if settings.journal_decision_chain else "off"
+            return f"Journal decision-chain enrichment is {state}."
+
+        choice = args[0].lower()
+        if choice not in ("on", "off"):
+            return "Usage: journal why [on|off]"
+
+        enabled = choice == "on"
+        settings.journal_decision_chain = enabled
+        self._update_env("JOURNAL_DECISION_CHAIN", "true" if enabled else "false")
+
+        if enabled:
+            return "[green]Journal decision-chain enrichment enabled[/green]"
+        return "[yellow]Journal decision-chain enrichment disabled[/yellow]"
+
+    async def _cmd_journal_symbol(self, symbol: str) -> str:
+        """Show the last fills and decision chain for a symbol."""
+        from sqlalchemy import text
+
+        from app.core.runtime import get_session_factory
+        from app.services.trade_journal import _compose_why, resolve_decision_chain
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            result = await session.execute(
+                text(
+                    "SELECT f.filled_at, o.symbol, o.side, f.filled_qty, f.fill_price, "
+                    "o.id, o.signal_id "
+                    "FROM fills f JOIN orders o ON o.id = f.order_id "
+                    "WHERE o.symbol = :sym ORDER BY f.filled_at DESC LIMIT 10"
+                ),
+                {"sym": symbol},
+            )
+            rows = result.mappings().all()
+
+        if not rows:
+            return f"[dim]No fills recorded for {symbol}.[/dim]"
+
+        lines = [f"[bold]{symbol} — last {len(rows)} fills[/bold]"]
+        for row in rows:
+            qty = row.get("filled_qty", 0)
+            price = row.get("fill_price", 0)
+            chain = await resolve_decision_chain(row.get("id", ""))
+            why = _compose_why(chain) or "no decision data"
+            lines.append(
+                f"{row.get('filled_at')}  {row.get('side', '')} {qty} @ ${price:,.2f}\n"
+                f"    [dim]{why}[/dim]"
+            )
+        return "\n".join(lines)
 
     @staticmethod
     def _update_env(key: str, value: str) -> None:
