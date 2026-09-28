@@ -1796,7 +1796,7 @@
       },
       "horizon-capital/tests/unit/test_authorship.py": {
         "marked": true,
-        "sha256": "087dc6fd82ee378fe63f1a19f2c043ed4b105a309ebcd5f9467b3bb7ce736f90",
+        "sha256": "3826696d55e38bbb4f74bf5915347768b46530909aafbbf6d267bc38af462ba0",
         "token": "4C07C29C91CE"
       },
       "horizon-capital/tests/unit/test_drift_detector.py": {
@@ -1875,11 +1875,11 @@
         "token": "19B20EFBA3F2"
       }
     },
-    "git_head": "df9786dae280f770272e358201f4de00e17b4e53",
+    "git_head": "dbd458b887eeaa5e0e405a92cadae885ba3a7833",
     "project": "Horizon Capital",
     "signature_plaintext": "Aaryan Baadkar <aaryanbaadkar71@gmail.com> github.com/Aaryanxvi",
-    "signed_at": "2026-09-28T06:43:46+00:00"
+    "signed_at": "2026-09-28T06:52:18+00:00"
   },
   "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAJsTyplh00leWFeadz318bSyuhXV932NZKMLzfdBfk5Q=\n-----END PUBLIC KEY-----\n",
-  "signature_hex": "c309a051e15aa05192cca63b3661e2b3cb8f33110902f3eb4fa05d50f904132c6f9e722969b1aab7c53e8ceaf5e10152f288815dee12715bc33c2abc186cff09"
+  "signature_hex": "8eff2fb262276054db334a47ab0cc6e92c7a14252a50afea99a6421d96d2d92bdbedc35fe67855b7909951f0abccd119b854509f0847e670a8f6231e7aabe303"
 }
