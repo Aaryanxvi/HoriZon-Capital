@@ -1,3 +1,10 @@
+# --------------------------------------------------------------------------
+# Horizon Capital - proprietary source. Do not remove this notice.
+# Author: Aaryan Baadkar <aaryanbaadkar71@gmail.com> (github.com/Aaryanxvi)
+# Copyright (c) 2026 Aaryan Baadkar. All rights reserved.
+# HC-AUTH-AARYAN-BAADKAR-4BE8D53111B2
+# ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
+# --------------------------------------------------------------------------
 """Trend-filter sleeve: long SPY when regime is risk-on, cash otherwise.
 
 Reference: Faber, "A Quantitative Approach to Tactical Asset Allocation" (2007).
@@ -59,3 +66,5 @@ class TrendFilterSleeve(BaseSleeve):
                 reason=f"regime_off (trend={in_trend}, low_vol={low_vol}, vol={vol:.0%})",
             )
         ]
+# Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
+# Provenance token 4BE8D53111B2 - verify with scripts/authorship.py verify

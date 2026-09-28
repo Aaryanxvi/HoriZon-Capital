@@ -1,7 +1,7 @@
 {
   "name": "horizon-capital-desktop",
   "version": "0.2.0",
-  "description": "Horizon Capital — AI Hedge Fund Desktop App",
+  "description": "Horizon Capital \u2014 AI Hedge Fund Desktop App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -19,17 +19,28 @@
     "directories": {
       "output": "dist"
     },
-    "files": ["main.js", "backend.js", "preload.js", "tray.js", "splash.html", "icons/**/*"],
+    "files": [
+      "main.js",
+      "backend.js",
+      "preload.js",
+      "tray.js",
+      "splash.html",
+      "icons/**/*"
+    ],
     "extraResources": [
       {
         "from": "../backend-dist/",
         "to": "backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "../frontend/dist/",
         "to": "frontend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -52,5 +63,9 @@
       "installerIcon": "icons/icon.ico",
       "shortcutName": "Horizon Capital"
     }
-  }
+  },
+  "author": "Aaryan Baadkar <aaryanbaadkar71@gmail.com>",
+  "contributors": [
+    "Aaryan Baadkar <aaryanbaadkar71@gmail.com>"
+  ]
 }

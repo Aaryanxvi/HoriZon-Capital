@@ -1,0 +1,18 @@
+Copyright (c) 2026 Aaryan Baadkar <aaryanbaadkar71@gmail.com>
+
+All rights reserved.
+
+Horizon Capital and all source files in this repository were written by
+Aaryan Baadkar (github.com/Aaryanxvi). No permission is granted to copy, modify,
+distribute or use this software, in whole or in part, without the prior
+written consent of the copyright holder.
+
+Authorship of this work is recorded in three independent places:
+
+  * per-file notices carrying the token HC-AUTH-AARYAN-BAADKAR
+  * the git commit history, authored as Aaryan Baadkar <aaryanbaadkar71@gmail.com>
+  * AUTHORSHIP.json, an Ed25519-signed manifest of every file's sha256,
+    verifiable against the committed public key AUTHORSHIP.pub
+
+Removing the notices from the source files invalidates the manifest
+signature and is itself evidence of tampering.

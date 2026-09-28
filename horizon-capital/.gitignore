@@ -24,6 +24,19 @@ env/
 .env
 .env.local
 .env.production
+# catch-all: .env.bak held live OpenAI/Google/Alpaca keys and was not ignored
+.env.*
+!.env.example
+*.env.bak
+*.bak
+
+# Credentials / signing material - never commit
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+id_rsa*
 
 # ML artifacts
 ml_training/artifacts/*.pkl
