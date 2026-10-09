@@ -5,7 +5,11 @@
 # HC-AUTH-AARYAN-BAADKAR-A02767154ED3
 # ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
 # --------------------------------------------------------------------------
-"""Basic sentiment analysis using free news headlines."""
+"""Per-symbol news sentiment: Alpaca (or NewsAPI) headlines scored by FinBERT.
+
+Falls back to the keyword counter below when torch/transformers are missing or
+the model fails to load.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,11 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
+from app.agents.front_office.research.alpaca_news import (
+    alpaca_news_configured,
+    fetch_headlines_by_symbol,
+)
+from app.agents.front_office.research.finbert_scorer import FinBERTScorer
 from app.agents.front_office.research.newsapi_client import NewsAPIClient
 from app.core.messaging import AgentMessage, MessageType
 
@@ -46,6 +55,23 @@ def score_headline(headline: str) -> tuple[str, float]:
     return "neutral", 0.0
 
 
+# ponytail: |mean FinBERT score| under this reads neutral. Fixed by eye, not fitted --
+# the damper backtest is where it gets validated.
+_NEUTRAL_BAND = 0.1
+
+
+def aggregate_scores(scores: list[float]) -> tuple[str, float]:
+    """Mean of per-headline P(pos)-P(neg) -> (label, magnitude 0-1)."""
+    if not scores:
+        return "neutral", 0.0
+    mean = sum(scores) / len(scores)
+    if mean > _NEUTRAL_BAND:
+        return "positive", round(min(mean, 1.0), 4)
+    if mean < -_NEUTRAL_BAND:
+        return "negative", round(min(-mean, 1.0), 4)
+    return "neutral", 0.0
+
+
 class SentimentAgent:
     """Fetches news headlines and scores sentiment per symbol."""
 
@@ -54,14 +80,21 @@ class SentimentAgent:
         self.symbols = symbols or []
         self.api_key = api_key
         self._running = False
+        self._finbert: FinBERTScorer | None = (
+            FinBERTScorer() if FinBERTScorer.available() else None
+        )
 
     async def start(self):
         self._running = True
         logger.info("SentimentAgent started for %d symbols", len(self.symbols))
         while self._running:
-            for symbol in self.symbols:
+            try:
+                scores = await self._score_symbols(await self._gather_headlines())
+            except Exception:
+                logger.exception("Sentiment sweep failed")
+                scores = {}
+            for symbol, (sentiment, score) in scores.items():
                 try:
-                    sentiment, score = await self._analyze_symbol(symbol)
                     # Persist to KV store so the sentiment REPL command can read it
                     try:
                         from app.core.kv_store import get_kv_store
@@ -92,8 +125,36 @@ class SentimentAgent:
     async def stop(self):
         self._running = False
 
-    async def _analyze_symbol(self, symbol: str) -> tuple[str, float]:
-        headlines = await self._fetch_headlines(symbol)
+    async def _gather_headlines(self) -> dict[str, list[str]]:
+        # One Alpaca call covers every symbol; NewsAPI fallback is per-symbol.
+        if alpaca_news_configured():
+            batch = await fetch_headlines_by_symbol(self.symbols)
+            return {s: batch.get(s.split(".")[0], []) for s in self.symbols}
+        return {s: await self._fetch_headlines(s) for s in self.symbols}
+
+    async def _score_symbols(
+        self, by_symbol: dict[str, list[str]]
+    ) -> dict[str, tuple[str, float]]:
+        if self._finbert is not None:
+            try:
+                # A headline tagged to several tickers is scored once.
+                unique = sorted({h for hs in by_symbol.values() for h in hs})
+                # CPU-bound inference off the event loop -- the whole engine shares it.
+                results = await asyncio.to_thread(self._finbert.score_batch, unique)
+                score_of = {h: r["score"] for h, r in zip(unique, results, strict=True)}
+                return {
+                    s: aggregate_scores([score_of[h] for h in hs])
+                    for s, hs in by_symbol.items()
+                }
+            except Exception:
+                # ponytail: disabled until restart -- a model that failed to load once
+                # (offline first run, bad install) would just fail every sweep.
+                logger.exception("FinBERT failed; falling back to keyword scoring")
+                self._finbert = None
+        return {s: self._score(hs) for s, hs in by_symbol.items()}
+
+    @staticmethod
+    def _score(headlines: list[str]) -> tuple[str, float]:
         if not headlines:
             return "neutral", 0.0
         pos_total = 0.0

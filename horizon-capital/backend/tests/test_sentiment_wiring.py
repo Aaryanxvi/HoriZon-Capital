@@ -52,6 +52,98 @@ async def test_fetch_headlines_uses_newsapi_client(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_alpaca_news_groups_headlines_by_ticker_across_pages(monkeypatch):
+    from app.agents.front_office.research import alpaca_news
+
+    pages = [
+        {"news": [{"headline": "Apple beats", "symbols": ["AAPL", "QQQ"]}],
+         "next_page_token": "p2"},
+        {"news": [{"headline": "Tesla and Apple slide", "symbols": ["TSLA", "AAPL"]}],
+         "next_page_token": None},
+    ]
+    seen_tokens = []
+
+    class FakeResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            pass
+
+        async def get(self, url, params):
+            seen_tokens.append(params.get("page_token"))
+            return FakeResp(pages[len(seen_tokens) - 1])
+
+    monkeypatch.setattr(settings, "alpaca_api_key", "k")
+    monkeypatch.setattr(settings, "alpaca_api_secret", "s")
+    monkeypatch.setattr(alpaca_news.httpx, "AsyncClient", FakeClient)
+
+    out = await alpaca_news.fetch_headlines_by_symbol(["AAPL.NASDAQ", "TSLA.NASDAQ"])
+    assert out == {"AAPL": ["Apple beats", "Tesla and Apple slide"],
+                   "TSLA": ["Tesla and Apple slide"]}  # QQQ not requested -> dropped
+    assert seen_tokens == [None, "p2"]
+
+
+def test_finbert_score_is_pos_minus_neg_not_winner_prob():
+    from app.agents.front_office.research.finbert_scorer import FinBERTScorer
+
+    r = FinBERTScorer._to_result([
+        {"label": "neutral", "score": 0.55},
+        {"label": "negative", "score": 0.40},
+        {"label": "positive", "score": 0.05},
+    ])
+    # Neutral wins the vote, but the negative lean survives in the score.
+    assert r == {"sentiment": "neutral", "score": -0.35, "confidence": 0.55}
+
+
+@pytest.mark.asyncio
+async def test_score_symbols_dedupes_aggregates_and_falls_back():
+    calls = []
+
+    class FakeFinBERT:
+        def score_batch(self, texts):
+            calls.append(list(texts))
+            return [{"score": -0.8 if "plunge" in t else 0.3} for t in texts]
+
+    agent = SentimentAgent(bus=MemoryBus())
+    agent._finbert = FakeFinBERT()
+    shared = "Index futures plunge"
+    out = await agent._score_symbols({
+        "AAPL.NASDAQ": [shared, "Apple steady"],   # mean -0.25 -> negative
+        "MSFT.NASDAQ": [shared],                   # -0.8
+        "JPM.NYSE": [],
+    })
+    assert calls == [["Apple steady", shared]]  # shared headline scored once
+    assert out == {
+        "AAPL.NASDAQ": ("negative", 0.25),
+        "MSFT.NASDAQ": ("negative", 0.8),
+        "JPM.NYSE": ("neutral", 0.0),
+    }
+
+    class BrokenFinBERT:
+        def score_batch(self, texts):
+            raise OSError("model download failed")
+
+    agent._finbert = BrokenFinBERT()
+    out = await agent._score_symbols({"AAPL.NASDAQ": ["Stocks surge on strong growth"]})
+    assert out["AAPL.NASDAQ"][0] == "positive"  # keyword fallback answered
+    assert agent._finbert is None
+
+
+@pytest.mark.asyncio
 async def test_damper_off_by_default_buy_size_unchanged():
     bus = MemoryBus()
     await bus.start_listening()

@@ -348,8 +348,8 @@ async def _run_with_tui(orchestrator) -> None:
     _unconfigured: list[str] = []
     if not settings.alpaca_api_key:
         _unconfigured.append("Alpaca")
-    if not settings.newsapi_api_key:
-        _unconfigured.append("NewsAPI")
+    if not settings.newsapi_api_key and not settings.alpaca_api_key:
+        _unconfigured.append("News (Alpaca or NewsAPI)")
     if not settings.reddit_client_id:
         _unconfigured.append("Reddit")
     if _unconfigured:

@@ -7,13 +7,14 @@
 # --------------------------------------------------------------------------
 """FinBERT + Loughran-McDonald financial sentiment scorer.
 
-Primary: FinancialBERT (HuggingFace) for neural sentiment.
+Primary: FinBERT (ProsusAI/finbert, HuggingFace) for neural sentiment. Runs on CPU.
 Enhancement: Loughran-McDonald financial dictionary for domain-specific
 word-level signals (a standard lexicon for financial text analysis).
 
 Combined scoring: FinBERT neural output + L-M dictionary word counts.
 """
 
+import importlib.util
 import math
 import re
 from typing import Any
@@ -22,12 +23,7 @@ from app.core.logging import get_logger
 
 logger = get_logger("sentiment.finbert")
 
-# Label-to-sign mapping produced by the FinancialBERT model
-_LABEL_SIGN: dict[str, float] = {
-    "positive": 1.0,
-    "negative": -1.0,
-    "neutral": 0.0,
-}
+_NEUTRAL = {"sentiment": "neutral", "score": 0.0, "confidence": 0.0}
 
 # --------------------------------------------------------------------- #
 # Loughran-McDonald Financial Sentiment Dictionary (core subset)
@@ -109,37 +105,55 @@ def _preprocess(text: str) -> str:
 
 
 class FinBERTScorer:
-    """Lazy-loaded FinancialBERT sentiment scorer."""
+    """Lazy-loaded FinBERT sentiment scorer."""
 
-    MODEL_NAME = "ahmedrachid/FinancialBERT-Sentiment-Analysis"
+    # ponytail: chosen over ahmedrachid/FinancialBERT on a 20-headline spot check
+    # (15/20 vs 11/20 -- the old model scored "JPMorgan downgraded" +0.99 positive).
+    # Known lean: hype verbs ("crushes estimates") can read negative.
+    MODEL_NAME = "ProsusAI/finbert"
 
     def __init__(self) -> None:
         self._pipeline: Any | None = None
+
+    @staticmethod
+    def available() -> bool:
+        """True when transformers + torch are installed (model may still need download)."""
+        return all(importlib.util.find_spec(m) is not None for m in ("transformers", "torch"))
 
     # ------------------------------------------------------------------
     # Lazy initialisation
     # ------------------------------------------------------------------
 
     def _load_model(self) -> None:
-        """Download (if needed) and instantiate the HuggingFace pipeline."""
+        """Download (first run, ~440MB) and instantiate the HuggingFace pipeline."""
         if self._pipeline is not None:
             return
 
         logger.info("finbert_loading_model", model=self.MODEL_NAME)
         from transformers import pipeline  # type: ignore[import-untyped]
 
-        self._pipeline = pipeline(
-            "sentiment-analysis",
-            model=self.MODEL_NAME,
-            tokenizer=self.MODEL_NAME,
-            truncation=True,
-            max_length=512,
-        )
+        # top_k=None returns all three class probabilities, not just the winner.
+        self._pipeline = pipeline("text-classification", model=self.MODEL_NAME, top_k=None)
         logger.info("finbert_model_loaded")
 
     # ------------------------------------------------------------------
     # Scoring
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _to_result(probs: list[dict]) -> dict:
+        """Map class probabilities to ``{sentiment, score, confidence}``.
+
+        ``score`` is P(positive) - P(negative): "downgraded to neutral" keeps its
+        negative lean (-0.37) instead of collapsing to 0 because neutral won.
+        """
+        p = {r["label"].lower(): float(r["score"]) for r in probs}
+        top = max(p, key=p.get)
+        return {
+            "sentiment": top,
+            "score": round(p.get("positive", 0.0) - p.get("negative", 0.0), 4),
+            "confidence": round(p[top], 4),
+        }
 
     def score(self, text: str) -> dict:
         """Score a single piece of text.
@@ -148,56 +162,26 @@ class FinBERTScorer:
         -------
         dict
             ``sentiment`` -- ``"positive"`` / ``"negative"`` / ``"neutral"``
-            ``score``     -- float in ``[-1.0, 1.0]``
-            ``confidence`` -- raw model probability ``[0.0, 1.0]``
+            ``score``     -- P(positive) - P(negative), float in ``[-1.0, 1.0]``
+            ``confidence`` -- probability of the winning label ``[0.0, 1.0]``
         """
-        self._load_model()
-        cleaned = _preprocess(text)
-        if not cleaned:
-            return {"sentiment": "neutral", "score": 0.0, "confidence": 0.0}
-
-        result = self._pipeline(cleaned)[0]
-        label: str = result["label"].lower()
-        prob: float = float(result["score"])
-        sign = _LABEL_SIGN.get(label, 0.0)
-
-        return {
-            "sentiment": label,
-            "score": round(sign * prob, 4),
-            "confidence": round(prob, 4),
-        }
+        return self.score_batch([text])[0]
 
     def score_batch(self, texts: list[str]) -> list[dict]:
-        """Score a batch of texts efficiently using the HuggingFace pipeline.
+        """Score many texts in one batched pass. Same ordering as *texts*.
 
-        Returns a list with the same ordering as *texts*.
+        CPU-bound and blocking -- async callers should wrap it in ``asyncio.to_thread``.
         """
-        self._load_model()
         cleaned = [_preprocess(t) for t in texts]
+        todo = [i for i, c in enumerate(cleaned) if c]
+        scored = [dict(_NEUTRAL) for _ in texts]
+        if not todo:
+            return scored
 
-        # Replace empty strings with a neutral placeholder so the pipeline
-        # does not choke.
-        safe = [c if c else "no content" for c in cleaned]
-
-        raw_results = self._pipeline(safe, batch_size=32)
-
-        scored: list[dict] = []
-        for idx, result in enumerate(raw_results):
-            if not cleaned[idx]:
-                scored.append({"sentiment": "neutral", "score": 0.0, "confidence": 0.0})
-                continue
-
-            label = result["label"].lower()
-            prob = float(result["score"])
-            sign = _LABEL_SIGN.get(label, 0.0)
-            scored.append(
-                {
-                    "sentiment": label,
-                    "score": round(sign * prob, 4),
-                    "confidence": round(prob, 4),
-                }
-            )
-
+        self._load_model()
+        raw = self._pipeline([cleaned[i] for i in todo], batch_size=32, truncation=True)
+        for i, probs in zip(todo, raw, strict=True):
+            scored[i] = self._to_result(probs)
         return scored
 
     # ------------------------------------------------------------------
