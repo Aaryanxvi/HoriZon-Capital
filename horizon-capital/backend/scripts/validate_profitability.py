@@ -99,7 +99,10 @@ BASE_RATE = "base 30%+10%sc"
 
 LIVE_WEIGHTS = _loo_weights("breadth_alpha")   # research .500 / trend .333 / momrank .167
 WINDOWS = {"design": ("2018-01-01", "2024-12-31"), "holdout": ("2008-01-01", "2017-12-31")}
-REPRO = {"design": 0.67, "holdout": 0.70}       # B_harness must reproduce these (flat 4% RF)
+# B_harness must reproduce these (flat 4% RF). 2018-24: the live 3-sleeve mix is the
+# "LOO-breadth" arm of validate_sleeve_attribution (0.77); 0.67 was the OLD 4-sleeve
+# mix. 2008-17: the holdout-gate candidate (0.70).
+REPRO = {"design": 0.77, "holdout": 0.70}
 
 ETF_KEYS = {"SPY.NYSE", "QQQ.NASDAQ", "TLT.NASDAQ", "GLD.NYSE", "XLE.NYSE", "XLK.NYSE",
             "XLF.NYSE", "XLV.NYSE", "XLY.NYSE", "XLI.NYSE"}
@@ -785,8 +788,9 @@ def run_window(args) -> None:
     if any(ARMS[a].get("quality") == "pit" for a in arms):
         singles = [_base(s) for s in _ORIG_RISK_UNIVERSE if s not in ETF_KEYS]
         pitq = PITQuality(singles)
-        print(f"SEC companyfacts coverage: {len(pitq.covered)}/{len(singles)} "
-              f"({', '.join(sorted(set(singles) - set(pitq.covered))) or 'all'} missing)")
+        missing = sorted(set(singles) - set(pitq.covered))
+        print(f"SEC companyfacts coverage: {len(pitq.covered)}/{len(singles)} names"
+              + (f" (missing: {', '.join(missing)})" if missing else ""))
 
     rows, curves = [], {}
     if not args.arms:
@@ -908,6 +912,18 @@ def report() -> None:
               f"{b_h['at_maxdd']} (G2 {'P' if g2 else 'F'}) | ATpost {c_h['at_cagr_post']} vs "
               f"{b_h['at_cagr_post']} (G3 {'P' if g3 else 'F'}) | design d "
               f"{c_d['at_sharpe_rf'] - b_d['at_sharpe_rf']:+.2f} (G4 {'P' if g4 else 'F'}) -> {res}")
+
+    # Data-coverage diagnostic for C3: share of the 17 research names with an SEC
+    # point-in-time ROE available at the start of each year (XBRL begins mid-2009).
+    singles = [_base(s) for s in _ORIG_RISK_UNIVERSE if s not in ETF_KEYS]
+    try:
+        pitq = PITQuality(singles)
+        cov = {y: sum(1 for t in singles if pitq.raw(t, pd.Timestamp(f"{y}-01-02"))["roe"] is not None)
+               for y in range(2008, 2025)}
+        print("\n=== C3 data coverage: names (of 17) with SEC point-in-time ROE on 2 Jan ===")
+        print(" ".join(f"{y}:{n}" for y, n in cov.items()))
+    except Exception as exc:  # offline: the gate numbers above do not depend on this
+        print(f"\n(C3 coverage diagnostic unavailable: {exc})")
 
     n_prog = len(ARMS)
     n_proj = n_prog + N_PROJECT_PRIOR
