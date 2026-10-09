@@ -125,9 +125,13 @@ ARMS: dict[str, dict] = {
     "C2_rs21_taxaware": dict(cadence="live", trade_rule="target", rs_days=21, tax_aware=True),
     "C3_pit_qmj": dict(cadence="live", trade_rule="target", quality="pit"),
     "C5_regime_hyst": dict(cadence="live", trade_rule="target", hysteresis=(0.35, 0.65)),
+    # Addendum B: C2's rules on the mechanical (no-hindsight) universe, gated against B0.
+    "B0C2_mech_rs21_tax": dict(cadence="live", trade_rule="target", universe_rule="mechanical",
+                               rs_days=21, tax_aware=True),
 }
 CANDIDATES = ("C1_rs21", "C2_rs21_taxaware", "C3_pit_qmj", "C5_regime_hyst")
 DISPERSION_SET = ("B0_mech_univ",) + CANDIDATES    # sigma_delta set, gate doc section 5
+MARGIN_FROZEN = 0.112                               # addendum B: margin from the main run
 N_PROJECT_PRIOR = 12                                 # validate_deflated_sharpe.OBSERVED_TRIAL_SHARPES
 SPIKE_MOVE, SPIKE_REVERT, SPIKE_BARS = 0.40, 0.10, 3  # addendum A1(a)
 OPEN_VS_PREV, OPEN_VS_CLOSE = 0.10, 0.05              # addendum A1(b)
@@ -894,24 +898,36 @@ def report() -> None:
     print(f"\n=== Deflated margin: sigma_delta {sigma:.3f} over {len(deltas)} variants, "
           f"E[max] {emax:.3f}, margin {margin:.3f} ===")
 
-    print("\n=== Gates on the holdout (after-tax, base rates) ===")
-    b_h, b_d = h["B_live"], d["B_live"]
-    for a in CANDIDATES:
-        if a not in h or a not in d:
-            print(f"{a}: NOT RUN")
-            continue
-        c_h, c_d = h[a], d[a]
-        dsh = round(c_h["at_sharpe_rf"] - b_h["at_sharpe_rf"], 3)
-        g1 = dsh >= margin
-        g2 = c_h["at_maxdd"] >= b_h["at_maxdd"] - 2.0
-        g3 = c_h["at_cagr_post"] >= b_h["at_cagr_post"]
-        g4 = (c_d["at_sharpe_rf"] - b_d["at_sharpe_rf"]) * dsh > 0 or (
-            dsh == 0 and c_d["at_sharpe_rf"] == b_d["at_sharpe_rf"])
-        res = "SHIP" if all((g1, g2, g3, g4)) else "KEEP CURRENT"
-        print(f"{a:18s} dATsharpe {dsh:+.3f} (G1 {'P' if g1 else 'F'}) | ATdd {c_h['at_maxdd']} vs "
-              f"{b_h['at_maxdd']} (G2 {'P' if g2 else 'F'}) | ATpost {c_h['at_cagr_post']} vs "
-              f"{b_h['at_cagr_post']} (G3 {'P' if g3 else 'F'}) | design d "
-              f"{c_d['at_sharpe_rf'] - b_d['at_sharpe_rf']:+.2f} (G4 {'P' if g4 else 'F'}) -> {res}")
+    def _gates(label, arms, ref, m):
+        print(f"\n=== {label} (after-tax, base rates; margin {m:.3f}, reference {ref}) ===")
+        b_h, b_d = h[ref], d[ref]
+        for a in arms:
+            if a not in h or a not in d:
+                print(f"{a}: NOT RUN")
+                continue
+            c_h, c_d = h[a], d[a]
+            dsh = round(c_h["at_sharpe_rf"] - b_h["at_sharpe_rf"], 3)
+            g1 = dsh >= m
+            g2 = c_h["at_maxdd"] >= b_h["at_maxdd"] - 2.0
+            g3 = c_h["at_cagr_post"] >= b_h["at_cagr_post"]
+            dd_design = c_d["at_sharpe_rf"] - b_d["at_sharpe_rf"]
+            g4 = dd_design * dsh > 0 or (dsh == 0 and dd_design == 0)
+            res = "SHIP" if all((g1, g2, g3, g4)) else "KEEP CURRENT"
+            print(f"{a:18s} dATsharpe {dsh:+.3f} (G1 {'P' if g1 else 'F'}) | ATdd {c_h['at_maxdd']} "
+                  f"vs {b_h['at_maxdd']} (G2 {'P' if g2 else 'F'}) | ATpost {c_h['at_cagr_post']} vs "
+                  f"{b_h['at_cagr_post']} (G3 {'P' if g3 else 'F'}) | design d {dd_design:+.2f} "
+                  f"(G4 {'P' if g4 else 'F'}) -> {res}")
+
+    _gates("Gates on the holdout", CANDIDATES, "B_live", margin)
+    if "B0C2_mech_rs21_tax" in h:
+        _gates("Addendum B confirmation on the holdout", ("B0C2_mech_rs21_tax",),
+               "B0_mech_univ", MARGIN_FROZEN)
+        for w, t in (("design", d), ("holdout", h)):
+            if "B0C2_mech_rs21_tax" in t:
+                print(f"{w:8s} B0C2 vs SPY after tax: CAGR {t['B0C2_mech_rs21_tax']['at_cagr_post']} vs "
+                      f"{t['SPY_bh']['at_cagr_post']}, Sharpe {t['B0C2_mech_rs21_tax']['at_sharpe_rf']} "
+                      f"vs {t['SPY_bh']['at_sharpe_rf']}, maxDD {t['B0C2_mech_rs21_tax']['at_maxdd']} "
+                      f"vs {t['SPY_bh']['at_maxdd']}")
 
     # Data-coverage diagnostic for C3: share of the 17 research names with an SEC
     # point-in-time ROE available at the start of each year (XBRL begins mid-2009).
@@ -933,7 +949,7 @@ def report() -> None:
         var_p = float(np.var(srs, ddof=1)) / TRADING_DAYS if len(srs) > 1 else None
         spy_sr = data[w]["SPY_bh"]["sharpe_rf"]
         print(f"{w}: program Sharpe range {min(srs)}..{max(srs)}, SPY {spy_sr}")
-        for a in ("B_live",) + CANDIDATES:
+        for a in ("B_live", "B0_mech_univ") + CANDIDATES + ("B0C2_mech_rs21_tax",):
             if a not in curves[w]:
                 continue
             for tag, key in (("pre", "pre"), ("post", "post")):

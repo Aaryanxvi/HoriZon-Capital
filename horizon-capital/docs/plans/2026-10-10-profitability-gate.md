@@ -234,3 +234,25 @@ self-checks of the tax engine and the SEC fetcher had run).
   The dispersion set for the deflated margin is {B0, C1, C2, C3, C5}, N = 5.
 - **A5. Count correction**: `_RISK_UNIVERSE` holds 17 single names + 8 ETFs (not 18 + 7);
   B0 replaces 17.
+
+## Addendum B — confirmation arm, written AFTER the main results, BEFORE it is run
+
+Status at writing: all ten arms and both benchmarks have run on both windows; the gate
+report shows C2 passing G1–G4 and B0 showing a −0.22 pre-tax Sharpe look-ahead cost of the
+hard-coded research universe on the holdout. This addendum adds **one** arm; it does not
+alter any gate, rate, rule or parameter above, and no other arm is added.
+
+- **Why.** C2's active rule is "do not trim a winner, always sell a loser". Applied to a
+  universe that was chosen *because* its names won (NVDA, AAPL, AMZN …), that rule is the
+  one most likely to be flattered by hindsight. The relative gate (C2 vs B_live, same
+  universe) is fair, but the owner should not change live code on a result that might not
+  survive an honest universe.
+- **Arm B0C2** = B0's mechanical research universe (top-17 PIT members by trailing-252d
+  median dollar volume + the 8 ETFs) with C2's two rules (research_stack cadence 21
+  calendar days; tax-aware sell rule). Nothing else changes.
+- **Gate.** Same G1–G4, reference = **B0** (not B_live), same deflated margin (0.112,
+  frozen from the main run), on the holdout; G4 on the design window. Outcome vocabulary
+  unchanged. The ship recommendation for C2 stands only if B0C2 also passes; otherwise the
+  recommendation is "KEEP CURRENT; C2's edge is not separable from universe hindsight".
+- **Counting.** N_program = 11, N_project = 23. The dispersion set and margin are not
+  recomputed (recomputing after seeing results is the thing this document forbids).
