@@ -1,5 +1,12 @@
 # Profitability gate — results (after cost, after Indian tax)
 
+> **STATUS 2026-10-10 (paused on owner request):** program COMPLETE. All 11 arms and both
+> benchmarks ran on both windows; `--report` regenerated after the final lint pass with
+> identical verdicts; no background computation is running; everything is committed on
+> `worktree-agent-aa57ee4d0fb2bdf72` (not pushed). Stopped before delivering the summary to
+> the coordinator. Next: hand back this report; then, only if the owner wants, the
+> follow-up gates listed in §5.4 (each needs its own pre-registration first).
+
 Reports against `2026-10-10-profitability-gate.md` exactly as pre-registered (commits
 `df23d26`, `4f6990d` addendum A, `f09f696` addendum B — all committed before the runs they
 govern). Every number below is pasted from `scripts/validate_profitability.py` output
