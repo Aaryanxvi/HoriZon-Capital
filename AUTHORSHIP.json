@@ -7,66 +7,66 @@
       "name": "Aaryan Baadkar"
     },
     "copyright": "Copyright (c) 2026 Aaryan Baadkar",
-    "file_count": 373,
+    "file_count": 378,
     "files": {
       "generate_presentation.py": {
         "marked": true,
-        "sha256": "8b21b425a29a7f08a0a4be6246c938d19577d2aaa800e0aef2a090c40ffd5ede",
+        "sha256": "973cbfadea98865d326d09e4f21e80ceb73457a8da428f86257bb990770aac4d",
         "token": "C4BEACE012DC"
       },
       "horizon-capital/backend/alembic/env.py": {
         "marked": true,
-        "sha256": "b70d76042a9c19ca7fc86a31fcc26ecfae505edcfa9833375306e0072c2bacf4",
+        "sha256": "54a2b288387226d2cdd4b6360dcde435842c7eb615766b608ac56b95327f9034",
         "token": "9F5E478C9CAF"
       },
       "horizon-capital/backend/alembic/versions/001_initial_schema.py": {
         "marked": true,
-        "sha256": "2f43bc8c05a21b06561fa834b5c87b509b97ae049d17370468f3528c6b1b3693",
+        "sha256": "b219d55f6c176df664e04a45d22361c24e7be636f3e2e702b47dca8f312316ae",
         "token": "85E1B94C8CEF"
       },
       "horizon-capital/backend/app/__init__.py": {
         "marked": true,
-        "sha256": "e3eb31441db051c1766e807e6bfc9564000a3138109b1275a2f09135e706b6cc",
+        "sha256": "8dc1192c7e2c138f574db8011fc3566332859270c222bfbb839ba7be11261da3",
         "token": "6E0585D8F893"
       },
       "horizon-capital/backend/app/__main__.py": {
         "marked": true,
-        "sha256": "4932e63df075be933a513504528fffa0cbee7fc051dd0d2e8a58ab935a756867",
+        "sha256": "3e3f78343fefa34a23fcf51b43654260ac7465b75f0d508f7c13cac3210948d4",
         "token": "02832A0C81AD"
       },
       "horizon-capital/backend/app/agents/__init__.py": {
         "marked": true,
-        "sha256": "533e6115aab9f1f8ca11e608f6aa5c4731292397b88a3e555269e2817ad40160",
+        "sha256": "de00c59e2d76992b9ce06eb9dde6e20d71714dba6318410e24aade2ef7a920fe",
         "token": "C06D0FB2DA4C"
       },
       "horizon-capital/backend/app/agents/agent_bus.py": {
         "marked": true,
-        "sha256": "e4458bc8459549ff1346da8d0d7ee697fba0b3e20ec1a643494f36d9938bdcff",
+        "sha256": "452e5214532bca4af27f32cfb6be8becc15e156b0356e6d1be7717f52384e3cd",
         "token": "F6D805C6CBF3"
       },
       "horizon-capital/backend/app/agents/agent_registry.py": {
         "marked": true,
-        "sha256": "3a0007887b8f04420ac7b97876bdce159ece2b74d32e2ac4d52adf9251a7d41c",
+        "sha256": "1483bdc2c4213f573ba3bd3b0247b1920a1ea958e73ee01a69104376416fef72",
         "token": "FA92AD3DC43A"
       },
       "horizon-capital/backend/app/agents/back_office/__init__.py": {
         "marked": true,
-        "sha256": "1ecbbc46e56120e13a18a5338e59aa5c7ccd6c22e08ea6250bb799e8596ba8f6",
+        "sha256": "ca9afa245ac0d07040921125bcc904c1971efde0bc858bd4c09be2345866ee58",
         "token": "19C58F72FF4F"
       },
       "horizon-capital/backend/app/agents/back_office/accounting/__init__.py": {
         "marked": true,
-        "sha256": "69e4728479ff70b8b1b8023a79207982dbdd6e099cfb3b59b221a783a870fa34",
+        "sha256": "847c12eab7e82f072e34d63b89c0af1cbd6d1decbc33cf6ee215672583b4604d",
         "token": "86CFCF36C9B8"
       },
       "horizon-capital/backend/app/agents/back_office/accounting/accounting_agent.py": {
         "marked": true,
-        "sha256": "44fa1541dd65d78958357141de2f5f77052beb7996ff8d74ae55e7fe5895a025",
+        "sha256": "eaa200598698eadb3fe3a946ae664eb544651be35cb44d536a0a3b7a105bac93",
         "token": "BC26D473EA82"
       },
       "horizon-capital/backend/app/agents/back_office/it/__init__.py": {
         "marked": true,
-        "sha256": "bdf0022ef8fa45220cc7a18f451ff2627eb5a72f0c4dff1493ca089105d9c46b",
+        "sha256": "6b3c5cab521fa7a57f7d1001e67dc4e3a6be01962c3777288b51e2d0b5efe864",
         "token": "9564ED096371"
       },
       "horizon-capital/backend/app/agents/back_office/it/it_agent.py": {
@@ -76,32 +76,32 @@
       },
       "horizon-capital/backend/app/agents/back_office/manager.py": {
         "marked": true,
-        "sha256": "1738d702f6cf229f8464a281dc65408489abda08cc981f0c24218966d2baf080",
+        "sha256": "b08b7ee346cff8d7e6132107d4cf34c31ce968b8e84ae0a9ef236c2dd7c0488f",
         "token": "1C896F43F94E"
       },
       "horizon-capital/backend/app/agents/back_office/quant/__init__.py": {
         "marked": true,
-        "sha256": "319ecd573b9c68b31af86fe96c755a446fe5a3815c28066649136c57f409cb07",
+        "sha256": "9fbb0f57ca29ee28a596a5bd9c4d647461625557fa6c5f7a0ebafb7ab389a10d",
         "token": "EC80F6F6E694"
       },
       "horizon-capital/backend/app/agents/back_office/quant/quant_agent.py": {
         "marked": true,
-        "sha256": "95e7a23599d257081da5c693f78545b3a147f4e4876d7c9abf8e35f18fde5a18",
+        "sha256": "77188c67c65068fd84dc5118671edf33d5c703df28dca31f47c28a8b222cf525",
         "token": "CB327A20D99F"
       },
       "horizon-capital/backend/app/agents/base_agent.py": {
         "marked": true,
-        "sha256": "acab0106f7ac87fa0408b67d8200b501239b79b305c88498766d97cdd74cfee3",
+        "sha256": "de23f2d067d9bba17050db596d1546da0cf21b6266c2549e760d752d0b23a665",
         "token": "FFC4AB246E10"
       },
       "horizon-capital/backend/app/agents/debate/__init__.py": {
         "marked": true,
-        "sha256": "3e20ade3201e99a1ea5cc72541ba1c2d15c61810ee3506f9a74c39f24918af07",
+        "sha256": "d05fbf671cc74507a0292c1ef9d897b9f3b52d963d5e55fcbbd89b0315478964",
         "token": "FBF20321E629"
       },
       "horizon-capital/backend/app/agents/debate/claude_reasoner.py": {
         "marked": true,
-        "sha256": "e6912ac2995de6128c1075fcfa9092dc304b9c7a15e3246c8525f4a4a52cecd5",
+        "sha256": "43c825ef60ea4beac82dede43a5098d78922698ac9beee53ef7e1686ae16abec",
         "token": "A26D87C02A2D"
       },
       "horizon-capital/backend/app/agents/debate/debate_engine.py": {
@@ -116,22 +116,22 @@
       },
       "horizon-capital/backend/app/agents/department_manager.py": {
         "marked": true,
-        "sha256": "367d110ca9b039fb43d3fedd70fcf2c3c58c0d7a8d1cee698c6336fcb668e64d",
+        "sha256": "9bc8441670d6c7097b0246eee70ee4edc8780550c0d034c23a10560221135a8d",
         "token": "565D0523DAE2"
       },
       "horizon-capital/backend/app/agents/departments.py": {
         "marked": true,
-        "sha256": "05d52dcbac0f6d5241bd719af42ae9bbf11371112f7946c40d086779b91d2f26",
+        "sha256": "978fdf37c4260e7ef444007b6d8f07949c9104673098e65ed6a323985a4758f7",
         "token": "E399DB9A2E10"
       },
       "horizon-capital/backend/app/agents/executive/__init__.py": {
         "marked": true,
-        "sha256": "7044af9beee00c29e06fc7b3de39011f1b0097c0d424c01378562c2114737b69",
+        "sha256": "c5426052943b35252d61bac6f0036f75e8dcea1c84c215f1d0e4347b6529fa3a",
         "token": "6ED9B6CBEAB7"
       },
       "horizon-capital/backend/app/agents/executive/cio/__init__.py": {
         "marked": true,
-        "sha256": "60a45c378783b635e65b8e607fd8038ef766e88fb75ce16b54f13863177e997e",
+        "sha256": "dcfc97c826f24895dc8ecaa4b5f394a0b3e293d35c96bb0a1f766f7ed0c51869",
         "token": "282BBB718462"
       },
       "horizon-capital/backend/app/agents/executive/cio/cio_agent.py": {
@@ -146,42 +146,42 @@
       },
       "horizon-capital/backend/app/agents/executive/manager.py": {
         "marked": true,
-        "sha256": "8614de61a572543f0155faed8158d3ca8f3b0b8ce65e668ae5a8ab1d943eb0a7",
+        "sha256": "d270a08cef762c0a886b025a9b277e5645832244562b6d41cd8dbcb5b2605f1d",
         "token": "D6CD5C5CE599"
       },
       "horizon-capital/backend/app/agents/front_office/__init__.py": {
         "marked": true,
-        "sha256": "fb2e9858b366c117b6a9175e07a8348bfda7ba6ccc5e0cda818a94596d88fe9a",
+        "sha256": "3f970add3620e21961a43c1ff86cf3f437e487cadadf69bd9e2e972cecdbc92d",
         "token": "27D3BF691F86"
       },
       "horizon-capital/backend/app/agents/front_office/investor_relations/__init__.py": {
         "marked": true,
-        "sha256": "e263b37efa7179142406f42651a10a02fd3a8b0000260faccc0b767c82e82444",
+        "sha256": "6d129892991344606902b776e86cf227037426470e902b15728078496ca66350",
         "token": "3EA5FA8F4C51"
       },
       "horizon-capital/backend/app/agents/front_office/investor_relations/ir_agent.py": {
         "marked": true,
-        "sha256": "c3056567d85e4d94eacbb9ac8f9db26c7d8dae6475c7e354b075c3bb9d2c487a",
+        "sha256": "6685dc765079c3bb574af080e474e8ad64f785f5c2135b1984ccc274a3666829",
         "token": "5DAF0A9DBA5A"
       },
       "horizon-capital/backend/app/agents/front_office/manager.py": {
         "marked": true,
-        "sha256": "2256c667567b8c0519a689751169eacc03160ccc6c3990bf2f92c0ec17b08a17",
+        "sha256": "58697097e980de90c69f323e4a2194bb93aadbc55ce5e2b0b7978ca22b2e6dbd",
         "token": "E257DF533B3D"
       },
       "horizon-capital/backend/app/agents/front_office/portfolio/__init__.py": {
         "marked": true,
-        "sha256": "e9a4ebe10f69ed6a79a858f0938f919f8ea2a27a28db6fe8d801a56210159851",
+        "sha256": "c0796de8a801da9b88d1ac67034cb6e0407764555a6d232aae310f6c8a85f2bf",
         "token": "12DBD40BC33B"
       },
       "horizon-capital/backend/app/agents/front_office/portfolio/currency.py": {
         "marked": true,
-        "sha256": "a539080a799a417703353fcc691b65f9880326d3793fd1bfc1d2f5bf5a1e0012",
+        "sha256": "59476ba4e0f3ebfc7c118f2f19d883c8ff55627405a3b43cd06008a107cf691f",
         "token": "65B558B3005F"
       },
       "horizon-capital/backend/app/agents/front_office/portfolio/optimizer.py": {
         "marked": true,
-        "sha256": "f6be1e9ed50bd4b15227a18acdc67ef821cc83bd17fd43176e54ae4a81bb52b7",
+        "sha256": "bb0b15fd2658d076f2fc3b742ae7480890df6984e932432957e68815a3ca7695",
         "token": "E6FA7818C845"
       },
       "horizon-capital/backend/app/agents/front_office/portfolio/portfolio_agent.py": {
@@ -191,57 +191,62 @@
       },
       "horizon-capital/backend/app/agents/front_office/research/__init__.py": {
         "marked": true,
-        "sha256": "3cc3fb35cc7aa032330390bd478534afb4fd2c3ca9cdb9bd211980bc10e4dad4",
+        "sha256": "6178445924470d36cc6ad13a9d5d3b2ba821d8f1a79f395c72ee19a96434093e",
         "token": "FB5590F701E4"
+      },
+      "horizon-capital/backend/app/agents/front_office/research/alpaca_news.py": {
+        "marked": true,
+        "sha256": "972b7d7a9fa15c195b2f22bcb76ee53d03f4ee96316ffdbddcb34e80591ed408",
+        "token": "DFA0085138B1"
       },
       "horizon-capital/backend/app/agents/front_office/research/drift_detector.py": {
         "marked": true,
-        "sha256": "4489dde958f4b614a604b3005ae1221452d0432de4743e854b1e8388a074801c",
+        "sha256": "52627b54bfeb120b28687c8e94a07327f13c0fc28903835cd802876c365d3209",
         "token": "7C355102C9EB"
       },
       "horizon-capital/backend/app/agents/front_office/research/finbert_scorer.py": {
         "marked": true,
-        "sha256": "9af81cc614b463088bddc8330f53167a10384c1088e42c361baa9119d11890ed",
+        "sha256": "2b019011b023cd028b4353eeb6d9cb1d37af8cc13a29443373ca044a3e507dd0",
         "token": "409555CCE3A5"
       },
       "horizon-capital/backend/app/agents/front_office/research/narrative_tracker.py": {
         "marked": true,
-        "sha256": "dc0bc7a282b8b5b0eb3613e5d32abd89bf761848e94d9dd1151ed6a2d9ae2b37",
+        "sha256": "b3a0ae9f5e0d44773f2471ca874a9ebfaa467bb82055ce968216208ff288d280",
         "token": "D1FE60257DD4"
       },
       "horizon-capital/backend/app/agents/front_office/research/newsapi_client.py": {
         "marked": true,
-        "sha256": "df5bcf02f47c8bc3170fc99149be78ef9634658d111d530f9c802e643d0727b6",
+        "sha256": "5040b5851f9f03991565dbdd3d1830bb3f2a41cf25cd32ef2d7c2e1f35036dc1",
         "token": "7D7D68979BC2"
       },
       "horizon-capital/backend/app/agents/front_office/research/reddit_client.py": {
         "marked": true,
-        "sha256": "1c93a62d81deda6a9d639f4ba391d0935dff9c90239de627d161f2f88d76da76",
+        "sha256": "4f4acfa5452ab4271a1ac094a58b9ba593d28c25120da40490f63219b407ccfe",
         "token": "FE5A0EE3FC54"
       },
       "horizon-capital/backend/app/agents/front_office/research/sentiment_agent.py": {
         "marked": true,
-        "sha256": "845ff295d87c7477280020ca6190a6d44297c12ea05433f381ead3789388979d",
+        "sha256": "a6467093a9150650209f943c3dab575f90cce4766a603261ab5231bda276afcc",
         "token": "0018640FF70A"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/__init__.py": {
         "marked": true,
-        "sha256": "0c289fc9921862616a20a6c80572afad4069c63d0338e321d88a03c741ad64bf",
+        "sha256": "f24983ea9dc3e40e05b3fc1858ecbc99937b356c6f2eb9afb810ceffe6147fea",
         "token": "9268E78EAF67"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/base_strategy.py": {
         "marked": true,
-        "sha256": "07c7d34569cc17d500ef2680cac43500c49fa7b1202f804cc6cc9cf2285a57c4",
+        "sha256": "6dc0622d2cb15b871229865010f628a1d4a6a8c29316c0894aeead0a82fbaf04",
         "token": "B36B7AF7E2BE"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/mean_reversion_strategy.py": {
         "marked": true,
-        "sha256": "fc441a427511353b725465267c307a07d7cdc3d8bc3689c64ddcddf7aeb9b2c7",
+        "sha256": "bffb1b42015eaf731ed03bad839ec43936938da054bfec85e34f2ef64f4a68a4",
         "token": "63F626369D35"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/momentum_strategy.py": {
         "marked": true,
-        "sha256": "c7d7223ce3af75d7763d400cfe4321d53a1c104fe9126a9c0bfe98d4f33b5a8a",
+        "sha256": "56875677afb4cadb0552c64eed7fa355b7c12574671143dbcd58cf0e0e12ecdd",
         "token": "FB96AFF74FAA"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/simple_strategies.py": {
@@ -256,7 +261,7 @@
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/base.py": {
         "marked": true,
-        "sha256": "6cbf2586b4bce4dfe5e60f70bf1ff3efb0934154ce400652a230ae829fd982ce",
+        "sha256": "fae353a591bdfcb13c12c21ef352fc0c045311b76a7710c3d89ae132a02256ca",
         "token": "88B77067E1CB"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/breadth_alpha.py": {
@@ -266,7 +271,7 @@
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/crypto_trend.py": {
         "marked": true,
-        "sha256": "432873b3216db8de7acbbef4e25680e97538d40a70deaabccc3a2fb3b77cb0eb",
+        "sha256": "920b266a26a36f26b9d6cd34374c798fba59ff884722f858642883bc70fbee1f",
         "token": "264D00D8E74E"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/dual_momentum.py": {
@@ -276,17 +281,17 @@
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/gap_fade.py": {
         "marked": true,
-        "sha256": "9c2fb567bada0dbc2366de75379a618881a5ee90efc5b7bc3747190f139c461a",
+        "sha256": "716adba0f4ab5f730a4df19955f4a1c0260506e689eacb1b15b9a083edf5ca16",
         "token": "44B1EAD5B899"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/momentum_rank.py": {
         "marked": true,
-        "sha256": "c9b7a7a54bccea5f9e6537afb7aabcad38754d9dcf2aad1bd25ca53f1fe938da",
+        "sha256": "efa1707690ed7eebf3342934b4e9ce7d97465cd32aa2d4900ef56f83892d8006",
         "token": "4D83B8D3BFB7"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/polymarket_momentum.py": {
         "marked": true,
-        "sha256": "0501de9cf686cb62035d9479972b79e00afd4c854aef343c20d37db6f51b7581",
+        "sha256": "8788185bc0ac8e1742d02e895335ac8e93c365cdcbd92b8e9e65bb171e3ae43c",
         "token": "F1B9788F756C"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/research_stack.py": {
@@ -296,7 +301,7 @@
       },
       "horizon-capital/backend/app/agents/front_office/strategy/sleeves/trend_filter.py": {
         "marked": true,
-        "sha256": "5accdf9badf9a1e70df16eb3a4fab6f434d6411f1643ca41218c413558e59460",
+        "sha256": "97ea8c5797866ba9ce0bf55dfe3e650cb977045dca622b9424d25c1dcc77e0dd",
         "token": "4A4737FF375A"
       },
       "horizon-capital/backend/app/agents/front_office/strategy/strategy_agent.py": {
@@ -306,12 +311,12 @@
       },
       "horizon-capital/backend/app/agents/front_office/trading/__init__.py": {
         "marked": true,
-        "sha256": "9933d77e8c17f2c59b0ec8f673bbb9489b944e5e6655512676793d0a79b733cf",
+        "sha256": "57a622e9d4c1a5953b8d8a890466cf5d8d9dc2a6869eebe5d47aaac83518127a",
         "token": "62D4963C460B"
       },
       "horizon-capital/backend/app/agents/front_office/trading/alpaca_broker.py": {
         "marked": true,
-        "sha256": "52e815a8d0369ad53aad458aaf8e210afd1064106f013699ad630842450551e1",
+        "sha256": "9515f5137520dbb5116993f9e26d3ab8286405fada5188654da31b257f6d030c",
         "token": "E1AE1C11E23C"
       },
       "horizon-capital/backend/app/agents/front_office/trading/execution_agent.py": {
@@ -326,7 +331,7 @@
       },
       "horizon-capital/backend/app/agents/front_office/trading/order_splitter.py": {
         "marked": true,
-        "sha256": "ef2b162eaa0d666d4f79c9f7f39d8ee251e46756ea22e22efea1a72bc940aaec",
+        "sha256": "4fac44ae83b2c0cc0da38d3c49c92b10126ee2623cf9f98870abdaab79ebe8c8",
         "token": "14B0B4438ABD"
       },
       "horizon-capital/backend/app/agents/front_office/trading/paper_broker.py": {
@@ -336,27 +341,27 @@
       },
       "horizon-capital/backend/app/agents/front_office/trading/polymarket_broker.py": {
         "marked": true,
-        "sha256": "4a7a38754ce1045c0bc73fcb49a7aca18c6edc83ed000cbe9b0326dfc5404436",
+        "sha256": "b4aa9f31d3cdcbfdab9f63612753f0a98d34a94b6075752ae149a7c89735c6a8",
         "token": "C8E8F85B450E"
       },
       "horizon-capital/backend/app/agents/middle_office/__init__.py": {
         "marked": true,
-        "sha256": "86ce32f34f62f47353f6d72dbcf3fc9a018273d04d239b8dd4d2b4bd3e43d4e7",
+        "sha256": "e8c41a05485c2fe771a0075c3051f93c2e32377071e2c4ed5454de63a1b5c88b",
         "token": "2E5803768755"
       },
       "horizon-capital/backend/app/agents/middle_office/alpha_monitor.py": {
         "marked": true,
-        "sha256": "d22571a0b85edf14c9f25363a203695e7ff7e92bc809f592571724f5b07dd855",
+        "sha256": "7670fe96cb50305e815f38fb7f53e541b0d98cc2c73f1110c609b143ea59b47c",
         "token": "D9A38AA2779F"
       },
       "horizon-capital/backend/app/agents/middle_office/compliance/__init__.py": {
         "marked": true,
-        "sha256": "a7b456fd1cea5f4798be63cb41f140e0deba8ebb6ff7f04b74901b6881784878",
+        "sha256": "20520e2422fd6286b15b8ab4f711ba9ecaf1a7f8f8b6ea83dde2d79ceb03ad26",
         "token": "8BBF152E9309"
       },
       "horizon-capital/backend/app/agents/middle_office/compliance/compliance_agent.py": {
         "marked": true,
-        "sha256": "0ce5f1b988dad697356e6f85d6cfe3fe230a78076924fee9571fd30da1cf6316",
+        "sha256": "f72348a0b9c137e29f9efabff431bf9198ce3e6bad5b784b15fb1d662797bdb5",
         "token": "87198ED85180"
       },
       "horizon-capital/backend/app/agents/middle_office/debate_agent.py": {
@@ -366,22 +371,22 @@
       },
       "horizon-capital/backend/app/agents/middle_office/manager.py": {
         "marked": true,
-        "sha256": "a984de23d7e435027144829482a314fc4fb22be77da15606073705f9c6ccbd36",
+        "sha256": "ff9b2a993ed01c10b7344d0b1c1270bb4795542f355715459e46f9d634a6cd7e",
         "token": "FA05118174BE"
       },
       "horizon-capital/backend/app/agents/middle_office/operations/__init__.py": {
         "marked": true,
-        "sha256": "9ac6b1727a0b0b766486ef08dbe1372611da5074d70de7c45e1ea80c78647afb",
+        "sha256": "1a30041d8a74f9840dbf1d68cf19f04a698b98e4de4c41be13c2c9a23e3af95a",
         "token": "8ECD92E4DCC9"
       },
       "horizon-capital/backend/app/agents/middle_office/operations/operations_agent.py": {
         "marked": true,
-        "sha256": "17f16f4c4c0852722f272192601c8154b743c4180aa861ff018320da1905a587",
+        "sha256": "229fbda55f294d363b7bd9ba886908db27a76a5a4b5c87979c64efac7863e174",
         "token": "602E4187A5FF"
       },
       "horizon-capital/backend/app/agents/middle_office/risk/__init__.py": {
         "marked": true,
-        "sha256": "a6a4c05b8fe54e57f238d96aa612b0183ead720703abdc07ccf1c95481877e97",
+        "sha256": "b9a034c9fdf49c87f782d6d9a387792c4098e667747eb08eb404406eaeaa8711",
         "token": "4F102AF47C8C"
       },
       "horizon-capital/backend/app/agents/middle_office/risk/risk_agent.py": {
@@ -391,97 +396,97 @@
       },
       "horizon-capital/backend/app/agents/middle_office/risk/var_calculator.py": {
         "marked": true,
-        "sha256": "9e88589e5252de85cca6e766ab6405bbb3a9d4ac98647b291b50bb3bbae6ae15",
+        "sha256": "f0b27a94c207f98049f39394f2168eb41fa5cbe3c13110f1dea06b4bbabb6fb1",
         "token": "FC14D9EB7A71"
       },
       "horizon-capital/backend/app/api/__init__.py": {
         "marked": true,
-        "sha256": "146c30e5d5e861cc534918c95339ad9ea7f42e2182892f9e9080013cc2fb8a47",
+        "sha256": "09f874139aaaeb3af437db5621b31657ec42d5141363b5852a4453e28f4621d6",
         "token": "B385A1FB855E"
       },
       "horizon-capital/backend/app/api/desktop.py": {
         "marked": true,
-        "sha256": "33c728620823a6e8a55cdd1a734668d297568855dd55caf740e9c58978a131aa",
+        "sha256": "8788212c944a9fa47d201f7fede26953424ad612b897491f754ff40dc6fd6fa5",
         "token": "EC8ED766F2DF"
       },
       "horizon-capital/backend/app/api/v1/__init__.py": {
         "marked": true,
-        "sha256": "bfe9d69c7a83d2c30dcab6fb9e21b1dd65fa5df28df8c88a8e9e22d4809682a7",
+        "sha256": "0dd67493a8656f6623542d355a37cf4dfe58ed664fee03c0142bff8490de64a4",
         "token": "76D53D0C43A2"
       },
       "horizon-capital/backend/app/api/v1/agents.py": {
         "marked": true,
-        "sha256": "bdfb44b269c548f18d2d8591bdcbf82a2bdeeb957cbfa84009db77d6d23053a4",
+        "sha256": "02499e40d7d34835cdabc939e05b6c2bb45d0ec26fe904aaa79b956fdd9970d0",
         "token": "DA6ED0FB1B27"
       },
       "horizon-capital/backend/app/api/v1/auth.py": {
         "marked": true,
-        "sha256": "f81e217e7303bfac866749b0fa1c1c75c5c26d9fc935f20372171cd75ad78a92",
+        "sha256": "932606f72f6c38c7f7afff109cfe632722c72c0027e4fdfb6bd6460d6c46c259",
         "token": "2815A9EEB28B"
       },
       "horizon-capital/backend/app/api/v1/cio.py": {
         "marked": true,
-        "sha256": "89c1baabbcc653ffbfeafdfa7f6b2d066c68d9101c28a2a1309d7052d24584b0",
+        "sha256": "d6db20e40b2fcb5fc4093f7fc76e05240e914528fb101d6758bcb706d150d2a0",
         "token": "6F7A39CEA841"
       },
       "horizon-capital/backend/app/api/v1/debate.py": {
         "marked": true,
-        "sha256": "786a6ebaf2176b0225d18a899af98615b0f87ab3d75d1b43aef50d83053287ab",
+        "sha256": "7210994f1459519470b08efa5376aefa37fc291d005cddd5b61b85dbf926dda0",
         "token": "78A9C54B9B44"
       },
       "horizon-capital/backend/app/api/v1/market_data.py": {
         "marked": true,
-        "sha256": "fcbd8452fd0bb94cb9b3e6c55bdb990bc977970dc4b37f64a6c572991b147e84",
+        "sha256": "d614c4f6a6ce9aed1818053272b014253b0a12be8252e26ccac5d2825febc611",
         "token": "B8B86A51CEFE"
       },
       "horizon-capital/backend/app/api/v1/narratives.py": {
         "marked": true,
-        "sha256": "64a360db8494aa47f62230379548e4f6b0a81ce6f2e721713903a1c10a83d277",
+        "sha256": "8193127e7585def5cbc93d9f95a304a42e71d5119d91b3c35ead6928a6baafd3",
         "token": "B757D0F74928"
       },
       "horizon-capital/backend/app/api/v1/performance.py": {
         "marked": true,
-        "sha256": "45d7c46ae218e8c668f44e82d9e7703d1f58f425508c3bf736922bc23715b1c8",
+        "sha256": "8441fa326bfed6c1681de71fbf243db08ef84facbaa8748d2b4e211be3dd387c",
         "token": "99C7F0112AA9"
       },
       "horizon-capital/backend/app/api/v1/portfolio.py": {
         "marked": true,
-        "sha256": "3f358ccf974772b40e1c6aaa5fbcc98a1e4761dfe7ed72be51cb83e27ab0276d",
+        "sha256": "ef0e53a762a0c2ef5bdfaebae3a65c05f182e468312cc07c9109793e897d6bfa",
         "token": "4251A9B2B724"
       },
       "horizon-capital/backend/app/api/v1/risk.py": {
         "marked": true,
-        "sha256": "4be16013c8aa126c4a68d0596f233617024c840ca7b58573f5618f0258f17b29",
+        "sha256": "843f5fe322d09e77739c21d1bda1cf19d3853d724f491c2e3bfea6b37f313083",
         "token": "C0C162498193"
       },
       "horizon-capital/backend/app/api/v1/router.py": {
         "marked": true,
-        "sha256": "36c5370ef91d4308dea940ccb2f5bd9850027ef6d0a29fedc5c7cc4a28aba47e",
+        "sha256": "e7c91abbe9204e6a086a41e0ff4bc5505e0549fbf185dc56584a2442f3f0c24e",
         "token": "913689433A2D"
       },
       "horizon-capital/backend/app/api/v1/signals.py": {
         "marked": true,
-        "sha256": "e15ebfc296bb1ef61e24daf40f6475d38b9d47c9f29ff9b1e1e19d8b52c8b3b7",
+        "sha256": "a368b1aca714d978d8ea79353adc0d746f1d272142d40b6a1430b04cfb383a79",
         "token": "12A7F403C181"
       },
       "horizon-capital/backend/app/api/v1/trades.py": {
         "marked": true,
-        "sha256": "4a52ba232c0f8cc77f1be308b73ec3d911f413672a42a4ef5424101450064ffa",
+        "sha256": "e10ce8e3bccef3f20006ff20883bb1997a17237123fe41e309ca5e61bc7fb607",
         "token": "522DE9FBC581"
       },
       "horizon-capital/backend/app/api/websocket.py": {
         "marked": true,
-        "sha256": "b0287f70aa1de6d5502d7aa9dc34a6f3d395f88ccf548bd669f715b5a8468831",
+        "sha256": "c9d4e6d01fb5272cef81bb63c8c8b76a93bfddf911e68878e4717e0ab6c4c538",
         "token": "306E5E181284"
       },
       "horizon-capital/backend/app/backtesting/__init__.py": {
         "marked": true,
-        "sha256": "e9175a9e23c6807bed349052923d919a6423be16801aaeacb06186d17dd978d0",
+        "sha256": "866c204f9e8a54ca8898e9326834ad37ce750ceed45ffec30dfc658f736c6324",
         "token": "894537EF775B"
       },
       "horizon-capital/backend/app/backtesting/backtest_broker.py": {
         "marked": true,
-        "sha256": "ba61723a7866d8d4349ace23da29225a89537d5e365e6e1abd5f9b4e1e83c8cc",
+        "sha256": "c67842f3c9c9bffd294f1c0ff66882211c7580947c897d2786bf4f265632bb21",
         "token": "6445D94161C9"
       },
       "horizon-capital/backend/app/backtesting/backtest_engine.py": {
@@ -496,12 +501,12 @@
       },
       "horizon-capital/backend/app/backtesting/report_exporter.py": {
         "marked": true,
-        "sha256": "2be859850bcb7c59f8ff2711234a4b4a72085216720570dfc5008606ff04b51b",
+        "sha256": "9d4f682c24c669336c95830ea26470d8cc5e6e8286b7c1de2fc209440952239d",
         "token": "FC4513658424"
       },
       "horizon-capital/backend/app/backtesting/trade_journal.py": {
         "marked": true,
-        "sha256": "7264c2a00ac82307e6894547ff771069b71956c9615797480202615aa5d58dd8",
+        "sha256": "3f1025404051a97dc81c11a51c425c3e35dea1a71fd7f25d0977761d127fb3f4",
         "token": "CA93A29F12B5"
       },
       "horizon-capital/backend/app/config.py": {
@@ -511,22 +516,22 @@
       },
       "horizon-capital/backend/app/core/__init__.py": {
         "marked": true,
-        "sha256": "54d5f2dcd86e6c919310fe978a6e0320de251344496280a3f34bcc3ee9278fa3",
+        "sha256": "f4a80c11ab6b32a3a606764df814fbba0016183587423a57d35c464deb602fa6",
         "token": "FEF1D40B1DDB"
       },
       "horizon-capital/backend/app/core/cash.py": {
         "marked": true,
-        "sha256": "a7299633ae09316570cb4af7a2cf3e3bdcaf97e5a16232b8cbca6c1ea12e5b30",
+        "sha256": "2bb77f2a79bf2b5ef769cae1c95ea9e58de91ecc2c1ac742ee7c80bd9d7bf071",
         "token": "33F43C7A191B"
       },
       "horizon-capital/backend/app/core/database.py": {
         "marked": true,
-        "sha256": "6ded8d28c36637d7d746dde5b89b3c39ffd7925f64836f48c4e95c1907d66506",
+        "sha256": "f05cc117d12ad405957e2b6443823c8dbbca850ba50246d052466506fcbdd5f2",
         "token": "16447D8CC721"
       },
       "horizon-capital/backend/app/core/exceptions.py": {
         "marked": true,
-        "sha256": "fd05a8435b70658084b5c9e7cb072c36e9b24f3fd603eff9f731b7fbc0be8420",
+        "sha256": "cda5dc190c1a51e008b07a9333b4197f47e9e80635a2d1e38b4e8693ebeccb03",
         "token": "C1CA42FB501B"
       },
       "horizon-capital/backend/app/core/kv_store.py": {
@@ -541,62 +546,62 @@
       },
       "horizon-capital/backend/app/core/logging.py": {
         "marked": true,
-        "sha256": "83e70e0c3fa0025dde2adc5686b992485433e04fd82367e4c78643d07b783b4d",
+        "sha256": "53918d878eb51820f33169e6558949759b0d8c0d9d45e65df904266fecd9fabb",
         "token": "933DD6BC330E"
       },
       "horizon-capital/backend/app/core/memory_bus.py": {
         "marked": true,
-        "sha256": "72ba19fbf82992706139eab79808547b8605dd2108f2158b467ecb06a74ba7e8",
+        "sha256": "edeaf8e61a7ed11f9f9110ec55005d9ac832e796327b062bf284f282fd545121",
         "token": "B1525491CB8A"
       },
       "horizon-capital/backend/app/core/messaging.py": {
         "marked": true,
-        "sha256": "f3fc1dd6c6120ad9afd9e990900854a8f22904a1511d3272235d01d9f9eda9e0",
+        "sha256": "48952be3bdbb85573a6299d33e27d6ae3b796fec4066bd6d9f5bbebcabf43f1b",
         "token": "990E0B1ADE78"
       },
       "horizon-capital/backend/app/core/rate_limiter.py": {
         "marked": true,
-        "sha256": "25e0ac88bc7264d43b59761fee0ab0496916b55d72b7f73292e7bcaf5dc87ac0",
+        "sha256": "6d5b245218cbb731baf591fb9513c9d17784b2562cddb00e70ca1248b5641a01",
         "token": "4B42C96AE2DE"
       },
       "horizon-capital/backend/app/core/redis_client.py": {
         "marked": true,
-        "sha256": "816a98d32b00182d5acef51cf522415667b6ee470eda57cfd948a8b82fd991a6",
+        "sha256": "d7830c9d2d25f24458a1c2b72cb28368af29d6a6879da60bb860029d20334574",
         "token": "EE326B4A5320"
       },
       "horizon-capital/backend/app/core/resilience.py": {
         "marked": true,
-        "sha256": "2eb17d96b6db9b2cd2466b3d4cea2f49506f43826e6af9308fe3b6f80728d79c",
+        "sha256": "f83b50f5902a36a1af9dcbebc928ca3ba8469a48930bc1cd046f5abe0d99194d",
         "token": "9FB55259B22E"
       },
       "horizon-capital/backend/app/core/runtime.py": {
         "marked": true,
-        "sha256": "149437ac5d5cf245e2b3c557eb0f30fb79fd4872be45535db9aa7a51858b8fa2",
+        "sha256": "436932643fbc6fa07a451ad05273a5bd730cd5154794e9dd179a1678a828f24e",
         "token": "3334A31EE558"
       },
       "horizon-capital/backend/app/core/security.py": {
         "marked": true,
-        "sha256": "1c777a058675f7ba81b39518f3655c50243d68698c1affb0d96b5c98c22d199f",
+        "sha256": "2d011b4a30f6d4fc82007a351c37f6366a1d28beb5d8ae1c21b6dadb82a64bcb",
         "token": "F618816E5C00"
       },
       "horizon-capital/backend/app/data_layer/__init__.py": {
         "marked": true,
-        "sha256": "6cc2dec352977afc467975133baf3b1b72a79eb3b9a6f1f86722e35ef6bd271a",
+        "sha256": "68f119ac9a8582c808bec4be1fa4724525a29ed14afc9e97bb6d57c2aeb1e7bb",
         "token": "704A9054D11B"
       },
       "horizon-capital/backend/app/data_layer/alpaca_feed.py": {
         "marked": true,
-        "sha256": "856d56b1f809a05b53bff1961104933b88339fa0d0ba2154f33d955cea1e7fda",
+        "sha256": "23adcf90ce38a8e5603f63b9b714372ea982a39b37bfb64714d79aa83bd47314",
         "token": "D2396B525984"
       },
       "horizon-capital/backend/app/data_layer/alpaca_quotes.py": {
         "marked": true,
-        "sha256": "eea48fdf0675ab80ad49e4a49898721fd4d5359ff032947edc95873a3cf57c4f",
+        "sha256": "2c7d6fdc615f0bd78df7d3890e2c6d8977e015367d03b0a8d9ec621c7a44a8a6",
         "token": "ACDECF6CD442"
       },
       "horizon-capital/backend/app/data_layer/base_feed.py": {
         "marked": true,
-        "sha256": "112450b60bbdf23700fe719d4d2fe32131c02ca0bce6cf6360ada4c2dadac430",
+        "sha256": "72bda59cf22f60fe3fc679966b23c5beb5d0002fff6b0b9569ab307d791c4abd",
         "token": "5772BFCB44A7"
       },
       "horizon-capital/backend/app/data_layer/batch_bars.py": {
@@ -606,12 +611,12 @@
       },
       "horizon-capital/backend/app/data_layer/crypto_feed.py": {
         "marked": true,
-        "sha256": "c9814d8e7405ab2f163e9999621ae380517b5d55928b25ab67914a5becfbc826",
+        "sha256": "36715e37ef3284c3dbcab72d66bce3ddd47a85ae10f9f7829ba4d7508afa89a4",
         "token": "DABED874D605"
       },
       "horizon-capital/backend/app/data_layer/crypto_universe.py": {
         "marked": true,
-        "sha256": "803187fd94538188d958781a56ab471733a232053aec6d87db40551eb835b329",
+        "sha256": "8eddcfddac023440ee6d06a385e5f269dd8f777608b38bbad0137d32e4d99b13",
         "token": "6F8D71D643B2"
       },
       "horizon-capital/backend/app/data_layer/data_manager.py": {
@@ -621,77 +626,77 @@
       },
       "horizon-capital/backend/app/data_layer/data_normalizer.py": {
         "marked": true,
-        "sha256": "3af42d1c74eacf1df53c9cf6a16a052244be76e43689c0c1a8725a10295b2269",
+        "sha256": "b7b5781585b4c5a886d374d44ae6515de0dba4d7c025af818681588699a293e1",
         "token": "1E6E700A2962"
       },
       "horizon-capital/backend/app/data_layer/pit_universe.py": {
         "marked": true,
-        "sha256": "aabcb312862aac9bc845db92462bba2b1cd953a35f285ada68b68fcd283a4e59",
+        "sha256": "a3a8997f74e7acf8eeb7be0a458fd1a98a5f6c990df2fb5da5f5be64c76550be",
         "token": "BCEBD37F6DAB"
       },
       "horizon-capital/backend/app/data_layer/pm_bars.py": {
         "marked": true,
-        "sha256": "38dc9f51675239fee9f5078a663389d363e31a3cd75ea5380119a1fd2378ccd0",
+        "sha256": "49180c8aee28f7f03ebac73a68cadce061180bc9a1184aeedc3cbb724973a5c1",
         "token": "B8C191F2EFBA"
       },
       "horizon-capital/backend/app/data_layer/polymarket_feed.py": {
         "marked": true,
-        "sha256": "5f31915664b947fc12d1e07ce86560a9420429e9c5c4c70a2aa92986a73605c0",
+        "sha256": "ba94d87359d01fd06c47e6f43134206b543de7d6249e5b595d97e8b81c60314c",
         "token": "AABE33165348"
       },
       "horizon-capital/backend/app/data_layer/universe.py": {
         "marked": true,
-        "sha256": "2dac9c042a96eac9725a751d322cc523ed253051e78be80f3e1be2b1ef10d5ef",
+        "sha256": "fdcfb2256dfe090fa3be1b641015fede5bb2d0ee0b3f1ab2072c7f5a791a6632",
         "token": "597B2F1AC757"
       },
       "horizon-capital/backend/app/data_layer/yahoo_feed.py": {
         "marked": true,
-        "sha256": "aa28c500027f646ac20a0344dee8021a8cabe6da85af2c802762d1286b46df33",
+        "sha256": "9724c7428295d7818f1921df409105ee226d2d5bad843ee9364abe294003679b",
         "token": "F30E6EA0F572"
       },
       "horizon-capital/backend/app/dependencies.py": {
         "marked": true,
-        "sha256": "efc89c033c791b687bb4fb530a4e10f0c49325bd419c0ee2a5c820f9039490c8",
+        "sha256": "899daa512052c73b774153f128afc56410cba438071a8a0c9169526f11bdbc25",
         "token": "0ED2A848E17F"
       },
       "horizon-capital/backend/app/features/__init__.py": {
         "marked": true,
-        "sha256": "08f663d3d7207148aa23a6e75e14cf2bcf53126dff23cd3c0dc9c1394d664895",
+        "sha256": "888d48a32a21738c75f3ab66c0753cbdcbde36e98e487f74d02cbd5a8655232a",
         "token": "7E29AACCF873"
       },
       "horizon-capital/backend/app/features/feature_store.py": {
         "marked": true,
-        "sha256": "5f003cb29be257f4f6ed6dd4ff4c2309d17617d1b93230c6b17cf7ee022b9720",
+        "sha256": "e18c99039197ea775e719915f904a229839ae4c8a6ec31586dfa07fa3fbc094e",
         "token": "6398EB7999E2"
       },
       "horizon-capital/backend/app/features/sentiment_features.py": {
         "marked": true,
-        "sha256": "731f00bc1c8e60aa4529652c54e4382c5a1628afda201a30df72b9c8024ba021",
+        "sha256": "ecbd50835005d548968cc97924411ef3635a55371b1596168f22d5fff7a8dcda",
         "token": "EE9B5E4521EE"
       },
       "horizon-capital/backend/app/features/technical.py": {
         "marked": true,
-        "sha256": "1959454ed36d24f3e4e0b946c8bcedde84d4a9a43786bbc6bfd6ce42469d3a93",
+        "sha256": "a3d7357f261091ba609b5b0ab7eac4c6073bbf47969551d898625710d8345f01",
         "token": "05C567406B85"
       },
       "horizon-capital/backend/app/features/volatility.py": {
         "marked": true,
-        "sha256": "5085bc0b9cba01c2a01f240bf3794a4f6c9e1dc90d0f55bd186f3dfd066909cb",
+        "sha256": "da908034cba456575a32eb30ad6f4d9ae6b22cb601b744043eab91e40de94f2d",
         "token": "0C26FD7BEE26"
       },
       "horizon-capital/backend/app/llm/__init__.py": {
         "marked": true,
-        "sha256": "e7269b139fb4f2ddc7ed3424a4f831cc7c87d21353ee632582d0001c87fbc509",
+        "sha256": "7230509cb09f31feb37e09b0ebf2bc18e161d6ccd0d8f646ccd98f116970a772",
         "token": "E2AE76A3B51E"
       },
       "horizon-capital/backend/app/llm/agent_config.py": {
         "marked": true,
-        "sha256": "4a67d024985559aa91df0361e34cb031c24616ad4b6225b77541a764e4eee2a8",
+        "sha256": "09a882a57684161b112b71041669171355816c765827da50c7cd960f5a981374",
         "token": "AEDE42D4BDF8"
       },
       "horizon-capital/backend/app/llm/agent_model_overrides.py": {
         "marked": true,
-        "sha256": "08e7dd032916591c92f944ccb0d0cd574828dad9163fe63166d185997357d96b",
+        "sha256": "20feb29e9788e047b692f8736f02dff3b58240ee7dd3d2f6c19fe755279536a2",
         "token": "5631365D60B1"
       },
       "horizon-capital/backend/app/llm/base_provider.py": {
@@ -701,7 +706,7 @@
       },
       "horizon-capital/backend/app/llm/claude_provider.py": {
         "marked": true,
-        "sha256": "218c386483462c66abd5bc69b29f7fedd34207f9aa3cb0bff006de15e3df8047",
+        "sha256": "cf7d4eb1fff9c41e7b32fdc6456aad7151ce74d3409db1175991ed5b43427fd4",
         "token": "75661BAE45EB"
       },
       "horizon-capital/backend/app/llm/gemini_provider.py": {
@@ -711,12 +716,12 @@
       },
       "horizon-capital/backend/app/llm/models_registry.py": {
         "marked": true,
-        "sha256": "5cb68f5dfeb64d559202e844c2f2b7304c7f16f441915e11ca17dfcfb8995821",
+        "sha256": "8852ae398e7a95f763a991a2a786614ea8cbe75e1b8a1424cb24458d04dccda6",
         "token": "437273F6EA00"
       },
       "horizon-capital/backend/app/llm/openai_provider.py": {
         "marked": true,
-        "sha256": "d366c3eb7036eafa4c9fc759b9dc686a6c4b32d50d123d424d3d706b3b584917",
+        "sha256": "3619b514a7a25b2227aca7ecc9f8cf28b75ca6b3cc091c626489c02ca445fd67",
         "token": "E58DCAAB1E5D"
       },
       "horizon-capital/backend/app/llm/provider_registry.py": {
@@ -731,67 +736,67 @@
       },
       "horizon-capital/backend/app/models/__init__.py": {
         "marked": true,
-        "sha256": "c10688452b43adf3432a9e3c62e738514f9249970ce64ca98dc6fc26b45fadf1",
+        "sha256": "08d17a1d3435a86d3968cc2f3ceeefe46f47133df15831a94a6a5a9154e60f4b",
         "token": "337491F6C5CA"
       },
       "horizon-capital/backend/app/models/agents.py": {
         "marked": true,
-        "sha256": "12919cc45b7359f4f632d545b1eca395d6f8fd017966847e933946a78b78a813",
+        "sha256": "8c356ca497ab4e9d52679c79748dc437e7ce71dc37776fcc9bcdd37085110d8a",
         "token": "4E606E1DE529"
       },
       "horizon-capital/backend/app/models/base.py": {
         "marked": true,
-        "sha256": "4de47b09dafc0baaf685f818f37bf2aa3ca686bf46a90e857734130e38aafe0c",
+        "sha256": "21c78b73565107847e20f9ceb2da20835987d3556ae4971fb3c45b11c4f6aede",
         "token": "70B47B0FB161"
       },
       "horizon-capital/backend/app/models/debate.py": {
         "marked": true,
-        "sha256": "d494087598a13e1e5f3a5fd6d0f2d654ad14e9c1491fbf3dcc4442de394a9d0a",
+        "sha256": "9fa293fcdb8841de3c0a247d72ae13d6498af3033257680b01ed575a9f7f5f5f",
         "token": "9D6DCF7865A9"
       },
       "horizon-capital/backend/app/models/market_data.py": {
         "marked": true,
-        "sha256": "6829052c89efb52ae217941dbb5c44599223c1b22c14c3498b01b7cb6bb5a212",
+        "sha256": "0e9e48f58f930b7b20b456cfe188fa8bfe5de79590a4846bef35b0d36feaf94b",
         "token": "5393245D8902"
       },
       "horizon-capital/backend/app/models/narratives.py": {
         "marked": true,
-        "sha256": "45d47ba311187b2b4fd78e4835c5ff5867e6eed87ee67fc69aa962a86b94bfeb",
+        "sha256": "e08b7e1732666802c48c16d873d9d911deff3977af8514402b02c8928a3cf0b5",
         "token": "4C1112ECABA8"
       },
       "horizon-capital/backend/app/models/performance.py": {
         "marked": true,
-        "sha256": "900b458715e11bd1c000d71f87dc1dc0bf434b2c190fa37a07f5fef1f2d7418b",
+        "sha256": "38f6d1a684f5ae7ceb3c65eaab09b9515facd193b1e3a4c805ee23e6c6434cb4",
         "token": "20550B4B8AAC"
       },
       "horizon-capital/backend/app/models/portfolio.py": {
         "marked": true,
-        "sha256": "aecd7e22956aad114ac6511192a69a2a32af1acd4f917afd0002e057e4405e6b",
+        "sha256": "9ae07d19bf42a1ed57b30b795a73a7b8b6c11a8eb7df9d5ea1c82e0fc95421a0",
         "token": "58384AE56B6C"
       },
       "horizon-capital/backend/app/models/risk.py": {
         "marked": true,
-        "sha256": "923246bfde32503c797c92a353e5dd8a9c91cccdf4439ff920a131ecbca2011d",
+        "sha256": "cca4d77d2aaf6b39518bc175835efbe2fd527013b5ad2e2216c5cef026bc78f2",
         "token": "8D58D5911A55"
       },
       "horizon-capital/backend/app/models/signals.py": {
         "marked": true,
-        "sha256": "8dc98d58a4f3c95c03a2c516bb5574739e0c599a153e23a55891ba78328d2c3e",
+        "sha256": "ff27ed1a9fb4fad2937eae1668c0821a8a066c8f4cc1c55b9bd02a6755de4f38",
         "token": "26D04A62616C"
       },
       "horizon-capital/backend/app/models/trades.py": {
         "marked": true,
-        "sha256": "da7dea54865aebff00ef39c9e88e2640db9124c69fb111d25be267fc0b96db3f",
+        "sha256": "9a3d5312bc2fa74796835f247b34551a12938fe70583de4fd305bbe907ae9e09",
         "token": "87CEECBA0F53"
       },
       "horizon-capital/backend/app/quant/__init__.py": {
         "marked": true,
-        "sha256": "9ae2daae1784c2257f1d5c09e00d693f2fcfa41cc7264dbbc1175ef0955cfe84",
+        "sha256": "146615d27825fcc664ac3c98219671c480b0e06d08e95b266b1bcdc4106a41e8",
         "token": "895B197243BA"
       },
       "horizon-capital/backend/app/quant/hrp.py": {
         "marked": true,
-        "sha256": "a8279aa937ca9700dfed7729f9c71324beacac73387d525c1cd0de000b476913",
+        "sha256": "4e461b724a4088fb2c99d2164bca2b9784636a9b90bc1774757d63736228c377",
         "token": "BCA7903D240A"
       },
       "horizon-capital/backend/app/quant/kelly.py": {
@@ -801,7 +806,7 @@
       },
       "horizon-capital/backend/app/quant/llm_sentiment.py": {
         "marked": true,
-        "sha256": "f2e757b68bfbb7a0836dcaa29bff3a37890c6ac4b2865f310019f93cf15c4907",
+        "sha256": "1fcf7124cecaa2179d094c40ef8da8fd2a1d88f9847b1f1400ecf7544b2ebd05",
         "token": "C3BA51DA4276"
       },
       "horizon-capital/backend/app/quant/metrics_advanced.py": {
@@ -811,17 +816,17 @@
       },
       "horizon-capital/backend/app/quant/multi_signal.py": {
         "marked": true,
-        "sha256": "6e682f0d49a91208fb27b32a3491027da09b31d18b94386894a439a19525bcad",
+        "sha256": "bebcfdbfea8e10f60145c33e8bf40b7c838542933b4f680a9186654637a75463",
         "token": "E1C56468790D"
       },
       "horizon-capital/backend/app/quant/quality.py": {
         "marked": true,
-        "sha256": "fc760db278e3a1b4b1082c2951ce2b1c54a275c160949c32f0de0242120514b6",
+        "sha256": "80f28df35203d6dfb5695d1bba82aeae6ef791f68950c13dae0d0c42b20fb030",
         "token": "EAB57B2B7085"
       },
       "horizon-capital/backend/app/quant/regime_hmm.py": {
         "marked": true,
-        "sha256": "63b8941020e2ca34836b0440a886543fa64cb64affe708711f1e865747df478e",
+        "sha256": "fd6ef751879dd51c261f58b4abceb4b1218bb0d3bab1fc3f59a04d4dafc66e5f",
         "token": "EE91545296D7"
       },
       "horizon-capital/backend/app/quant/risk_overlay.py": {
@@ -831,67 +836,67 @@
       },
       "horizon-capital/backend/app/schemas/__init__.py": {
         "marked": true,
-        "sha256": "d4279cdb6e88864e9c98b149c750a41a3d7df1de6cd96805269ecc7f594883ce",
+        "sha256": "b5f50259991d3f0a9d9dab0a8508bba2694290f8995023efad52e843f2ce51f1",
         "token": "41750C0DE830"
       },
       "horizon-capital/backend/app/schemas/agents.py": {
         "marked": true,
-        "sha256": "87b62f8e5e788b708d30ff5e25621bdcb73b12a326c756a728846b2f95c4aa91",
+        "sha256": "9c2acbdc3f33e661d51cd7db590cc30f3ad5ecfc3c4810baf3bda3c16366c62c",
         "token": "ABBCF2FE61CF"
       },
       "horizon-capital/backend/app/schemas/auth.py": {
         "marked": true,
-        "sha256": "1d0d7c2d3756ba520a27aa7f4d2f449703001b83e16bcd40d7d7a9067bf39364",
+        "sha256": "164acfd6c5c2f71838ff5d5adfd5eaea74adc65c397d2469cef2e84131d40cbd",
         "token": "70DC5B8A6C77"
       },
       "horizon-capital/backend/app/schemas/cio.py": {
         "marked": true,
-        "sha256": "c1cf40a8434fea47c483d62690b63bfc7a3e20157cceef8252af412da7cdd552",
+        "sha256": "518f5d0df461384018a918511d5cf991bf6a4fd00ad39e460ba62fef90b894cf",
         "token": "499507DCA995"
       },
       "horizon-capital/backend/app/schemas/debate.py": {
         "marked": true,
-        "sha256": "eb86315dc41e699e9d6b539ccc61c4f2f61995db96139a00bc47c602347a3764",
+        "sha256": "7946d5df34d5544fe5dbce719efbd0db0e359df62f60f6c281e0217c3f077957",
         "token": "B71FB81F5A10"
       },
       "horizon-capital/backend/app/schemas/market_data.py": {
         "marked": true,
-        "sha256": "dfa616f2ec9f2465647d3dbaade90367d3981c5887fca1d54f3cfa5a5e393174",
+        "sha256": "13e4c09a0ed963668d3ffbd9fda963f3ba52c33d007ca527f9521a41927e1218",
         "token": "A9BEB0B49F2D"
       },
       "horizon-capital/backend/app/schemas/narratives.py": {
         "marked": true,
-        "sha256": "fdff6feb56cfaebe134f7c0d817b5cbf90bf6c526755d18d82dbeb83f7b779da",
+        "sha256": "442a55ca2466b98a809489699941d3928f2c46e7afb59056a97b98d876fa5ed6",
         "token": "415BA656AD0F"
       },
       "horizon-capital/backend/app/schemas/performance.py": {
         "marked": true,
-        "sha256": "54fb18042319e884dd575fb72b0fba064c2540472c99bed0e5d16f07e9ccf490",
+        "sha256": "c5ec67126b1f954f647cd8a79cde669fa870ddb6e7b6ae92c5e485e6e94d51d9",
         "token": "F8AFBA93C9E9"
       },
       "horizon-capital/backend/app/schemas/portfolio.py": {
         "marked": true,
-        "sha256": "4eadb61c364ab2f1eb58f6ec7d85d5a58612b42a7a032bc0899d87fb672071c0",
+        "sha256": "480bb959ab4aca1a396267a8c5c666d714dd27e980e9e8fcc41c53c35c7e1a0e",
         "token": "49BD0299BDAE"
       },
       "horizon-capital/backend/app/schemas/risk.py": {
         "marked": true,
-        "sha256": "0c8813750208cf2f3d1e1033f76435c58d716feee0e80701146a3f0e5f4a2fbc",
+        "sha256": "86aad1108441156f74d0172c8bd70f42b081355cc2ed57b87cb773b6e22c7091",
         "token": "4BAD68BBD4C1"
       },
       "horizon-capital/backend/app/schemas/signals.py": {
         "marked": true,
-        "sha256": "be46989b9fde1c1cb4e142f267595bf47d361156b39b1c925a49e42d7a97ee4d",
+        "sha256": "76f93273c2ceee4555e8d83670ccf3335dc69657e719d64643fe5f0d041f003d",
         "token": "CDDEC9F653FC"
       },
       "horizon-capital/backend/app/schemas/trades.py": {
         "marked": true,
-        "sha256": "529ba7bd9ed856a7d37539a269a940a5ee66469b20c8f8cadfa0372d749ca58e",
+        "sha256": "dd6268e36d2668364f366f1ea9b6488957cc320e63b69afaec7fe54c88a082af",
         "token": "ECB99C777FF3"
       },
       "horizon-capital/backend/app/services/__init__.py": {
         "marked": true,
-        "sha256": "58ee067bf7f6cb7f218752703a5c1153f8c4cdaa52fb7fae418a060af428f3a7",
+        "sha256": "57df6a08a8d7fe37f7b4e9d4f33ff8f36f6c430267909748bc218bedff56d7d4",
         "token": "57879B15C8A4"
       },
       "horizon-capital/backend/app/services/alert_manager.py": {
@@ -901,7 +906,7 @@
       },
       "horizon-capital/backend/app/services/backup.py": {
         "marked": true,
-        "sha256": "978f5beedde960c31b46977cc6690082572fda982726ff1752765b96eb544715",
+        "sha256": "baacc9ff2a3e5083afb355bd82d5fcccf6f1fd957d98dad48c8b0b68365e2cff",
         "token": "6554BC70CD95"
       },
       "horizon-capital/backend/app/services/doctor.py": {
@@ -941,7 +946,7 @@
       },
       "horizon-capital/backend/app/tui/__init__.py": {
         "marked": true,
-        "sha256": "5b0613945a2b32db3b5825217f35aab9a4d9d1133f40c3ffe9a4334dbb97f4d0",
+        "sha256": "73c9ad4ad5cd10975afc22b656dc4e6111296ad912a1ca179e3251235e07bdac",
         "token": "250AB6207F89"
       },
       "horizon-capital/backend/app/tui/cio_chat.py": {
@@ -961,7 +966,7 @@
       },
       "horizon-capital/backend/app/tui/dashboard_feed.py": {
         "marked": true,
-        "sha256": "d4139e1eb069cea8b9d0575fd1634952511d28f7c6f4400675f8a3e435a0a491",
+        "sha256": "0ed1f0a0ea4c069015c2d519ade4ce2360d4739a8519c505ad53ce9b493f0879",
         "token": "E026613C3555"
       },
       "horizon-capital/backend/app/tui/onboarding.py": {
@@ -971,22 +976,22 @@
       },
       "horizon-capital/backend/app/tui/pixel_agents.py": {
         "marked": true,
-        "sha256": "822f4257355365229f26aba31a562ee2900227c8fbb6f36e2439143835fc5c7d",
+        "sha256": "0cc49d9142602fc77fe69d07ad9cb1cf27f526ac9a566ef808ec1d5966907786",
         "token": "2959A720ABF8"
       },
       "horizon-capital/backend/app/tui/settings_panel.py": {
         "marked": true,
-        "sha256": "84d3cb21dd2f1f8ea6f516c08dde0fe0066826676eebff0e0dc32915a429f59e",
+        "sha256": "3b08747398a4f4133947c66572fedbe223267fedfc37d0918279b089dd27f6a1",
         "token": "A0943C6D420D"
       },
       "horizon-capital/backend/app/workers/__init__.py": {
         "marked": true,
-        "sha256": "f31711240064927812c083934f20245bc388954ae29a598629698758112d9ea9",
+        "sha256": "b28a538a7df358121cbebd93dd4ad2a72eeac9eb36af88b6e52b45f12ee05fbc",
         "token": "6C5FDCB19C4A"
       },
       "horizon-capital/backend/app/workers/agent_orchestrator.py": {
         "marked": true,
-        "sha256": "7195f0099e295841d11de4f0082ab9c19de757edefdb322664b7a17600861907",
+        "sha256": "8b44e8f8c908749610503880a566a5491ddbab3ff7a918d1c8e1db72ae5fbd61",
         "token": "13073B9B1F71"
       },
       "horizon-capital/backend/app/workers/brief_push_worker.py": {
@@ -996,7 +1001,7 @@
       },
       "horizon-capital/backend/app/workers/data_ingestion_worker.py": {
         "marked": true,
-        "sha256": "e40b53d5391887fa4a0c665e6c7c2f8ae72293bddd6c21c86c7d41ef2abfe15f",
+        "sha256": "0f7be46d7209dd5977d26d9d0b07be68464fa38c44a83da8e7cb3ab3c1050230",
         "token": "AA12180FF5B7"
       },
       "horizon-capital/backend/app/workers/eod_report_worker.py": {
@@ -1011,7 +1016,7 @@
       },
       "horizon-capital/backend/app/workers/position_worker.py": {
         "marked": true,
-        "sha256": "2358c81b36f17b9b04faac55a1324dad8d9ca99fd064b621305cecb74a5f964d",
+        "sha256": "fd4370cf49d71e2244a9756d793407faada1f89c0d5831717e71b8ed1b455946",
         "token": "2F9116581F2E"
       },
       "horizon-capital/backend/desktop_entry.py": {
@@ -1021,92 +1026,97 @@
       },
       "horizon-capital/backend/run_audit.py": {
         "marked": true,
-        "sha256": "891dc0c8e921ab846bd0ffdf29a6122c5d2ede98c67f23ee7b80957473cf81fd",
+        "sha256": "ae5ae604e28dab5e7f82cfd89a5465548a722e220c27d0dc104f07fa311cb63f",
         "token": "7C345F2FDEF6"
       },
       "horizon-capital/backend/scripts/assemble_paper.py": {
         "marked": true,
-        "sha256": "34d211417011a1fb272fd99b7832a3da367df7acf83feaef1830c81ea16b5758",
+        "sha256": "e0e374edb5945bc6340e8c246a39da45a1abaf974d32d4c8d8c93c81190b929f",
         "token": "0F089129CDF5"
       },
       "horizon-capital/backend/scripts/backtest_polymarket.py": {
         "marked": true,
-        "sha256": "bfed9499eb71214bde4b1772288321eed734fb4552e2305a9ee00915059a819e",
+        "sha256": "73f418f23e2423ae1735130625ba0661c0b45be6a49140ea85c5fb1d2a655584",
         "token": "8F507499BE44"
       },
       "horizon-capital/backend/scripts/backtest_sleeves.py": {
         "marked": true,
-        "sha256": "6703d5ce0b9e630d1e5c1a9fc1958fdf4d5bb42517f5d410d056803c24444772",
+        "sha256": "9d3ad9adfe95a28c8aabfeb9170e93f0b1a134b24adbcb345dbb2468b11e9e3e",
         "token": "650A5C1899BC"
       },
       "horizon-capital/backend/scripts/build_attribution_realized.py": {
         "marked": true,
-        "sha256": "3cfc959bea4356d6e42d5ccf9e8cedc2e323701f5140deb319a4bf0b0a42dfcc",
+        "sha256": "cb418947e0d70c3e4ba010e3e2c23ff0b9f5138252d1ddd8283e139d953a4573",
         "token": "7C95ACFCA740"
       },
       "horizon-capital/backend/scripts/build_gate_results.py": {
         "marked": true,
-        "sha256": "b83b5e30e74498677313fa4597803b78e9cd4495fb1c1e3c04a859132a4e0bf8",
+        "sha256": "71cf16e17a673e9762996d7abc38b67c95a78fdbe11ab051b90ee39d09713c82",
         "token": "C0F06D5D5A39"
       },
       "horizon-capital/backend/scripts/build_results.py": {
         "marked": true,
-        "sha256": "2d5b2629d4fbb408edba048b7cb42725b450e0d72953c073eefb268937dc3cb8",
+        "sha256": "f7d5cfd0a0c056068e8cae3611e13ab4a02f991676bb25fbbe7968cdd5a84dbf",
         "token": "31BC48759B2B"
       },
       "horizon-capital/backend/scripts/demo_backtest_2024_audit.py": {
         "marked": true,
-        "sha256": "ca92dd37d04a9764492f3c1746ee748516a1d6fb7e07239adabf1fa5e8a8250f",
+        "sha256": "cffacfac6c543fe56129bb8a6ed55918cb002fbc31f83b77a1c1ac743f8d20a1",
         "token": "C0B5737977EA"
       },
       "horizon-capital/backend/scripts/demo_backtest_v2_research.py": {
         "marked": true,
-        "sha256": "7272eb4b173278f097b68953092e6b1844168b19d981d3e55760ac3b762b0687",
+        "sha256": "73c1ff182461d84a58da82a998cf47e19cb96c3308ed8c3a73bd339ec98ae10a",
         "token": "AA8237C50990"
       },
       "horizon-capital/backend/scripts/demo_backtest_v3_aggressive.py": {
         "marked": true,
-        "sha256": "9cabdf0e718b232bb1ab792422e1f0b64939ac366279d7fe1794bf4caf37715f",
+        "sha256": "00a61a1d13638cb416734015ea1b604397312a68f3af3e4ae4028dce216aa42d",
         "token": "1F68C54CD56D"
       },
       "horizon-capital/backend/scripts/demo_backtest_v4_full.py": {
         "marked": true,
-        "sha256": "acd8e9e88846709efb433652ec4492830008b48085b932d3f7ea53b87128e658",
+        "sha256": "dd05cf2f1a61c7eab5daa70eaed388067b456a4a34e37c9bdd75d89b4e07dc89",
         "token": "BAF2071F1E8E"
       },
       "horizon-capital/backend/scripts/finish_paper_overnight.sh": {
         "marked": true,
-        "sha256": "208e222848ccf6b4e51233344114221a2e6777041cf39ae18ae771525dbf38e9",
+        "sha256": "ff55b884ed7000d312eacb0b742e666fd3be98b704ebe586006daabbd2475429",
         "token": "941F64F10E09"
+      },
+      "horizon-capital/backend/scripts/india_data.py": {
+        "marked": true,
+        "sha256": "8facf282f922a5b92f6142f370f0b715826e813e034cfc8e9366445128647b3e",
+        "token": "01BDD8139A7D"
       },
       "horizon-capital/backend/scripts/make_paper_figures.py": {
         "marked": true,
-        "sha256": "f577c237625d1f543d315a327b5fd1ef495268920a3c89432b78c5cdc60f1a9b",
+        "sha256": "b3bbbb19416dd5e786db54208c69634968f3ee8bf5ce185c435a28ac8f7ae21f",
         "token": "1A8F3401DC2A"
       },
       "horizon-capital/backend/scripts/monte_carlo_forward.py": {
         "marked": true,
-        "sha256": "ea82a2945df958735199cc4680f4567a0eb34eb98b7df058bb7d2c30a04377ed",
+        "sha256": "31dc9843bc1d2aa3938a6e65df5f16e4bc5b94b83fc418d7973f8664fde858d2",
         "token": "9819EFBF1838"
       },
       "horizon-capital/backend/scripts/run_debate_ab_today.sh": {
         "marked": true,
-        "sha256": "252fc31e93d49797c371c282c6f13f5d6e828562da4034282f6e309fd34edc88",
+        "sha256": "b59aee7ec23407295c4f7fe0073463d5acfbeaf7604e7b614eae2c66efcf9d31",
         "token": "FEF23CEB1BB0"
       },
       "horizon-capital/backend/scripts/strategy_scorecard.py": {
         "marked": true,
-        "sha256": "cff7c5bf50ab8c2c30e82b5f074bfda6b879a7551d7684b572fe1eda110e3430",
+        "sha256": "2d3711350bd337370d5e4fb8ee0afbbef48a78e0991c56010b75c95baa6f8494",
         "token": "6576ED1FB711"
       },
       "horizon-capital/backend/scripts/validate_benchmarks.py": {
         "marked": true,
-        "sha256": "68f92cc86333d10bd9636592623f51a8752c46cb065f3a2657929ae0b8ead9dd",
+        "sha256": "5a64c503645a486eae89d0324ad260cae407bddd27cc0f8abaa7daef4a181eca",
         "token": "FC76341A0713"
       },
       "horizon-capital/backend/scripts/validate_breadth.py": {
         "marked": true,
-        "sha256": "b0d6034fa71d7cd0df9ff4a89e34d0be130a7e02859f106b071d3154ecd5cff6",
+        "sha256": "55fa48fb17fb51436ababac1b907d4f5fe714f10f6f170a9c02537c39a18ce54",
         "token": "597FB56B4332"
       },
       "horizon-capital/backend/scripts/validate_debate_ab.py": {
@@ -1116,7 +1126,7 @@
       },
       "horizon-capital/backend/scripts/validate_deflated_sharpe.py": {
         "marked": true,
-        "sha256": "48188fe29752532ff758fb1018c77c7616a14fd8a9f376e31f0195fac71e14c8",
+        "sha256": "aea7da4edca65e5b4db7d2a99c733d376cfdf3f9f2f108eb7dfd30e3d4635917",
         "token": "4901EF6B1939"
       },
       "horizon-capital/backend/scripts/validate_fix_ab.py": {
@@ -1129,9 +1139,14 @@
         "sha256": "da4c854e7f1821498d44be6e92bc9e01bc1fd411b3c035579580558f33620ea9",
         "token": "E8039FDF7D84"
       },
+      "horizon-capital/backend/scripts/validate_india_gate.py": {
+        "marked": true,
+        "sha256": "fc7346949d0b4bfcc1c21aa5a8a01ba593536ffb8fbfdc2770e8de67b3bca4f7",
+        "token": "493F7C91A789"
+      },
       "horizon-capital/backend/scripts/validate_model_capability.py": {
         "marked": true,
-        "sha256": "5b0a7f9720314dad7d21b9fef0d634e8d7121b875b866ff6fa2b2b872bd4dd37",
+        "sha256": "b6cb16b93a9cf2007bcb8d857ce09c95837b321c90913426166836603531bbcf",
         "token": "8AC0018CE30D"
       },
       "horizon-capital/backend/scripts/validate_momrank_topn.py": {
@@ -1146,12 +1161,12 @@
       },
       "horizon-capital/backend/scripts/validate_pit.py": {
         "marked": true,
-        "sha256": "afced470e92d5d44b7a2ddae0a6f1ddc5487909b94267af2635e13d40aa43c5a",
+        "sha256": "42299fbd3202d126feb767fb098233dc6794c668e00ef506cfea539c3d0c5e7c",
         "token": "298C98971F68"
       },
       "horizon-capital/backend/scripts/validate_riskfree.py": {
         "marked": true,
-        "sha256": "c722434f8fa6b82c7176d2bb2631321cc4ecf4c1c07154fa8c3351a447aabaf9",
+        "sha256": "863e745ebe4ada47ffea754a9dc532b80da910db4cfb971de9d4c625fdb47987",
         "token": "1B36A9A35926"
       },
       "horizon-capital/backend/scripts/validate_sleeve_attribution.py": {
@@ -1161,17 +1176,17 @@
       },
       "horizon-capital/backend/scripts/validate_sleeves_oos.py": {
         "marked": true,
-        "sha256": "02bb355a9020e447cfe64051fe1a16f15326ca54439d1374581be6fa19554efe",
+        "sha256": "170d715cf2c0f6a2aa48e15e12f19a365838d44ac799d57ba90e530bb28f93ad",
         "token": "05047200CDC6"
       },
       "horizon-capital/backend/scripts/validate_voltarget.py": {
         "marked": true,
-        "sha256": "05bfeb9bfa71d703c7a5a408dff5f5cc901cf1a677039a264bcb0cb8a9a990ba",
+        "sha256": "6dd0f5300a1b1d1ac71a81c123ecca42dd02072e7ed70dfdff02e7e52b8dedfe",
         "token": "4236E4DA42CE"
       },
       "horizon-capital/backend/tests/conftest.py": {
         "marked": true,
-        "sha256": "f85fc212907f31bc9500788a0df04701c0cae8f6fb550ef2240dc3951e893ccf",
+        "sha256": "8313e9f65a0a2d76386bb0dfb92713f4911840f11f2d2bb41c7593982f0ae3cf",
         "token": "D839D4B29844"
       },
       "horizon-capital/backend/tests/test_agent_messages_retention.py": {
@@ -1186,12 +1201,12 @@
       },
       "horizon-capital/backend/tests/test_alert_wiring.py": {
         "marked": true,
-        "sha256": "06ffba870a1ecfeb6ca12fc56ce6215deb575bdc3772de5a689c883e88a5ce4d",
+        "sha256": "9ce5f6471498ecff59aad1cfb687158ac39da3fd14999aba917b0a3b3840949a",
         "token": "7E0010C8F77F"
       },
       "horizon-capital/backend/tests/test_alpaca_feed.py": {
         "marked": true,
-        "sha256": "7235918f09bc1c22685375317a349a826cbd4f80c07847e5434e871879d20c78",
+        "sha256": "a6311ef261508c517d6f6272213a88488d352d7c9e19e3ad8fff49babee6f806",
         "token": "CE914A427C95"
       },
       "horizon-capital/backend/tests/test_alpaca_wiring.py": {
@@ -1203,6 +1218,11 @@
         "marked": true,
         "sha256": "9ca52236258b3cba0b901d510e16e0f7af353964a99c64846dd9f60313f088eb",
         "token": "45B4A4BF4FC0"
+      },
+      "horizon-capital/backend/tests/test_capital_seed.py": {
+        "marked": true,
+        "sha256": "4b5790bf0ce678a65c109aab84067c5028ce749a6efa9c7c50baa266c0774253",
+        "token": "5378BC596908"
       },
       "horizon-capital/backend/tests/test_cio_agent.py": {
         "marked": true,
@@ -1251,17 +1271,17 @@
       },
       "horizon-capital/backend/tests/test_critical_audit_fixes.py": {
         "marked": true,
-        "sha256": "e340520c5735e2b1de90dc781bd62766b1cfad2337939adae7410702c3e0a659",
+        "sha256": "2f2c9855c27e078ce0e3b968492aebebc95e29e711283148b090e70666596c54",
         "token": "194412667394"
       },
       "horizon-capital/backend/tests/test_critical_fixes.py": {
         "marked": true,
-        "sha256": "28eaa3555c8139235cfe07fdac138413fd8116365e44029a6c1f0cdbcf99823f",
+        "sha256": "884e0ccc6b47dc1d8bb488cbbc8cd5f350cb63e4da0f779171af2ba929de89e1",
         "token": "E94760B2FC73"
       },
       "horizon-capital/backend/tests/test_crypto_sleeve.py": {
         "marked": true,
-        "sha256": "c18307dbfb2b49852de1f506235b1d151b6b58e72bc01d309595b5583c9df0dd",
+        "sha256": "0eb4acbcc8925cd143749a73859b8cc406bc0d04c6947a4ef40a701d07766197",
         "token": "2FC73D6C641C"
       },
       "horizon-capital/backend/tests/test_debate_hardening.py": {
@@ -1271,12 +1291,12 @@
       },
       "horizon-capital/backend/tests/test_desktop_api.py": {
         "marked": true,
-        "sha256": "15a67f2804eb361f435564f3e73e1f4b15c5e7ac201149dd09b8bc7e64dfaf2f",
+        "sha256": "fe2306d623e10c4463bb4efe41833796a066899d38f71c3cc29717d40298935f",
         "token": "13428479889E"
       },
       "horizon-capital/backend/tests/test_discovery.py": {
         "marked": true,
-        "sha256": "852f417dfa51c0a6ba3dc055ec236e11bf0d03f6abc01fdfecfc4f8ac462c80b",
+        "sha256": "756b4f91ba2f2fe680d5bafd9cfaeed578d4c2b0ac83b31355a07b5102fc6793",
         "token": "8B00E4A51160"
       },
       "horizon-capital/backend/tests/test_doctor.py": {
@@ -1301,12 +1321,12 @@
       },
       "horizon-capital/backend/tests/test_forex_writer.py": {
         "marked": true,
-        "sha256": "d670142978f539ff7102133ebef0ad3e99e9e16bb78d5f6b48f168d75dc5fb96",
+        "sha256": "2310bc3a032ed2c1d55a1a102490431d7601f5f9b1087777ff93c8f749ef8630",
         "token": "682E01F8CA33"
       },
       "horizon-capital/backend/tests/test_halt_unification.py": {
         "marked": true,
-        "sha256": "6e27ca0afce51cf7038213bb8823dc883a9701f1981492eb68df4195dea67c92",
+        "sha256": "2e2ce7fbcb0ad72e9d524fdab8f9fd3910571f026da945fd2647ba67819a4f77",
         "token": "54C8EFC32A7B"
       },
       "horizon-capital/backend/tests/test_integration.py": {
@@ -1326,7 +1346,7 @@
       },
       "horizon-capital/backend/tests/test_paper_trading_honest.py": {
         "marked": true,
-        "sha256": "e6efadcc55cf9d46cd859d1820b2a396938b28b278539e9be2544a40953cd0bd",
+        "sha256": "3f2c02505d6f4fc892097b508de6086c873907a73e305ded619746d6cb9cc40d",
         "token": "E659848A15A1"
       },
       "horizon-capital/backend/tests/test_pending_persistence.py": {
@@ -1341,13 +1361,18 @@
       },
       "horizon-capital/backend/tests/test_polymarket.py": {
         "marked": true,
-        "sha256": "61ffedef847f9a98163652d7e5718049bbd6fbdba787078e45339ced768ce7e7",
+        "sha256": "4e51fe371ae0025caf7fc15f565ec27268d05609571dc8060c4fdb6903483c68",
         "token": "C70707CE2A5B"
       },
       "horizon-capital/backend/tests/test_polymarket_sleeve.py": {
         "marked": true,
-        "sha256": "5f267007963281c0475e3df081a972325882cdc9fe25a85e5ee712bef9c83a5d",
+        "sha256": "8978d6031908b1928f9f8800d9cfa7318a0be423d7a6af1b69c27d0626ebbce2",
         "token": "F7F0B32F7906"
+      },
+      "horizon-capital/backend/tests/test_risk_controls_proof.py": {
+        "marked": true,
+        "sha256": "6c201db566404a7d62fcd782f295f82466d26492496c0f048d8c3bd0b1244de9",
+        "token": "C1C9D6B5DEE9"
       },
       "horizon-capital/backend/tests/test_risk_overlay.py": {
         "marked": true,
@@ -1356,27 +1381,27 @@
       },
       "horizon-capital/backend/tests/test_sentiment.py": {
         "marked": true,
-        "sha256": "2c3b34bf062f48cbe5febbe562907ea31da520611a1a923cf5e95b4ebcc69ace",
+        "sha256": "0e34e104acdf51db876297583c15b633ad1a2e4c203c27d78b640d8753901bd8",
         "token": "44DCB074F10A"
       },
       "horizon-capital/backend/tests/test_sentiment_wiring.py": {
         "marked": true,
-        "sha256": "0468af2a3b30f8267e2baa2135c28339e131aa4dccc1208e2c0c52bda791ae31",
+        "sha256": "3f66f929ea627ac3d93409348db04dfceea6527005412b9a05a530e94cbb95aa",
         "token": "62FECBCB11E2"
       },
       "horizon-capital/backend/tests/test_settings_panel.py": {
         "marked": true,
-        "sha256": "0ceaf79f45b77393baf99000f4bde1d2830f380837ddc1a0ef829768148ddca7",
+        "sha256": "d82098393b2d4d16eea20ba956528f87a40c800b9a665bc106e00cee4c2414ed",
         "token": "937EB65586BA"
       },
       "horizon-capital/backend/tests/test_simple_strategies.py": {
         "marked": true,
-        "sha256": "893e72efd92afc1fe41461142d0835eaee6c4b029608ee5d693873506ffc789d",
+        "sha256": "a4a67abb629477e868ad99429893a2ee891a937e2f89763a397db7ed85bbf3e4",
         "token": "880C70CD0877"
       },
       "horizon-capital/backend/tests/test_sleeve_command.py": {
         "marked": true,
-        "sha256": "85cdfaeb29084f20c3d77bc5f3a9bdebe08469fc7cc80d648917890ba766f8f5",
+        "sha256": "5bc5518998a60d038553a6299a26038b08b0134ba9d7514ab65c05797d5a690e",
         "token": "F1E989DE6804"
       },
       "horizon-capital/backend/tests/test_smoke.py": {
@@ -1391,7 +1416,7 @@
       },
       "horizon-capital/backend/tests/test_trade_journal.py": {
         "marked": true,
-        "sha256": "7fe94ee8b5ebf9c4da377b23794a8d7cd2c7e62013b9deb98d16bc78fec5a333",
+        "sha256": "e7adf93dad637705b0a416aa1e568494b03ca792e9f0273fc4dc646ebf5e1df7",
         "token": "EAA7CE098B40"
       },
       "horizon-capital/backend/tests/test_trades_command.py": {
@@ -1406,17 +1431,17 @@
       },
       "horizon-capital/backend/tests/test_universe_fetch.py": {
         "marked": true,
-        "sha256": "89589a7cfa87afc18eec8dac6c642b82df115cfd3e14a397eb5d0508045c6960",
+        "sha256": "df05837632976164066495976154e0e1cbde5335e9cf5cab6606da97a922c5d2",
         "token": "58AAA32854D0"
       },
       "horizon-capital/backend/tests/test_yahoo_1min.py": {
         "marked": true,
-        "sha256": "a05ecf6da95441eb1f8651c4f94b6c6682cda1341d59902e3f180574d1e7dd90",
+        "sha256": "55bce6a39b6e7e4cc4c3c78c19e5106b68b65d27cc4b286b646d5ba346714eaf",
         "token": "7A6BAE890DCE"
       },
       "horizon-capital/build_desktop.py": {
         "marked": true,
-        "sha256": "eb28eb72a5c219c1fbf3ad7e62a799cda449efa5187b36d013c609b8478a5285",
+        "sha256": "c4eaa5de555568350f6c9e08624f4fc881016ed2c3c00066c2f9af6dff8363c8",
         "token": "754DDA07F64E"
       },
       "horizon-capital/desktop/backend.js": {
@@ -1431,7 +1456,7 @@
       },
       "horizon-capital/desktop/make_icon.py": {
         "marked": true,
-        "sha256": "adaf04d63a413d81da16a72b57f1c722b1344737c483c9a5f264738daed1c6d7",
+        "sha256": "a6d426796b33631bf80f34195f6fd5c36f6a6aea126336792799e2a484bfb949",
         "token": "4A90B380E5A9"
       },
       "horizon-capital/desktop/preload.js": {
@@ -1456,7 +1481,7 @@
       },
       "horizon-capital/frontend/postcss.config.js": {
         "marked": true,
-        "sha256": "a58d25f6d9139006fa408bb68b02be0739fa3b0fddf53fb8bdd6fbefe1f17dd2",
+        "sha256": "85a1489388638c47eec4fbf4941c1c3e7ee302be25a7cee880244507ae86d6d0",
         "token": "20C7D7B55D9C"
       },
       "horizon-capital/frontend/src/App.tsx": {
@@ -1466,87 +1491,87 @@
       },
       "horizon-capital/frontend/src/api/client.ts": {
         "marked": true,
-        "sha256": "3034b02bda7271de520d6e62bcf4f7b8c8a468ff1374e665b5bb70fa3feedcd7",
+        "sha256": "6dd72880a52ddcd72cb553ff0bad9a4572abaa332f6ef852f7bc081216a70818",
         "token": "8A38250E9777"
       },
       "horizon-capital/frontend/src/api/websocket.ts": {
         "marked": true,
-        "sha256": "5ea7c18d143ecb8eb48acd7b644e3517e3a3164e18e21a915468e1fd1b8e6952",
+        "sha256": "49041997809fcbc8eaca801c7404d4f0c512785b3600f0d5630d8eed61e0d015",
         "token": "4E9D169C9466"
       },
       "horizon-capital/frontend/src/components/Controls.tsx": {
         "marked": true,
-        "sha256": "49c469c212d38fcb0b0e7158b3dfbc3ef1614d0990a7b3720e2ac9ebe934395b",
+        "sha256": "5edc099fd4976d4b36d9782a92355be94a1c5c790676acd55ef599e59c609a32",
         "token": "8AE66D15A42F"
       },
       "horizon-capital/frontend/src/components/Onboarding.tsx": {
         "marked": true,
-        "sha256": "c7c5fd7b0f50363a56b4e5d08e603dcc5b21bc1d28c20f403e0d4d62ab847f49",
+        "sha256": "f9bde8c16842bee7b10fd807ccc12107d4063a575b8336462701637526c08b5b",
         "token": "AF7D10846A40"
       },
       "horizon-capital/frontend/src/components/Shell.tsx": {
         "marked": true,
-        "sha256": "e718a6aa4396ff10bcb1bcb6414f28629fb0c741a0dcf9925d1534cfc7d09ce1",
+        "sha256": "c6724bea0b2cab93223c4a7d63ad9a614ad882fd66b050bd9dce03e529ececb0",
         "token": "0DFD0347B711"
       },
       "horizon-capital/frontend/src/components/agents/AgentCard.tsx": {
         "marked": true,
-        "sha256": "64a33af4b87d35251fa6cddca870803e2f001357bf66e80581c722287d6d9a4d",
+        "sha256": "17434ab4537433feaf634123d49a001da582b1afe89410c89fc68c81d1f75032",
         "token": "6C0D6A010A18"
       },
       "horizon-capital/frontend/src/components/agents/DebateViewer.tsx": {
         "marked": true,
-        "sha256": "e3831e68cf54cab5d6dfb98ed6100a25431e00debf9d3e14ce75ada6c4bf426c",
+        "sha256": "04b1391f4ba6815838056fe638bf1361a72bea6ffb364beb762adb66a6871ddb",
         "token": "D0A783A7F1F5"
       },
       "horizon-capital/frontend/src/components/agents/PixelAgent.tsx": {
         "marked": true,
-        "sha256": "21246b8f4cad30fe1b79f74fc92452f9f1ef6a3cad70a000ea3a0cf372d44159",
+        "sha256": "26ebbd8bc62083363e51dc749d23e85dfcd8dbf6927254e4d6203d5c750a3777",
         "token": "51080ECE2B4D"
       },
       "horizon-capital/frontend/src/components/agents/PixelAgentGrid.tsx": {
         "marked": true,
-        "sha256": "2b65426738675b2f139abaac293f6f5f9f79f05b57d79cad8fd5f5984fd8b1e2",
+        "sha256": "63f527cd92867dc14f4741839622322e781b321fd1fe11715820fb134be092ac",
         "token": "C372046687ED"
       },
       "horizon-capital/frontend/src/components/charts/DrawdownChart.tsx": {
         "marked": true,
-        "sha256": "ef598d4ed8ab27bc9eebdf7efaf2dc6b5dac8e2a9c067a8523b85ce8f81b8caa",
+        "sha256": "fd6d0c4d386e8877670bd982017b5786ca5b8582a49629cab8c327acbaa880a5",
         "token": "D885893C72B4"
       },
       "horizon-capital/frontend/src/components/charts/PnLChart.tsx": {
         "marked": true,
-        "sha256": "6df351237dbc5b48a3683bb78cf3882c734e69a15807ba025f5faf77c4e01dfd",
+        "sha256": "9b46a989170ba1bd2573181691812eada18c84535c08cade4dc0d573cac435e0",
         "token": "FDC3FB888346"
       },
       "horizon-capital/frontend/src/components/charts/PriceChart.tsx": {
         "marked": true,
-        "sha256": "b58085dbb2dbd06e3374e5d4810c301b7e77f7c08a4930eafb88ddfa968eca54",
+        "sha256": "b6ac171ff74f18fdb551fcb71e3fb5a8c5e8841e0acb3ef0ac1e4e5574f2e95c",
         "token": "996AA1B4A9E8"
       },
       "horizon-capital/frontend/src/components/layout/Layout.tsx": {
         "marked": true,
-        "sha256": "852252969cda664c63b65d0d306bda35140baa7f049db81b5f81721d6be395b7",
+        "sha256": "18d7239cda5bc8b8e4898100f14fe82c17c109739ca4024f405ee0aa9d0f573f",
         "token": "1B744845215C"
       },
       "horizon-capital/frontend/src/components/layout/Sidebar.tsx": {
         "marked": true,
-        "sha256": "e786cfece356f67329b5948b340117b5293b3b1940e195849e8506d36b0cccf7",
+        "sha256": "7b3f5f34653b2d39ccadf350d37afe24c00168d0a646efdc5ef769e82ed5fd7b",
         "token": "BBD31F23430B"
       },
       "horizon-capital/frontend/src/components/layout/TitleBar.tsx": {
         "marked": true,
-        "sha256": "0c0cec474d01330ad62faf879448292814e32b2aa077f0a661ad648393d51f9a",
+        "sha256": "51797e30df21b9e3549c690ddc5082c969c919156e6e0b4a3b93e37ea04f5ff1",
         "token": "5A52269CE586"
       },
       "horizon-capital/frontend/src/components/layout/TopBar.tsx": {
         "marked": true,
-        "sha256": "2eaadb9497c2477910be46467c954ad7b6a88d0fff420f436329ff7c162f3b84",
+        "sha256": "01e53bd27a0231759da93a19c91318743a890ac49fc85d84070077e708818ab1",
         "token": "488D18EFC5A2"
       },
       "horizon-capital/frontend/src/components/ui.tsx": {
         "marked": true,
-        "sha256": "99469a60678e98976aa51842e7260439b2f73a65563e8c4c9806c8af6fdcfd05",
+        "sha256": "c2f111331e311d5b4b991210ad91ac987323869685f768c714f7506b03a8d36e",
         "token": "2A73B7C7E365"
       },
       "horizon-capital/frontend/src/index.css": {
@@ -1556,22 +1581,22 @@
       },
       "horizon-capital/frontend/src/lib/api.ts": {
         "marked": true,
-        "sha256": "5cd38c8f3aa43d881b706b0d327973365944aab2c0f78d36e3129f887e452417",
+        "sha256": "3d23e94ee1752d62c153475b67aa7f45e1ee72d95d3e050b1fb6edc7236ec2f1",
         "token": "6EB9ECCBCA7F"
       },
       "horizon-capital/frontend/src/lib/colors.ts": {
         "marked": true,
-        "sha256": "a0153592c43eeaeb948866d382d783f048536a6812c962bff1026065af3140fa",
+        "sha256": "1b8d6ab4284f8f35a5e13e9a9c5690f009547124a1b7d8fea6da4bc949b66208",
         "token": "E9F8863AF9E0"
       },
       "horizon-capital/frontend/src/lib/format.ts": {
         "marked": true,
-        "sha256": "245aa78487d87be918705bff278dcb071bcae4ee603b5c9318177cfec8a6d55c",
+        "sha256": "633208513306293941dee0f1207174b694bacb8466bb184158a2147e776123a6",
         "token": "F1FC0B404B52"
       },
       "horizon-capital/frontend/src/lib/live.ts": {
         "marked": true,
-        "sha256": "aa43c7f50ebe86688dc51f97af1e80fb02f6ae6064e6651956d8a9f2d165147c",
+        "sha256": "aecfa6aab177aa5f50673368cd97e3f46cb96f174e5e5b2c4df99465c09f9da7",
         "token": "F1DD1B99838D"
       },
       "horizon-capital/frontend/src/main.tsx": {
@@ -1586,22 +1611,22 @@
       },
       "horizon-capital/frontend/src/pages/CIOPage.tsx": {
         "marked": true,
-        "sha256": "6108111044838fbcdec6e190dc58fcef3065bc46fdcef51eedf9c19f95878619",
+        "sha256": "740846aa8555b70f11de4f5890eb252d692c3313fbaa91a9269e26b84d50994a",
         "token": "416C6CA8CF03"
       },
       "horizon-capital/frontend/src/pages/DashboardPage.tsx": {
         "marked": true,
-        "sha256": "50e039e3238bf3d7db91dcd62dc66b2c754cb0222af82311d5cf7ff5a6b6ce71",
+        "sha256": "a2e8f76ce1bbe9e6e14162fb31abaa8a5bf4e029c18991b080770abcb6419b3b",
         "token": "FD46143C4FF6"
       },
       "horizon-capital/frontend/src/pages/DebatesPage.tsx": {
         "marked": true,
-        "sha256": "5f6bf25417bf16814f88e17f42076d164e4c395b16f7d675c2c68da1940fff5c",
+        "sha256": "779d715d93b59df2c026422290a751259ec3eb6ef3afc75bbd62ff1caea95b9d",
         "token": "CFB28A1ECB08"
       },
       "horizon-capital/frontend/src/pages/LoginPage.tsx": {
         "marked": true,
-        "sha256": "cfae6bd96c99de34f37bd7791ff5c07663a015b6da64623affd81b788b12e859",
+        "sha256": "952cbfaaa5d4ec8e22812256d4017ba6903e08872eea826a0234866557fd62c5",
         "token": "8181878F65DD"
       },
       "horizon-capital/frontend/src/pages/OverviewPage.tsx": {
@@ -1626,32 +1651,32 @@
       },
       "horizon-capital/frontend/src/pages/SettingsPage.tsx": {
         "marked": true,
-        "sha256": "9d74772218617a76e84771cdf5ae85279afdff2159828d1503ca3d330ae52b58",
+        "sha256": "0241c2d7d60262c6137345410b074b89e0664fb7d4cce700aebd58531a5195f5",
         "token": "29B823EE517C"
       },
       "horizon-capital/frontend/src/pages/SignalsPage.tsx": {
         "marked": true,
-        "sha256": "13970b7de50cde219b094cc69c96aa1c2315298680a6c68ab405b00362c95d7b",
+        "sha256": "d501ad5652a06e080439827aa415e3d44a8ef2fc41092cb81b551e172e4cb963",
         "token": "69E4201BA5A7"
       },
       "horizon-capital/frontend/src/pages/TerminalPage.tsx": {
         "marked": true,
-        "sha256": "75e7420fdc9873be73306a55dfd79cfc835c9fde5bd57bffb49698abc8562a46",
+        "sha256": "e78a15c098c86f98b839bb769ca321088462927d52f8b01a00fc471560b85b55",
         "token": "582A8AB19EC7"
       },
       "horizon-capital/frontend/src/pages/TradesPage.tsx": {
         "marked": true,
-        "sha256": "79628454747a2ab77c693ee33d8da170a98d368c4bc8b0a453c9b369f9012215",
+        "sha256": "32cff7f8d22e62e88773cbd80106a306e101fd483e78dd72f224e4bb2f4cbf01",
         "token": "0C24C9BFB482"
       },
       "horizon-capital/frontend/src/pages/TradingPage.tsx": {
         "marked": true,
-        "sha256": "c13fd63dbd7e12665d40f18ed6928614ca9c4c3c25c0654ba61ebc061070eeff",
+        "sha256": "0c53b82f299abfdfff09ff946fc23f9e0e20dfc517f6f0eb739edea77cb20b62",
         "token": "22777FBB566E"
       },
       "horizon-capital/frontend/src/store/index.ts": {
         "marked": true,
-        "sha256": "939d7025f60aa5e878edfcfcbbd2a8b7f58554d6caabe2d2e4b1b3ff4d96999c",
+        "sha256": "8942ced990f18b74c35c574e96d233611a2b4a3d4a43f1963c6ec74d82bb935b",
         "token": "4AAAA1F9D82C"
       },
       "horizon-capital/frontend/tailwind.config.js": {
@@ -1661,47 +1686,47 @@
       },
       "horizon-capital/frontend/vite.config.ts": {
         "marked": true,
-        "sha256": "777aeba5448f3403f8090425f5209ae63656053f9d3abb4adabc795ba37b0b13",
+        "sha256": "047efc2795098214459eeba2dc7b098c505f7c9edc996e32aabfcc6f143bd792",
         "token": "B839E2D6D4E8"
       },
       "horizon-capital/infrastructure/docker-compose.dev.yml": {
         "marked": true,
-        "sha256": "12237d4b2762651a5e07e2d90e31a34f8887eb377fb9b7ecdc8d9cc1655c6dab",
+        "sha256": "e300099867a44f6f357a73145111e6533cd4dbf85895384be0b63ef88b540a91",
         "token": "8B2BBCE7FEA1"
       },
       "horizon-capital/infrastructure/docker-compose.yml": {
         "marked": true,
-        "sha256": "0e4c56a02139aa22762e13356c690ebdfbc469fbb7d0fdc6baecb969b9613719",
+        "sha256": "2832a65942e82b8a23d03b60cb85a46623d8ce4a084e32ce5bee51f985e7b808",
         "token": "4E2D7219F66A"
       },
       "horizon-capital/infrastructure/postgres/init.sql": {
         "marked": true,
-        "sha256": "3f502824f85d79c197ea5e8a210c9cd45a673267de92adbc501e804c85c65cc8",
+        "sha256": "76c83568bcee5f0ccc0936714bf2a471a0140c428c9463201849e1d75cf135f6",
         "token": "1B847079BA2B"
       },
       "horizon-capital/landing-page/index.html": {
         "marked": true,
-        "sha256": "132708875d6e1c33459904fe2b528f3a499bdcac7051a69342990b47669ba73b",
+        "sha256": "c5435a352fb6c42825ac4aad107ed714e369a575953393288b74f4ee1ef59fb4",
         "token": "A66C3DF26199"
       },
       "horizon-capital/landing-page/src/counter.js": {
         "marked": true,
-        "sha256": "ca94ada87c58ccfc866ada2f29c339939c3575b318d4e4c298e01a4f513eafa9",
+        "sha256": "4ae39a07850240fa4c299d60f1f9e2891ca0c4e691be705ef7497e22b8510ffc",
         "token": "E98B16FD669B"
       },
       "horizon-capital/landing-page/src/main.js": {
         "marked": true,
-        "sha256": "cee0d68cd846d31daac5647b1ec8d529023bf838e05d36d31c954dc7fd8f0580",
+        "sha256": "c148ddf150ade4b74cb152d73b431b657828b3c75025802491dcdea048b74f47",
         "token": "BDCC30D1004A"
       },
       "horizon-capital/landing-page/src/style.css": {
         "marked": true,
-        "sha256": "053ecf5b24db41760ed262eba343383499c087aaa497a3b8307825a9ada675c4",
+        "sha256": "ab982029ae97aaa057acbed83376b0560ac54d06ac5ba17d9e5eb1c01cb2889d",
         "token": "F518AC4498C9"
       },
       "horizon-capital/ml_training/train_drl_strategies.py": {
         "marked": true,
-        "sha256": "04851665c454f62a25149afdfa975316f03d90b6cabbd9c10f71e26692410808",
+        "sha256": "d464194b6126b244fe88217aaebd3783a3186f2f08a8f9ac2a27e428b3217b67",
         "token": "9BD6E2BD0A12"
       },
       "horizon-capital/ml_training/train_hmm_regime.py": {
@@ -1716,170 +1741,170 @@
       },
       "horizon-capital/own research paper/check_widths.py": {
         "marked": true,
-        "sha256": "ad7703b30ef6df8000982f61ef8f14ad342e8a48bb1e9f5f5c2fd58456cd6bef",
+        "sha256": "2518e27e06b79e7a7b18e572909ba9a77249d522aa7a697a4829edf7529176dd",
         "token": "4AD150BAD4A8"
       },
       "horizon-capital/own research paper/verify_numbers.py": {
         "marked": true,
-        "sha256": "4422ebee865617612b5dfec42026540c2415407ad8c34dd91d89eee0ca11b918",
+        "sha256": "909d929f169aa1837b0dcdebd2750150cf345017e9d735eaaac77dda75dccb7e",
         "token": "15A531CF398C"
       },
       "horizon-capital/run.py": {
         "marked": true,
-        "sha256": "15a780607cab52b17a1f7750626cfc7c7c137dffa61398189724504de115abcc",
+        "sha256": "bbab09afd28bdb31716580be0dd57cf04537860526baddea0722209b5627e3aa",
         "token": "31A7BE6D5E91"
       },
       "horizon-capital/run_tests.py": {
         "marked": true,
-        "sha256": "43ec7a4d7328b5f0852e145c23b443a3b7514253dc96acb8659d2426f38e2460",
+        "sha256": "58badb50878af0b9595eb4e808760396d4e92b87a7efc0000097643ebf890e35",
         "token": "D714CA573230"
       },
       "horizon-capital/scripts/authorship.py": {
         "marked": true,
-        "sha256": "103a898288a1316582903d6fe57aca666d3af086b839d9c96a7288c3b42a1a42",
+        "sha256": "caa740c97d47d951f747482074832ff453d401e2403db1a3189d9008962f0203",
         "token": "71B5DAA52ECD"
       },
       "horizon-capital/scripts/backfill_historical.py": {
         "marked": true,
-        "sha256": "5cdc6194c7e7f2d3c568b134e584f6e892f08f98c01bd271bf32b9f1def6f7a5",
+        "sha256": "fee922ec3322eabe153d6128e22141cb3662d7dddaf1d387f44c5d104a7b8338",
         "token": "298760009446"
       },
       "horizon-capital/scripts/bootstrap_db.sh": {
         "marked": true,
-        "sha256": "25c307a22524700bea5f7a1a24897aa99352fe1a8f434bb79526b94e39849052",
+        "sha256": "5bef18647fb917ad0c044607d70722860f1007c2ad9939a74dc623ff81f18539",
         "token": "3037A1E0C414"
       },
       "horizon-capital/scripts/data_sources_strip_pdf.py": {
         "marked": true,
-        "sha256": "fc06fff1f7c07936aae1a814a2f0d5891851d2b3460febfa530e99f051b9be59",
+        "sha256": "4d449e6d196b95469879778e8ca1e5d59af73797ef85594a4e4e54e29bef82a5",
         "token": "C883D1AAFE72"
       },
       "horizon-capital/scripts/generate_user_guide.py": {
         "marked": true,
-        "sha256": "aaf9cebb30c529be83cfb27c9174823d5e377a6d4c0e161ef3b441f40f691520",
+        "sha256": "e37485828d80966e3bf4458ec48c3fa7d11cce9c7410264cd8335da6d95fadaf",
         "token": "F0F7FC9902B3"
       },
       "horizon-capital/scripts/impl_tests_to_pdf.py": {
         "marked": true,
-        "sha256": "d477135e2a2becbb0eb80295197b1ca8259ae977da68663490b37cf20dde7864",
+        "sha256": "ff57a7e1cfd236013c0e8a6e79b41bdf457acc42bd06756a167ab584118ea611",
         "token": "B0DD233D4612"
       },
       "horizon-capital/scripts/md_to_pdf.py": {
         "marked": true,
-        "sha256": "5bd107a0998ccf7e67ac047ecb300db5814ef87b15c0dcbc50419a10bdb1ea41",
+        "sha256": "e49744358eb0209a0f268e05bbd3471ef8050a111fa5cdcd64639d21229c0fff",
         "token": "59F5AC160C1B"
       },
       "horizon-capital/scripts/smoke_test.py": {
         "marked": true,
-        "sha256": "1930798bcfeeb34bcaaeb2c104f0fe5898c5bd02a7b7e6b562da470414d53445",
+        "sha256": "16083f1cdaa11e301866e2b7e3c454587206c751af66ffecda876a83e8946458",
         "token": "2A93CBCA4504"
       },
       "horizon-capital/tests/__init__.py": {
         "marked": true,
-        "sha256": "9dc41d9fb1898508d47bf2114e8c458f50c3e81ceea6353ead8eb03e427f8f28",
+        "sha256": "fa90798de43756e952bfbd487b6281650444e8440bc1e63149d8b00e34bdb7d9",
         "token": "850C99B5DDBF"
       },
       "horizon-capital/tests/conftest.py": {
         "marked": true,
-        "sha256": "49d15610e61d6f7550bc729a76344d0bd853aaf92d1bf1facc65e3140acff2fc",
+        "sha256": "2866e4e76c230d0cf42b22c7ed56be8405c008cc4756be7b17b5d6118ec670fa",
         "token": "83DAD0269783"
       },
       "horizon-capital/tests/integration/__init__.py": {
         "marked": true,
-        "sha256": "2ffb65de0915a5f3183a918fafbc1e9d3adcae4eb01137ef9eac724505f5d7dd",
+        "sha256": "f7f3f920cc740cd7a501055909a919e8e6bc8f0ee4bde504fb5df592b0967c01",
         "token": "0229F0D58EDD"
       },
       "horizon-capital/tests/unit/__init__.py": {
         "marked": true,
-        "sha256": "0976ec0c6f19e9afb6ee4dc638926996f545bb415acb31e86e72331578696768",
+        "sha256": "2281ea4eb23d8b289dbeb4a1fe3d9f295f2ccc7f48275aff08315d275428a6b7",
         "token": "C8B036C9F985"
       },
       "horizon-capital/tests/unit/test_authorship.py": {
         "marked": true,
-        "sha256": "3826696d55e38bbb4f74bf5915347768b46530909aafbbf6d267bc38af462ba0",
+        "sha256": "a082ea78e1c2a94a84c864983a4e8000cf08822371c33f80d5ced04bfed85b45",
         "token": "4C07C29C91CE"
       },
       "horizon-capital/tests/unit/test_drift_detector.py": {
         "marked": true,
-        "sha256": "ba184139fa45ec33d62a2718bd346b3816032f23eb2582e92a35185c3483531d",
+        "sha256": "624ab4ef57057fe7cb33381fcda7910c45741c9503a10fada5478da53d3c48d5",
         "token": "1A2793313AF8"
       },
       "horizon-capital/tests/unit/test_var_calculator.py": {
         "marked": true,
-        "sha256": "d624ba5d38831ae4652b5b45bc445de545b7cd0b3a523ac383e5b9e64ca52eb0",
+        "sha256": "eb3d64fc44178b5829b6823e6e8c76600e7eb49bf6ae2ce507ee6ab703048858",
         "token": "AC82882EF395"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_10_msg_rate.py": {
         "marked": true,
-        "sha256": "e2de164eb6cd59010df0658ea18c271c4b1ac2cdaf53985ea80419c3daf8e034",
+        "sha256": "a65d010c42a6eec71349b6c58b472d14952bb9dc4c7071bd20437b52ce020379",
         "token": "139453CC2E60"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_4_backtest_curves.py": {
         "marked": true,
-        "sha256": "3f2a4690424af03b5544cbc6c3e68ceaf679ddd5b3a80681b129c22a77aa2e1a",
+        "sha256": "86bde87c542e93c629654ce5222a828df30f01e6eb0091ae44cf971c086951d4",
         "token": "6889E1D88CC0"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_5_stress_impact.py": {
         "marked": true,
-        "sha256": "ae21a6aea9e7924153f3012c66c221336639d41c79bbcae10ab0f5c2b1b1d5ef",
+        "sha256": "4290c89137009a63ece615014af98cae23222b557f20f3324e9c2612fe4d64dc",
         "token": "847DAFC66056"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_6_llm_cost.py": {
         "marked": true,
-        "sha256": "deab17e7f89fde3154544054a67aabd0552aaaeba44df1cf560fb778dc8b1f83",
+        "sha256": "50089fa5a561ee8ba29bdfad7a353fa49fff58d64f9718b0df09012ce83a4f6f",
         "token": "953D3F925175"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_7_debate_consensus.py": {
         "marked": true,
-        "sha256": "d0d73b31dac823b8341e8092ad14765e4bb7005156ec4a5e80bfe388341370eb",
+        "sha256": "0d4630a35da014e66d7bd1f551c44ba197034c6d3865117eb091c499d217b794",
         "token": "A1304EC20964"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_8_drawdown_timeline.py": {
         "marked": true,
-        "sha256": "1f2d440a869690aedcf968f24fbdf27c9cbe3e4b4c4255b3fb3b7035a19828c5",
+        "sha256": "3cf068e16cc5434a4da1da69bfc388ea40cf6145e8d0e89813e195224eb8bb18",
         "token": "2B5CF94C5561"
       },
       "horizon-capital/thesis/figures/additions/py/fig_5_9_test_heatmap.py": {
         "marked": true,
-        "sha256": "f19365fa1a90d1ac9b1fc8a9c17d142b53ad35365bbae7dc9688b299e4c2fd71",
+        "sha256": "dd43232485c0e63b660db526eb2d7313f1ca1bc3915bd31acfd792c62efe79df",
         "token": "EAC48D3B56F0"
       },
       "horizon-capital/thesis/figures/py/fig_3_5_almgren_chriss.py": {
         "marked": true,
-        "sha256": "dde3e3ee4eb91a7937b4665a47ff76ba33a741b8ac20b68f355a9e7e04189b3c",
+        "sha256": "aa13bba5e9e65a0edcd67108a1094099e86ef8964c380c64fc2cd9aaee17412c",
         "token": "B65F3460DEF6"
       },
       "horizon-capital/thesis/figures/py/fig_4_5_sleeve_pie.py": {
         "marked": true,
-        "sha256": "b684d33c806a35090ad8f16a95e7f4962906661d66096d236f0d2f91d409929c",
+        "sha256": "337bfc24911a856af4ebaa2a3f1c92d7cd510b217c2f9de2bcf3aa96ecabd462",
         "token": "240C44ED070B"
       },
       "horizon-capital/thesis/figures/py/fig_5_1_test_distribution.py": {
         "marked": true,
-        "sha256": "397b5b9849be6a43e0b4ffe570fe77a6c06f439a9a1e49672f803465eb9327aa",
+        "sha256": "27cf1253a9303a87b04d3865acaa2284d6d69b499db411a2b89140a99fe62e8e",
         "token": "C0094885A05C"
       },
       "horizon-capital/thesis/figures/py/fig_5_2_equity_curve.py": {
         "marked": true,
-        "sha256": "ce2a8b6ed3d95db2d92665a21bf36a6ad37705ecc03bd63cfda05b8497ce05d6",
+        "sha256": "ea624eae9257dca316c65d02374d9157cf9851f16799d8a7401ecccd48f854fc",
         "token": "123CF6D16630"
       },
       "horizon-capital/thesis/figures/py/fig_5_3_gap_distribution.py": {
         "marked": true,
-        "sha256": "a45fb934e7fb07fbf60fb54355a0090865bc9def10f6aa04e5416ec6748ccee5",
+        "sha256": "a4a6f2e3b0394a6c772a7276556f6d4fdf8f0e855519527d7cc9c1f1e56acadb",
         "token": "E583BB79CFCE"
       },
       "horizon-capital/thesis/figures/render_all.py": {
         "marked": true,
-        "sha256": "4c3eb9fa2430d06fdc94dc371da3eca7d25cde11829d4eaa12ed95077241763d",
+        "sha256": "e9789cebddc266e7b7c206127c17655e1a2281684ca8d8b2a3d074841307c5e4",
         "token": "19B20EFBA3F2"
       }
     },
-    "git_head": "dbd458b887eeaa5e0e405a92cadae885ba3a7833",
+    "git_head": "f421bff8440312e97a796f21ba582bc4ec359cdc",
     "project": "Horizon Capital",
     "signature_plaintext": "Aaryan Baadkar <aaryanbaadkar71@gmail.com> github.com/Aaryanxvi",
-    "signed_at": "2026-09-28T06:52:18+00:00"
+    "signed_at": "2026-10-09T23:03:44+00:00"
   },
   "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAJsTyplh00leWFeadz318bSyuhXV932NZKMLzfdBfk5Q=\n-----END PUBLIC KEY-----\n",
-  "signature_hex": "8eff2fb262276054db334a47ab0cc6e92c7a14252a50afea99a6421d96d2d92bdbedc35fe67855b7909951f0abccd119b854509f0847e670a8f6231e7aabe303"
+  "signature_hex": "d61dce289d78ceb49ae49ae639e8a58a890f7bcd858df7d12728695601847391be9be032567e7a2bd1af4aea411f01d96188c8465f5a3e49f4161f5a64c51900"
 }
