@@ -77,16 +77,20 @@ async def init_local_db() -> None:
 _SAFE_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
-def _migrate_table(conn, table: str, required_col: str) -> None:  # noqa: ANN001
+def _migrate_table(conn, table: str, required_col: str, col_type: str = "TEXT") -> None:  # noqa: ANN001
     """Add a missing column to an existing table (non-destructive migration)."""
-    if not _SAFE_IDENTIFIER.match(table) or not _SAFE_IDENTIFIER.match(required_col):
+    if (
+        not _SAFE_IDENTIFIER.match(table)
+        or not _SAFE_IDENTIFIER.match(required_col)
+        or not _SAFE_IDENTIFIER.match(col_type)
+    ):
         return
     try:
         cols = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()  # noqa: S608
         col_names = {row[1] for row in cols}
         if cols and required_col not in col_names:
             conn.execute(
-                text(f"ALTER TABLE {table} ADD COLUMN {required_col} TEXT DEFAULT NULL")  # noqa: S608
+                text(f"ALTER TABLE {table} ADD COLUMN {required_col} {col_type} DEFAULT NULL")  # noqa: S608
             )
     except Exception:
         pass
@@ -160,7 +164,20 @@ def _create_tables(conn) -> None:  # noqa: ANN001
     """))
 
     # --- Orders, fills, positions (matches ORM in trades.py) ---
-    _migrate_table(conn, "positions", "stop_loss_price")
+    _migrate_table(conn, "positions", "stop_loss_price", "REAL")
+    # Trailing stop state: high-water mark since entry, the broker's resting
+    # trailing_stop order id (ALPACA), and the stopped-out marker that blocks
+    # reconcile from re-buying until the sleeve emits a fresh BUY.
+    _migrate_table(conn, "positions", "high_water_mark", "REAL")
+    _migrate_table(conn, "positions", "stop_order_id", "TEXT")
+    _migrate_table(conn, "positions", "stopped_out", "INTEGER")
+    # Which broker produced the fill / holds the position (PAPER vs ALPACA):
+    # a simulated row must be tellable from a real one in the same ledger.
+    _migrate_table(conn, "positions", "broker", "TEXT")
+    _migrate_table(conn, "fills", "broker", "TEXT")
+    # Which strategy produced the order ("stop_loss" matters: its fill marks the
+    # position stopped-out even when booked later by the Alpaca poller).
+    _migrate_table(conn, "orders", "strategy_name", "TEXT")
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY,
@@ -176,6 +193,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
             mode TEXT NOT NULL,
             signal_id TEXT,
             debate_id TEXT,
+            strategy_name TEXT,
             broker_order_id TEXT,
             rejection_reason TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -202,6 +220,7 @@ def _create_tables(conn) -> None:  # noqa: ANN001
             commission REAL DEFAULT 0.0,
             slippage REAL DEFAULT 0.0,
             filled_at TIMESTAMP NOT NULL,
+            broker TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -222,6 +241,10 @@ def _create_tables(conn) -> None:  # noqa: ANN001
             weight_pct REAL DEFAULT 0.0,
             currency TEXT DEFAULT 'USD',
             stop_loss_price REAL DEFAULT NULL,
+            high_water_mark REAL DEFAULT NULL,
+            stop_order_id TEXT DEFAULT NULL,
+            stopped_out INTEGER DEFAULT NULL,
+            broker TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (symbol, exchange)

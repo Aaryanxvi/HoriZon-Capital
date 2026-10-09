@@ -21,6 +21,47 @@ def _is_crypto_symbol(symbol: str) -> bool:
     return symbol.endswith(("-USD", "-USDT"))
 
 
+def is_us_equity(symbol: str, exchange: str = "") -> bool:
+    """True for a US-listed stock/ETF -- the only instruments Alpaca may route.
+
+    Crypto, Polymarket and NSE/BSE names are excluded by suffix AND exchange so
+    a mislabelled order cannot slip through on one of the two.
+    """
+    if _is_crypto_symbol(symbol) or symbol.endswith(".POLY"):
+        return False
+    if symbol.endswith((".NSE", ".BSE", ".NS", ".BO")):
+        return False
+    return exchange.upper() not in ("NSE", "BSE", "CRYPTO", "POLY")
+
+
+def _qty_str(qty: float) -> str:
+    """Alpaca treats "10.0" as a fractional request; whole shares go as "10"."""
+    q = float(qty)
+    return str(int(q)) if q == int(q) else str(q)
+
+
+def _parse_order(data: dict) -> dict:
+    """Shape every Alpaca order payload the same way for the agent."""
+    return {
+        "broker_order_id": data.get("id", ""),
+        "client_order_id": data.get("client_order_id", ""),
+        "symbol": data.get("symbol", ""),
+        "side": data.get("side", ""),
+        "type": data.get("type") or data.get("order_type"),
+        "status": data.get("status"),
+        "qty": float(data.get("qty") or 0),
+        "filled_qty": float(data.get("filled_qty") or 0),
+        "filled_avg_price": float(data.get("filled_avg_price") or 0),
+        "filled_at": data.get("filled_at"),
+        "hwm": float(data["hwm"]) if data.get("hwm") else None,
+        "stop_price": float(data["stop_price"]) if data.get("stop_price") else None,
+    }
+
+
+# Alpaca statuses after which an order can no longer fill.
+TERMINAL_STATUSES = frozenset({"filled", "canceled", "expired", "rejected", "replaced"})
+
+
 class AlpacaBroker:
     """Async broker that routes orders to Alpaca (paper or live).
 
@@ -146,7 +187,7 @@ class AlpacaBroker:
 
         payload: dict = {
             "symbol": alpaca_symbol,
-            "qty": str(qty),
+            "qty": _qty_str(qty),
             "side": side,
             "type": order_type,
             "time_in_force": "gtc" if is_crypto else "day",
@@ -160,53 +201,106 @@ class AlpacaBroker:
         if order_type == "limit" and order.get("limit_price"):
             payload["limit_price"] = str(order["limit_price"])
 
+        data = await self._post_order(payload)
+        if data is None:
+            return None
+        parsed = _parse_order(data)
+        logger.info(
+            "alpaca_order_placed",
+            broker_order_id=parsed["broker_order_id"], symbol=alpaca_symbol,
+            side=side, qty=qty, status=parsed["status"],
+        )
+        # Alpaca orders are often not immediately filled; return what we know
+        return {
+            "order_id": order_id,
+            "broker_order_id": parsed["broker_order_id"],
+            "filled_qty": parsed["filled_qty"],
+            "fill_price": parsed["filled_avg_price"],
+            "commission": 0.0,
+            "slippage": 0.0,
+            "filled_at": parsed["filled_at"] or datetime.now(UTC).isoformat(),
+            "broker": "ALPACA",
+            "alpaca_status": parsed["status"],
+        }
+
+    async def place_trailing_stop(
+        self, symbol: str, qty: float, trail_percent: float, client_order_id: str,
+    ) -> dict | None:
+        """Rest a GTC trailing-stop SELL at Alpaca for a long US equity.
+
+        Alpaca fields (docs.alpaca.markets/reference/postorder): ``type``
+        ``trailing_stop``, ``trail_percent`` (or ``trail_price``), ``time_in_force``
+        ``day``|``gtc``. Fractional qty is NOT accepted for trailing stops, so
+        the caller passes whole shares. Returns the parsed order or None.
+        """
+        whole = int(qty)
+        if whole < 1 or not is_us_equity(symbol):
+            return None
+        payload = {
+            "symbol": symbol.split(".")[0],
+            "qty": str(whole),
+            "side": "sell",
+            "type": "trailing_stop",
+            "trail_percent": str(round(float(trail_percent), 2)),
+            "time_in_force": "gtc",
+            "client_order_id": client_order_id,
+        }
+        data = await self._post_order(payload)
+        if data is None:
+            return None
+        parsed = _parse_order(data)
+        logger.info(
+            "alpaca_trailing_stop_placed",
+            broker_order_id=parsed["broker_order_id"], symbol=payload["symbol"],
+            qty=whole, trail_percent=trail_percent, status=parsed["status"],
+        )
+        return parsed
+
+    async def _post_order(self, payload: dict) -> dict | None:
+        """POST /v2/orders. None on HTTP error or non-2xx (caller decides)."""
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.base_url}/v2/orders",
-                    json=payload,
+                    f"{self.base_url}/v2/orders", json=payload, headers=self.headers,
+                )
+            if response.status_code in (200, 201):
+                return response.json()
+            logger.error(
+                "alpaca_order_error",
+                status_code=response.status_code, body=response.text,
+                symbol=payload.get("symbol"), type=payload.get("type"),
+            )
+            return None
+        except httpx.HTTPError as exc:
+            logger.error("alpaca_http_error", error=str(exc), symbol=payload.get("symbol"))
+            return None
+
+    async def get_order_by_client_id(self, client_order_id: str) -> dict | None:
+        """Resolve an order by OUR id after an ambiguous POST (timeout etc.).
+
+        GET /v2/orders:by_client_order_id?client_order_id=... Returns the
+        parsed order with ``found=True``, ``{"found": False}`` on a definitive
+        404 (the POST never landed), or None when the broker is unreachable --
+        callers must NOT treat None as "not placed".
+        """
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/v2/orders:by_client_order_id",
+                    params={"client_order_id": client_order_id},
                     headers=self.headers,
                 )
-
-            if response.status_code in (200, 201):
-                data = response.json()
-                broker_order_id = data.get("id", "")
-
-                logger.info(
-                    "alpaca_order_placed",
-                    broker_order_id=broker_order_id,
-                    symbol=alpaca_symbol,
-                    side=side,
-                    qty=qty,
-                    status=data.get("status"),
-                )
-
-                # Alpaca orders are often not immediately filled; return what we know
-                filled_qty = float(data.get("filled_qty") or 0)
-                filled_avg = float(data.get("filled_avg_price") or 0)
-
-                return {
-                    "order_id": order_id,
-                    "broker_order_id": broker_order_id,
-                    "filled_qty": filled_qty,
-                    "fill_price": filled_avg,
-                    "commission": 0.0,
-                    "slippage": 0.0,
-                    "filled_at": data.get("filled_at") or datetime.now(UTC).isoformat(),
-                    "broker": "ALPACA",
-                    "alpaca_status": data.get("status"),
-                }
-            else:
-                logger.error(
-                    "alpaca_order_error",
-                    status_code=response.status_code,
-                    body=response.text,
-                    symbol=alpaca_symbol,
-                )
-                return None
-
+            if resp.status_code == 200:
+                return {**_parse_order(resp.json()), "found": True}
+            if resp.status_code == 404:
+                return {"found": False}
+            logger.warning(
+                "alpaca_lookup_error", client_order_id=client_order_id,
+                status_code=resp.status_code,
+            )
+            return None
         except httpx.HTTPError as exc:
-            logger.error("alpaca_http_error", error=str(exc), symbol=alpaca_symbol)
+            logger.error("alpaca_lookup_http_error", error=str(exc))
             return None
 
     # ------------------------------------------------------------------ #
@@ -223,14 +317,7 @@ class AlpacaBroker:
                 )
 
             if response.status_code == 200:
-                data = response.json()
-                return {
-                    "broker_order_id": broker_order_id,
-                    "status": data.get("status"),
-                    "filled_qty": float(data.get("filled_qty") or 0),
-                    "filled_avg_price": float(data.get("filled_avg_price") or 0),
-                    "filled_at": data.get("filled_at"),
-                }
+                return {**_parse_order(response.json()), "broker_order_id": broker_order_id}
             else:
                 logger.warning(
                     "alpaca_status_error",
@@ -256,8 +343,34 @@ class AlpacaBroker:
             logger.error("alpaca_cancel_error", error=str(exc))
             return False
 
-    async def get_positions(self) -> list[dict]:
-        """Fetch current positions from Alpaca."""
+    async def cancel_and_wait(self, broker_order_id: str, timeout_sec: float = 5.0) -> dict | None:
+        """Cancel an order and wait until Alpaca reports a terminal status.
+
+        Cancellation is asynchronous at Alpaca; a SELL sent while a resting
+        stop on the same shares is still ``pending_cancel`` is rejected for
+        insufficient qty. Returns the final status dict (``filled`` means the
+        stop fired while we were cancelling -- the caller must book it), or
+        None if it never settled within the timeout.
+        """
+        await self.cancel_order(broker_order_id)
+        import asyncio
+
+        deadline = asyncio.get_event_loop().time() + timeout_sec
+        while True:
+            status = await self.get_order_status(broker_order_id)
+            if status is not None and status.get("status") in TERMINAL_STATUSES:
+                return status
+            if asyncio.get_event_loop().time() >= deadline:
+                return status
+            await asyncio.sleep(0.5)
+
+    async def get_positions(self) -> list[dict] | None:
+        """Fetch current positions from Alpaca.
+
+        Returns None when the broker did not answer (HTTP error or non-200) --
+        distinct from an empty list, because the ledger sync treats the broker
+        as the source of truth and must never read "unreachable" as "flat".
+        """
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(
@@ -277,15 +390,30 @@ class AlpacaBroker:
                         {
                             "symbol": raw_sym,
                             "qty": float(p["qty"]),
+                            "qty_available": float(p.get("qty_available") or p["qty"]),
                             "avg_entry": float(p["avg_entry_price"]),
                             "current_price": float(p["current_price"]),
                             "side": "LONG" if float(p["qty"]) > 0 else "SHORT",
+                            "exchange": str(p.get("exchange") or ""),
+                            "asset_class": str(p.get("asset_class") or "us_equity"),
                         }
                     )
                 return positions
-            return []
+            logger.error("alpaca_positions_error", status_code=resp.status_code)
+            return None
         except httpx.HTTPError as exc:
             logger.error("alpaca_positions_error", error=str(exc))
-            return []
+            return None
+
+    async def get_position_qty(self, symbol: str) -> float | None:
+        """Total long qty the broker holds for ``symbol`` (0 if none); None if unreachable."""
+        positions = await self.get_positions()
+        if positions is None:
+            return None
+        base = symbol.split(".")[0] if "." in symbol and not _is_crypto_symbol(symbol) else symbol
+        for p in positions:
+            if p["symbol"].upper() == base.upper():
+                return float(p["qty"])
+        return 0.0
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token 05F984F305E4 - verify with scripts/authorship.py verify

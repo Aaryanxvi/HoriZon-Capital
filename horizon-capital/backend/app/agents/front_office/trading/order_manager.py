@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import text
 
+from app.config import settings
 from app.core.logging import get_logger
 
 
@@ -20,6 +21,14 @@ def _get_session_factory():
     return get_session_factory()
 
 logger = get_logger("execution.order_manager")
+
+
+def trailing_stop_price(high_water_mark: float | None) -> float | None:
+    """Stop level for a long: HWM x (1 - STOP_LOSS_TRAIL_PCT). None when disabled."""
+    pct = float(settings.stop_loss_trail_pct or 0.0)
+    if pct <= 0 or not high_water_mark or high_water_mark <= 0:
+        return None
+    return round(float(high_water_mark) * (1.0 - pct / 100.0), 6)
 
 
 # Valid state transitions
@@ -91,11 +100,11 @@ class OrderManager:
                     INSERT INTO orders
                         (id, symbol, exchange, order_type, side, quantity,
                          limit_price, stop_price, status, broker, mode,
-                         signal_id, debate_id, created_at, updated_at)
+                         signal_id, debate_id, strategy_name, created_at, updated_at)
                     VALUES
                         (:id, :symbol, :exchange, :order_type, :side, :quantity,
                          :limit_price, :stop_price, 'PENDING', :broker, :mode,
-                         :signal_id, :debate_id, :now, :now)
+                         :signal_id, :debate_id, :strategy_name, :now, :now)
                     """
                 ),
                 {
@@ -111,6 +120,7 @@ class OrderManager:
                     "mode": order_data.get("mode", "PAPER_TRADING"),
                     "signal_id": order_data.get("signal_id"),
                     "debate_id": order_data.get("debate_id"),
+                    "strategy_name": order_data.get("strategy_name"),
                     "now": now,
                 },
             )
@@ -229,12 +239,16 @@ class OrderManager:
         commission: float = 0.0,
         slippage: float = 0.0,
         *,
+        broker: str | None = None,
         session=None,
     ) -> dict:
         """Record a fill against an order and return the fill record.
 
         Parameters
         ----------
+        broker:
+            Who produced the fill (PAPER / ALPACA / POLYMARKET) -- tagged on the
+            row so simulated and real fills are tellable apart.
         session:
             Optional caller-owned session.  When provided, the method does NOT
             commit.
@@ -248,10 +262,10 @@ class OrderManager:
                     """
                     INSERT INTO fills
                         (id, order_id, filled_qty, fill_price, commission,
-                         slippage, filled_at, created_at, updated_at)
+                         slippage, filled_at, broker, created_at, updated_at)
                     VALUES
                         (:id, :order_id, :qty, :price, :commission,
-                         :slippage, :now, :now, :now)
+                         :slippage, :now, :broker, :now, :now)
                     """
                 ),
                 {
@@ -261,6 +275,7 @@ class OrderManager:
                     "price": price,
                     "commission": commission,
                     "slippage": slippage,
+                    "broker": broker,
                     "now": now,
                 },
             )
@@ -298,6 +313,8 @@ class OrderManager:
         stop_loss_price: float | None = None,
         *,
         commission: float = 0.0,
+        stopped_out: bool = False,
+        broker: str | None = None,
         session=None,
     ) -> None:
         """Upsert into the positions table after a fill.
@@ -309,10 +326,17 @@ class OrderManager:
         side:  ``BUY`` or ``SELL``.
         qty:  Filled quantity.
         price:  Fill price.
+        stop_loss_price:
+            Explicit stop from the signal. When None and STOP_LOSS_TRAIL_PCT > 0
+            a BUY arms/ratchets the trailing stop from the high-water mark.
         commission:
             Commission paid on this fill. Reduces realized_pnl on every fill
             (opening legs included), so lifetime realized_pnl == gross
             trading P&L minus all commissions paid — matching cash exactly.
+        stopped_out:
+            True when this SELL is a stop-loss exit: the flat row keeps a
+            ``stopped_out=1`` marker so PortfolioAgent._reconcile does not buy
+            the name straight back; the next BUY fill clears it.
         session:
             Optional caller-owned session.  When provided, the method does NOT
             commit.
@@ -326,7 +350,8 @@ class OrderManager:
             # Fetch existing position
             result = await s.execute(
                 text(
-                    "SELECT id, side, quantity, avg_entry_price, realized_pnl"
+                    "SELECT id, side, quantity, avg_entry_price, realized_pnl,"
+                    " high_water_mark, stop_loss_price"
                     " FROM positions WHERE symbol = :sym AND exchange = :exch LIMIT 1"
                 ),
                 {"sym": symbol, "exch": exchange},
@@ -336,19 +361,21 @@ class OrderManager:
             if existing is None:
                 # Create new position
                 pos_side = "LONG" if side == "BUY" else "SHORT"
+                hwm = price if side == "BUY" else None
+                stop = stop_loss_price if stop_loss_price else trailing_stop_price(hwm)
                 await s.execute(
                     text(
                         """
                         INSERT INTO positions
                             (id, symbol, exchange, side, quantity, avg_entry_price,
                              current_price, unrealized_pnl, realized_pnl,
-                             weight_pct, currency, stop_loss_price,
-                             created_at, updated_at)
+                             weight_pct, currency, stop_loss_price, high_water_mark,
+                             broker, created_at, updated_at)
                         VALUES
                             (:id, :symbol, :exchange, :side, :qty,
                              :price, :price, 0.0, :realized,
-                             0.0, :currency, :stop_loss,
-                             :now, :now)
+                             0.0, :currency, :stop_loss, :hwm,
+                             :broker, :now, :now)
                         """
                     ),
                     {
@@ -360,7 +387,9 @@ class OrderManager:
                         "price": price,
                         "realized": -commission,
                         "currency": currency,
-                        "stop_loss": stop_loss_price,
+                        "stop_loss": stop,
+                        "hwm": hwm,
+                        "broker": broker,
                         "now": now,
                     },
                 )
@@ -369,10 +398,14 @@ class OrderManager:
                 old_qty = existing.quantity
                 old_avg = existing.avg_entry_price
                 old_realized = existing.realized_pnl or 0.0
+                old_hwm = existing.high_water_mark
+                new_hwm = old_hwm
+                new_stop = stop_loss_price  # None -> keep/ratchet below
+                new_stopped = None  # NULL unless this SELL is a stop exit
 
                 if side == "BUY":
-                    if existing.side == "LONG":
-                        # Adding to long
+                    if existing.side == "LONG" or old_qty <= 0:
+                        # Adding to long (or re-entering a flat/stopped-out row)
                         new_qty = old_qty + qty
                         new_avg = (
                             ((old_avg * old_qty) + (price * qty)) / new_qty
@@ -380,6 +413,12 @@ class OrderManager:
                         )
                         new_side = "LONG"
                         realized_delta = 0.0
+                        # Fresh entry resets the HWM; an add ratchets it.
+                        new_hwm = price if old_qty <= 0 else max(old_hwm or 0.0, price)
+                        if not new_stop:
+                            trail = trailing_stop_price(new_hwm)
+                            prev = existing.stop_loss_price if old_qty > 0 else None
+                            new_stop = max(prev or 0.0, trail or 0.0) or None
                     else:
                         # Covering short
                         new_qty = old_qty - qty
@@ -389,6 +428,7 @@ class OrderManager:
                         new_qty = abs(new_qty)
                         if new_side == "LONG":
                             new_avg = price
+                        new_stop = new_stop or existing.stop_loss_price
                 elif side == "SELL":
                     if existing.side == "LONG":
                         # Selling long — clamp to held quantity. Oversized SELL
@@ -399,6 +439,13 @@ class OrderManager:
                         new_avg = old_avg
                         realized_delta = (price - old_avg) * effective_qty
                         new_side = "LONG" if new_qty > 0 else "FLAT"
+                        if new_qty <= 0:
+                            # Flat: disarm. Keep the row (UNIQUE symbol/exchange)
+                            # with the stopped-out marker if this was a stop.
+                            new_hwm, new_stop = None, None
+                            new_stopped = 1 if stopped_out else None
+                        elif not new_stop:
+                            new_stop = existing.stop_loss_price
                     else:
                         # Adding to short
                         new_qty = old_qty + qty
@@ -408,10 +455,14 @@ class OrderManager:
                         )
                         new_side = "SHORT"
                         realized_delta = 0.0
+                        new_stop = new_stop or existing.stop_loss_price
                 else:
                     return
 
                 new_realized = old_realized + realized_delta - commission
+                if side == "BUY" and new_side == "LONG" and new_hwm is None:
+                    new_hwm = price  # covering a short into a long
+                flat = new_qty <= 0
 
                 await s.execute(
                     text(
@@ -419,7 +470,11 @@ class OrderManager:
                         UPDATE positions
                         SET side = :side, quantity = :qty, avg_entry_price = :avg,
                             current_price = :price, realized_pnl = :realized,
-                            stop_loss_price = COALESCE(:stop_loss, stop_loss_price),
+                            stop_loss_price = :stop_loss,
+                            high_water_mark = :hwm,
+                            stop_order_id = CASE WHEN :flat THEN NULL ELSE stop_order_id END,
+                            stopped_out = :stopped,
+                            broker = COALESCE(:broker, broker),
                             updated_at = :now
                         WHERE id = :id
                         """
@@ -431,7 +486,11 @@ class OrderManager:
                         "avg": new_avg,
                         "price": price,
                         "realized": new_realized,
-                        "stop_loss": stop_loss_price,
+                        "stop_loss": new_stop if not flat else None,
+                        "hwm": new_hwm if not flat else None,
+                        "flat": 1 if flat else 0,
+                        "stopped": new_stopped,
+                        "broker": broker,
                         "now": now,
                     },
                 )
@@ -439,6 +498,39 @@ class OrderManager:
         await self._run_in_session(_do, session)
 
         logger.info("position_updated", symbol=symbol, side=side, qty=qty, price=price)
+
+    async def set_stop_order_id(
+        self, symbol: str, exchange: str, stop_order_id: str | None, *, session=None,
+    ) -> None:
+        """Record (or clear) the broker-side resting stop order for a position."""
+
+        async def _do(s):
+            await s.execute(
+                text(
+                    "UPDATE positions SET stop_order_id = :soid, updated_at = :now"
+                    " WHERE symbol = :sym AND exchange = :exch"
+                ),
+                {"soid": stop_order_id, "now": datetime.now(UTC),
+                 "sym": symbol, "exch": exchange},
+            )
+
+        await self._run_in_session(_do, session)
+
+    async def get_position(self, symbol: str, exchange: str, *, session=None):
+        """Row for (symbol, exchange) with the stop columns, or None."""
+
+        async def _do(s):
+            result = await s.execute(
+                text(
+                    "SELECT id, side, quantity, avg_entry_price, stop_loss_price,"
+                    " high_water_mark, stop_order_id, stopped_out"
+                    " FROM positions WHERE symbol = :sym AND exchange = :exch LIMIT 1"
+                ),
+                {"sym": symbol, "exch": exchange},
+            )
+            return result.fetchone()
+
+        return await self._run_in_session(_do, session)
 
     # ------------------------------------------------------------------ #
     # Internal helpers

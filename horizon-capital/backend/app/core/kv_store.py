@@ -123,7 +123,9 @@ class PersistentKVStore(MemoryKVStore):
                 )
                 await session.commit()
         except Exception as exc:
-            logger.debug("kv_persist_error", key=key, error=str(exc))
+            # The persisted keys include the kill switch: a silent failure here
+            # means a restart comes back trading. Loud, never debug.
+            logger.error("kv_persist_error", key=key, error=str(exc))
 
     async def _delete_persisted(self, key: str) -> None:
         """Remove a key from the SQLite kv_cache table."""
@@ -137,7 +139,7 @@ class PersistentKVStore(MemoryKVStore):
                 )
                 await session.commit()
         except Exception as exc:
-            logger.debug("kv_delete_persist_error", key=key, error=str(exc))
+            logger.error("kv_delete_persist_error", key=key, error=str(exc))
 
     async def restore(self) -> None:
         """On startup, load persisted keys from SQLite."""

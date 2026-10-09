@@ -50,6 +50,11 @@ class BaseAgent(abc.ABC):
         self.logger = get_logger(f"agent.{agent_type}.{agent_id}")
         self._running: bool = False
         self._heartbeat_task: asyncio.Task | None = None
+        # Set once _subscribe() has run. The orchestrator restarts a crashed
+        # agent by calling start() again on the SAME instance; subscribing a
+        # second time would double every handler (the bus de-dupes too, but
+        # this keeps the contract explicit at the source).
+        self._subscribed: bool = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -59,7 +64,9 @@ class BaseAgent(abc.ABC):
         """Boot the agent: register, subscribe, launch heartbeat + main loop."""
         self._running = True
         await self._register()
-        await self._subscribe()
+        if not self._subscribed:
+            await self._subscribe()
+            self._subscribed = True
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         self.logger.info("agent_started", agent_id=self.agent_id)
         try:

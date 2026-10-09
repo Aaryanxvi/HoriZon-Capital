@@ -23,6 +23,9 @@ logger = get_logger("worker.agent_orchestrator")
 MAX_RETRIES = 3
 HEALTH_CHECK_INTERVAL = 30  # seconds
 HEARTBEAT_TIMEOUT = 60  # seconds without heartbeat = unhealthy
+# Losing any of these means new risk can no longer be gated or booked
+# correctly: the orchestrator halts BUYs and raises CRITICAL, not a log line.
+RISK_CRITICAL_AGENTS = frozenset({"risk-agent", "portfolio-agent", "execution-agent"})
 
 
 class _AgentSlot:
@@ -254,6 +257,7 @@ class AgentOrchestrator:
                 retries=slot.retries,
             )
             slot.status = "DEAD"
+            await self._on_agent_dead(slot)
             return
 
         slot.retries += 1
@@ -273,6 +277,45 @@ class AgentOrchestrator:
         # Re-launch
         slot.agent._running = False  # reset internal flag
         await self._launch_agent(slot)
+
+    async def _on_agent_dead(self, slot: _AgentSlot) -> None:
+        """A risk-critical agent is gone for good: halt new BUYs + CRITICAL alert.
+
+        Exits still flow (PortfolioAgent takes them straight from the signal
+        channel; ExecutionAgent lets reduce-only SELLs through while halted),
+        so this freezes new risk without freezing the book.
+        """
+        agent_id = slot.agent.agent_id
+        if agent_id not in RISK_CRITICAL_AGENTS:
+            return
+        from app.core.messaging import MessageType
+
+        try:
+            from app.core.kv_store import get_kv_store
+            kv = get_kv_store()
+            await kv.set("horizon:system:halted", "1")
+            await kv.set("horizon:system:halt_reason",
+                         f"{agent_id} DEAD after {slot.retries} restarts")
+        except Exception as exc:
+            logger.error("agent_dead_halt_persist_failed", agent_id=agent_id, error=str(exc))
+        try:
+            await self.bus.publish(AgentMessage(
+                sender_id="agent-orchestrator",
+                channel="horizon.risk.alert",
+                message_type=MessageType.RISK_ALERT,
+                payload={
+                    "action": "AGENT_DEAD",
+                    "reason": "agent_dead",
+                    "agent_id": agent_id,
+                    "retries": slot.retries,
+                    "severity": "CRITICAL",
+                    "message": f"{agent_id} is DEAD; BUYs halted, exits still flow",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            ))
+        except Exception as exc:
+            logger.error("agent_dead_alert_failed", agent_id=agent_id, error=str(exc))
+        logger.error("risk_critical_agent_dead_halted", agent_id=agent_id)
 
     # ------------------------------------------------------------------
     # Health monitoring

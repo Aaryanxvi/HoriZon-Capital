@@ -38,10 +38,17 @@ class MemoryBus:
         return count
 
     async def subscribe(self, channel: str, handler: MessageHandler) -> None:
-        """Register a handler for a channel (supports glob patterns)."""
-        if channel not in self._handlers:
-            self._handlers[channel] = []
-        self._handlers[channel].append(handler)
+        """Register a handler for a channel (supports glob patterns).
+
+        Idempotent per (channel, handler): an agent restarted by the
+        orchestrator re-runs ``_subscribe()``, and a second registration of
+        the same bound method would make it handle every message twice
+        (two orders per ORDER_NEW). Bound methods compare equal by
+        ``__self__``/``__func__``, so ``in`` is the right check.
+        """
+        handlers = self._handlers.setdefault(channel, [])
+        if handler not in handlers:
+            handlers.append(handler)
 
     async def unsubscribe(self, channel: str) -> None:
         """Remove all handlers for a channel."""

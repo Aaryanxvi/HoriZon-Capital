@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from app.agents.base_agent import BaseAgent
 from app.agents.front_office.portfolio.currency import CurrencyConverter
+from app.agents.front_office.trading.alpaca_broker import is_us_equity
 from app.config import settings
 from app.core.logging import get_logger
 from app.core.messaging import AgentBus, AgentMessage, MessageType
@@ -45,8 +46,15 @@ class PortfolioAgent(BaseAgent):
     PENDING_APPROVAL orders for the CIO to approve/reject via the REPL.
 
     Subscribes to:
-      - ``horizon.risk.approved.*``  -- risk-gated signals
+      - ``horizon.risk.approved.*``  -- risk-gated BUY signals
+      - ``horizon.signal.*``         -- exits (direction < 0) taken DIRECTLY, so a
+                                        dead RiskAgent can never block an exit
       - ``horizon.debate.*``         -- debate conclusions
+      - ``horizon.execution.order.update`` -- rejections clear the qty de-dup
+
+    Exits (owner decision 2026-10-10) bypass the kill switch, the debate gate,
+    the bar/cooldown de-dup and -- for stop-losses -- the qty de-dup. The only
+    gate left on an exit is ExecutionAgent's reduce-only check.
 
     Publishes:
       - ``horizon.portfolio.update``  -- after each snapshot refresh
@@ -90,8 +98,10 @@ class PortfolioAgent(BaseAgent):
 
     async def _subscribe(self) -> None:
         await self.bus.subscribe("horizon.risk.approved.*", self.on_message)
+        await self.bus.subscribe("horizon.signal.*", self.on_message)
         await self.bus.subscribe("horizon.debate.*", self.on_message)
         await self.bus.subscribe("horizon.execution.order.fill", self.on_message)
+        await self.bus.subscribe("horizon.execution.order.update", self.on_message)
     # ------------------------------------------------------------------ #
     # Main loop -- snapshot every 60 seconds
     # ------------------------------------------------------------------ #
@@ -113,8 +123,16 @@ class PortfolioAgent(BaseAgent):
     # ------------------------------------------------------------------ #
 
     async def on_message(self, message: AgentMessage) -> None:
-        """Handle risk-approved signals and debate conclusions."""
+        """Handle signals, debate conclusions, fills and rejections."""
         if message.message_type == MessageType.SIGNAL:
+            direction = int(message.payload.get("direction", 0) or 0)
+            if message.channel.startswith("horizon.signal."):
+                # Raw channel: exits only. BUYs wait for RiskAgent's approval.
+                if direction < 0:
+                    await self._handle_signal(message.payload)
+                return
+            if direction < 0:
+                return  # exit already taken from horizon.signal.* -- never twice
             await self._handle_signal(message.payload)
         elif message.message_type == MessageType.DEBATE_CONCLUSION:
             await self._handle_debate_conclusion(message.payload)
@@ -123,12 +141,19 @@ class PortfolioAgent(BaseAgent):
                 await self._update_snapshot()
             except Exception as exc:
                 logger.error("snapshot_on_fill_error", error=str(exc))
+        elif message.message_type == MessageType.ORDER_CANCEL:
+            # Downstream rejected/cancelled: forget the last emitted qty so an
+            # identical re-size (a stop re-firing, reconcile) is not de-duped.
+            p = message.payload
+            if p.get("status") in ("REJECTED", "CANCELLED") and p.get("symbol"):
+                self._last_emitted_qty.pop((p["symbol"], str(p.get("side", "")).upper()), None)
 
     async def _handle_signal(self, payload: dict) -> None:
-        """Buffer or immediately process a risk-approved signal depending on mode."""
-        direction = payload.get("direction", 0)
+        """Buffer or immediately process a signal depending on mode and side."""
+        direction = int(payload.get("direction", 0) or 0)
         if direction == 0:
             return
+        is_exit = direction < 0
 
         # Stop-loss is a risk-REDUCING exit, not a discretionary trade. It must
         # bypass the halt block, signal dedup, the 120s cooldown, and the debate
@@ -138,9 +163,10 @@ class PortfolioAgent(BaseAgent):
             await self._size_and_emit(payload, debate_id=None)
             return
 
-        # Kill switch enforcement — hard stop, no new orders when halted
+        # Kill switch: no NEW risk when halted. Exits keep flowing (owner
+        # decision: halt stops buys, never freezes a losing book).
         halted = await self.redis.get("horizon:system:halted")
-        if halted == "1":
+        if halted == "1" and not is_exit:
             logger.warning("signal_blocked_system_halted",
                            symbol=payload.get("symbol"))
             return
@@ -161,19 +187,22 @@ class PortfolioAgent(BaseAgent):
             logger.debug("signal_deduped_signal_id", signal_id=signal_id)
             return
 
-        # Dedup: one order per symbol per bar. Strategy agent now stamps
-        # bar_timestamp; fall back to 120s cooldown if unavailable.
+        # Dedup: one BUY per symbol per bar. Strategy agent now stamps
+        # bar_timestamp; fall back to 120s cooldown if unavailable. Exits are
+        # exempt -- a risk-off SELL must not be dropped because a BUY for the
+        # same name went out seconds earlier.
         symbol = payload.get("symbol", "")
         bar_ts = payload.get("bar_timestamp") or ""
         now = datetime.now(UTC)
         last_bar = self._last_order_bar.get(symbol)
         last = self._last_order_time.get(symbol)
-        if bar_ts and last_bar == bar_ts:
-            logger.debug("signal_deduped_bar", symbol=symbol, bar=bar_ts)
-            return
-        if not bar_ts and last and (now - last) < self._order_cooldown:
-            logger.debug("signal_deduped_cooldown", symbol=symbol)
-            return
+        if not is_exit:
+            if bar_ts and last_bar == bar_ts:
+                logger.debug("signal_deduped_bar", symbol=symbol, bar=bar_ts)
+                return
+            if not bar_ts and last and (now - last) < self._order_cooldown:
+                logger.debug("signal_deduped_cooldown", symbol=symbol)
+                return
 
         mode = settings.system_mode.value
         emitted = False
@@ -182,6 +211,10 @@ class PortfolioAgent(BaseAgent):
             emitted = await self._size_and_emit(payload, debate_id=None)
         elif mode == "HUMAN_APPROVAL":
             emitted = await self._size_and_emit_pending(payload)
+        elif is_exit:
+            # FULLY_AUTONOMOUS: exits bypass the debate gate (a vetoed or
+            # debounced exit used to be discarded with no retry -- audit H4).
+            emitted = await self._size_and_emit(payload, debate_id=None)
         else:
             # Keep only the LATEST signal per symbol. Appending let a burst of
             # in-window signals pile up and then flush all at once on the next
@@ -242,7 +275,7 @@ class PortfolioAgent(BaseAgent):
             return False
 
         side = "BUY" if direction > 0 else "SELL"
-        if self._is_duplicate_sizing(symbol, side, sizing["quantity"]):
+        if self._is_duplicate_sizing(symbol, side, sizing["quantity"], payload):
             logger.debug("sizing_deduped_qty_unchanged",
                          symbol=symbol, side=side, qty=sizing["quantity"])
             return False
@@ -257,6 +290,7 @@ class PortfolioAgent(BaseAgent):
                 "quantity": sizing["quantity"],
                 "order_type": "MARKET",
                 "signal_id": payload.get("signal_id"),
+                "strategy_name": payload.get("strategy_name"),
                 "stop_loss": payload.get("stop_loss"),
                 "allocation_usd": sizing["allocation_usd"],
                 "requires_approval": True,
@@ -287,7 +321,7 @@ class PortfolioAgent(BaseAgent):
             return False
 
         side = "BUY" if direction > 0 else "SELL"
-        if self._is_duplicate_sizing(symbol, side, sizing["quantity"]):
+        if self._is_duplicate_sizing(symbol, side, sizing["quantity"], payload):
             logger.debug("sizing_deduped_qty_unchanged",
                          symbol=symbol, side=side, qty=sizing["quantity"])
             return False
@@ -303,6 +337,7 @@ class PortfolioAgent(BaseAgent):
                 "order_type": "MARKET",
                 "signal_id": payload.get("signal_id"),
                 "debate_id": debate_id,
+                "strategy_name": payload.get("strategy_name"),
                 "stop_loss": payload.get("stop_loss"),
                 "allocation_usd": sizing["allocation_usd"],
                 "timestamp": datetime.now(UTC).isoformat(),
@@ -319,8 +354,17 @@ class PortfolioAgent(BaseAgent):
         )
         return True
 
-    def _is_duplicate_sizing(self, symbol: str, side: str, qty: float) -> bool:
-        """Skip emit when (symbol, side) qty matches last emitted within 1 share."""
+    def _is_duplicate_sizing(
+        self, symbol: str, side: str, qty: float, payload: dict | None = None,
+    ) -> bool:
+        """Skip emit when (symbol, side) qty matches last emitted within 1 share.
+
+        Never for a stop-loss: the worker re-fires every 30s on purpose and a
+        downstream rejection (broker down, market closed) must be retried, not
+        muted forever (audit H2). Rejections also clear the map (on_message).
+        """
+        if payload and payload.get("strategy_name") == "stop_loss":
+            return False
         prev = self._last_emitted_qty.get((symbol, side))
         if prev is None:
             return False
@@ -340,19 +384,20 @@ class PortfolioAgent(BaseAgent):
         the delta through the normal path (idempotent — an aligned position
         sizes to qty 0 and emits nothing).
 
-        ponytail: PAPER_TRADING only — other modes route orders through human
-        approval / the debate gate, which this would bypass.
+        SELL-side drift is retried in EVERY mode and while halted (an exit that
+        was rejected downstream must come back -- audit H4). BUY-side drift only
+        in PAPER_TRADING (other modes gate buys through humans / the debate),
+        never while halted, and never for a name the trailing stop just closed:
+        re-entry needs a fresh sleeve BUY signal, otherwise the stop would be
+        undone within 15 minutes.
         """
-        if settings.system_mode.value != "PAPER_TRADING":
-            return
+        mode = settings.system_mode.value
         now = datetime.now(UTC)
         if (now - self._last_reconcile) < timedelta(minutes=15):
             return
         if not self._sleeve_targets:
             return
-        halted = await self.redis.get("horizon:system:halted")
-        if halted == "1":
-            return
+        halted = await self.redis.get("horizon:system:halted") == "1"
         self._last_reconcile = now
 
         positions = await self._load_positions()
@@ -372,6 +417,7 @@ class PortfolioAgent(BaseAgent):
         # Clear qty dedup so a legitimately re-sized identical order isn't
         # blocked because a previous emit of the same qty was rejected downstream.
         self._last_emitted_qty.clear()
+        stopped = await self._stopped_out_symbols()
 
         for symbol, (target_w, exchange) in list(self._sleeve_targets.items()):
             actual_w = held.get(symbol, 0.0) / nav
@@ -380,16 +426,31 @@ class PortfolioAgent(BaseAgent):
                 continue
             if abs(target_w - actual_w) < 0.005:  # aligned within 50bps
                 continue
+            direction = 1 if target_w > actual_w else -1
+            if direction > 0 and (mode != "PAPER_TRADING" or halted or symbol in stopped):
+                continue
             logger.info("reconcile_drift", symbol=symbol,
                         target=round(target_w, 4), actual=round(actual_w, 4))
-            await self._size_and_emit({
+            sig = {
                 "symbol": symbol,
                 "exchange": exchange,
-                "direction": 1 if target_w > actual_w else -1,
+                "direction": direction,
                 "target_weight": target_w,
                 "strategy_name": "reconcile",
                 "signal_id": str(uuid.uuid4()),
-            }, debate_id=None)
+            }
+            if mode == "HUMAN_APPROVAL":
+                await self._size_and_emit_pending(sig)
+            else:
+                await self._size_and_emit(sig, debate_id=None)
+
+    async def _stopped_out_symbols(self) -> set[str]:
+        """Names whose last exit was a stop-loss (flag cleared by the next BUY fill)."""
+        async with _get_session_factory()() as session:
+            rows = (await session.execute(
+                text("SELECT symbol FROM positions WHERE stopped_out = 1")
+            )).fetchall()
+        return {r.symbol for r in rows}
 
     # ------------------------------------------------------------------ #
     # Position sizing
@@ -422,6 +483,12 @@ class PortfolioAgent(BaseAgent):
             return {"quantity": 0.0, "allocation_usd": 0.0}
 
         is_inr = exchange in ("NSE", "BSE")
+        # Whole shares where the venue requires it (NSE/BSE) and for US equities
+        # when the real broker executes them: Alpaca only lets a protective
+        # trailing stop rest against whole shares (fractional = market DAY only).
+        whole = is_inr or (
+            settings.execution_broker.upper() == "ALPACA" and is_us_equity(symbol, exchange)
+        )
 
         # Cap target weight by configured per-position limit
         pct_cap = settings.risk_max_position_pct / 100.0
@@ -460,11 +527,15 @@ class PortfolioAgent(BaseAgent):
             else:
                 native_value = qty_to_sell_usd
             qty = native_value / price
-            # Fractional shares for US (paper broker + Alpaca both support them);
-            # whole shares only where the venue requires it (NSE/BSE). int()
-            # flooring stranded 2-5% of NAV on a $100k book of high-priced names.
-            qty = float(int(qty)) if is_inr else round(qty, 4)
-            qty = min(qty, held_qty)
+            # A zero target is a full exit: sell exactly what is held (a
+            # fractional remainder is a legal market DAY sell at Alpaca).
+            # Partial exits round down to whole shares where required.
+            if target_weight <= 0:
+                qty = held_qty
+            else:
+                qty = min(qty, held_qty)
+                if qty < held_qty - 1e-9:
+                    qty = float(int(qty)) if whole else round(qty, 4)
             if qty <= 0:
                 return {"quantity": 0.0, "allocation_usd": 0.0}
             return {"quantity": qty, "allocation_usd": qty * price if not is_inr
@@ -491,7 +562,10 @@ class PortfolioAgent(BaseAgent):
         native_alloc = min(native_target, native_cash * 0.9)
         qty = native_alloc / price
         qty *= await self._sentiment_damper_factor(symbol)
-        qty = float(int(qty)) if is_inr else round(qty, 4)  # fractional for US
+        # Fractional only on the simulator for US names: int() flooring strands
+        # 2-5% of NAV on a $100k book of high-priced names, but a real stop
+        # needs whole shares.
+        qty = float(int(qty)) if whole else round(qty, 4)
         if qty <= 0:
             return {"quantity": 0.0, "allocation_usd": 0.0}
         if is_inr:
@@ -532,6 +606,9 @@ class PortfolioAgent(BaseAgent):
         cash_usd, cash_inr = await self._load_cash()
         usd_inr = await self.currency.get_usd_inr_rate()
         nav = await self.currency.compute_unified_nav(cash_usd, cash_inr, positions)
+        broker_nav = await self._broker_equity()
+        if broker_nav is not None:
+            nav = broker_nav
 
         # Classify position values
         equity_value = 0.0
@@ -665,6 +742,29 @@ class PortfolioAgent(BaseAgent):
             }
             for r in rows
         ]
+
+    async def _broker_equity(self) -> float | None:
+        """In a real-broker session, the broker's equity IS the NAV.
+
+        ExecutionAgent._sync_from_broker writes it every
+        ``broker_sync_interval_sec``; a value older than three intervals is
+        ignored (local mark-to-market then stands in, loudly) so a stuck sync
+        cannot freeze NAV -- and with it the kill switch -- at a stale number.
+        """
+        if settings.execution_broker.upper() != "ALPACA":
+            return None
+        raw = await self.redis.get("horizon:broker:equity")
+        ts = await self.redis.get("horizon:broker:equity:ts")
+        if not raw or not ts:
+            return None
+        try:
+            age = (datetime.now(UTC) - datetime.fromisoformat(ts)).total_seconds()
+            if age > 3 * settings.broker_sync_interval_sec:
+                logger.warning("broker_equity_stale_using_local_nav", age_seconds=int(age))
+                return None
+            return float(raw)
+        except (TypeError, ValueError):
+            return None
 
     async def _load_cash(self) -> tuple[float, float]:
         """Load cash balances from Redis."""

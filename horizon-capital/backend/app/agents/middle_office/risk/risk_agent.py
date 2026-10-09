@@ -92,6 +92,22 @@ class RiskAgent(BaseAgent):
         symbol = payload.get("symbol", "")
         direction = int(payload.get("direction", 0) or 0)
 
+        if direction < 0:
+            # Reduce-only exits are never risk-gated here. The daily-loss limit
+            # and the NAV<=0 block exist to stop ADDING risk; applying them to a
+            # SELL rejected the stop-loss exactly when the book was bleeding
+            # (audit B2). Approved for the audit trail only -- PortfolioAgent
+            # consumes exits straight from horizon.signal.* so a dead RiskAgent
+            # cannot block them either (audit H8).
+            await self.emit(
+                channel=f"horizon.risk.approved.{symbol}",
+                message_type=MessageType.SIGNAL,
+                payload={**payload, "timestamp": datetime.now(UTC).isoformat()},
+            )
+            logger.info("exit_signal_passed", symbol=symbol,
+                        strategy=payload.get("strategy_name"))
+            return
+
         violations: list[str] = []
 
         if not await self._check_position_limit(symbol, direction=direction):

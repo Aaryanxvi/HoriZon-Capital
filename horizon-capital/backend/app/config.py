@@ -203,6 +203,21 @@ class Settings(BaseSettings):
     risk_var_limit_pct: float = 3.0
     risk_daily_loss_limit_pct: float = 5.0
     risk_max_orders_per_minute: int = 10
+    # Per-position trailing stop (% below the high-water mark since entry) on
+    # every long equity position. 0 disables. Rests at the broker as a GTC
+    # trailing_stop when the broker is ALPACA; PositionMonitorWorker is the
+    # second layer. Owner's choice (2026-10-10): 20, not tuned.
+    stop_loss_trail_pct: float = 20.0
+    # Fat-finger guards enforced by ExecutionAgent on every BUY regardless of
+    # producer (sleeves, reconcile, REPL): max single-order notional as % of NAV,
+    # and max deviation between the price an order was sized at (or its
+    # limit/stop price) and the last trade.
+    risk_max_order_notional_pct: float = 25.0
+    risk_price_band_pct: float = 5.0
+    # ALPACA only: how often local positions/cash/NAV are re-synced FROM the
+    # broker. Broker equity is also what NAV, daily-loss and the drawdown kill
+    # switch read in a real-broker session, so keep this short.
+    broker_sync_interval_sec: int = 60
     risk_free_rate: float = Field(
         default=0.0,
         description=(

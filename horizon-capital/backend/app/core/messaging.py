@@ -100,7 +100,10 @@ class AgentBus:
                 await self._pubsub.psubscribe(channel)
             else:
                 await self._pubsub.subscribe(channel)
-        self._handlers[channel].append(handler)
+        # Idempotent per (channel, handler) -- same reason as MemoryBus: an
+        # orchestrator restart must not double-dispatch every message.
+        if handler not in self._handlers[channel]:
+            self._handlers[channel].append(handler)
 
     async def unsubscribe(self, channel: str) -> None:
         """Unsubscribe from a channel."""

@@ -63,6 +63,12 @@ class DebateAgent(BaseAgent):
 
     async def on_message(self, message: AgentMessage) -> None:
         if message.message_type == MessageType.SIGNAL:
+            if int(message.payload.get("direction", 0) or 0) < 0:
+                # Exits are never debated (owner decision): PortfolioAgent
+                # sizes them straight away, so a conclusion here would only
+                # ever release/discard a BUY buffered for the same symbol.
+                logger.debug("exit_skips_debate", symbol=message.payload.get("symbol"))
+                return
             await self._pending_signals.put(message.payload)
 
     # ------------------------------------------------------------------
