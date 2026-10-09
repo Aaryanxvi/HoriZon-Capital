@@ -53,7 +53,9 @@ INDICES = ["^NSEI"]
 def _get(url: str, dest: Path, binary: bool = False) -> bytes:
     if dest.exists():
         return dest.read_bytes()
-    r = httpx.get(url, headers=_HDR, timeout=60, follow_redirects=True)
+    # NSE archives need browser-ish headers; FRED stalls on ANY custom User-Agent.
+    hdr = _HDR if "nseindia.com" in url else None
+    r = httpx.get(url, headers=hdr, timeout=60, follow_redirects=True)
     r.raise_for_status()
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(r.content)
