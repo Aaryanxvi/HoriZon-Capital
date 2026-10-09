@@ -92,21 +92,42 @@ async def startup(*, headless: bool = False) -> None:
         if hasattr(kv, "restore"):
             await kv.restore()
 
-        from app.core.cash import get_cash, mirror_to_kv, set_cash
+        from sqlalchemy import text
+
+        from app.core.cash import get_cash, has_cash_row, mirror_to_kv, set_cash
         from app.core.local_storage import local_session_factory
 
         async with local_session_factory() as session:
-            existing_usd = await get_cash(session, "USD")
-            existing_inr = await get_cash(session, "INR")
+            open_positions = (await session.execute(
+                text("SELECT COUNT(*) FROM positions WHERE quantity != 0")
+            )).scalar() or 0
 
-            if force_reseed or existing_usd <= 0:
+            # Seed only a ledger that has never held cash. A zero or negative balance
+            # is real (fully invested, fees, margin): re-seeding it on restart while
+            # positions stay open created money from nothing.
+            seed_usd = not await has_cash_row(session, "USD")
+            seed_inr = (
+                not await has_cash_row(session, "INR") and settings.initial_capital_inr > 0
+            )
+            if force_reseed:
+                if open_positions:
+                    # Same corruption, just on purpose: new capital + old positions.
+                    logger.error(
+                        "initial_capital_reseed_refused_open_positions",
+                        open_positions=open_positions,
+                        hint="run `python -m app --reset` to start a fresh ledger",
+                    )
+                else:
+                    seed_usd = seed_inr = True
+
+            if seed_usd:
                 await set_cash(session, "USD", float(settings.initial_capital_usd))
                 logger.info(
                     "initial_capital_seeded_usd",
                     usd=settings.initial_capital_usd,
                     forced=force_reseed,
                 )
-            if force_reseed or (existing_inr <= 0 and settings.initial_capital_inr > 0):
+            if seed_inr:
                 await set_cash(session, "INR", float(settings.initial_capital_inr))
                 logger.info(
                     "initial_capital_seeded_inr",
@@ -120,7 +141,11 @@ async def startup(*, headless: bool = False) -> None:
 
         await mirror_to_kv("USD", usd)
         await mirror_to_kv("INR", inr)
-        await kv.set("horizon:portfolio:nav", str(usd))
+        # NAV == cash only for a flat book. With positions open, keep the restored
+        # NAV until PortfolioAgent revalues -- cash-only NAV understates equity and
+        # trips the broker equity-sync guard into a PAPER fallback.
+        if not open_positions:
+            await kv.set("horizon:portfolio:nav", str(usd))
     else:
         from app.core.redis_client import redis_client
         await redis_client.set("horizon:system:mode", settings.system_mode.value)

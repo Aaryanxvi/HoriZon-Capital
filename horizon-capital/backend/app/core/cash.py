@@ -41,6 +41,15 @@ async def get_cash(session: AsyncSession, currency: str) -> float:
     return float(row.amount) if row else 0.0
 
 
+async def has_cash_row(session: AsyncSession, currency: str) -> bool:
+    """True once *currency* has ever been seeded -- distinct from a balance of 0."""
+    _check(currency)
+    result = await session.execute(
+        text("SELECT 1 FROM cash_balances WHERE currency = :c"), {"c": currency}
+    )
+    return result.first() is not None
+
+
 async def set_cash(session: AsyncSession, currency: str, amount: float) -> None:
     """Upsert the cash balance for ``currency`` using the caller's session.
 
