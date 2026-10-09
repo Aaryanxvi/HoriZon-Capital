@@ -28,7 +28,6 @@ def _get_session_factory():
 logger = get_logger("worker.data_ingestion")
 
 YAHOO_POLL_INTERVAL = 30
-COINGECKO_POLL_INTERVAL = 60
 FOREX_POLL_INTERVAL = 3600  # USD/INR moves slowly; hourly is plenty
 RECONNECT_DELAY = 10
 MAX_RECONNECT_ATTEMPTS = 5
@@ -40,8 +39,8 @@ class DataIngestionWorker:
 
     Responsibilities:
     - Start and maintain data feeds via DataManager.
-    - Poll Yahoo Finance every 30 s for 1-min bar data.
-    - Poll CoinGecko every 60 s for crypto prices.
+    - Refresh every watchlist price every 30 s in batched requests (Alpaca
+      snapshots, one yfinance download for the rest) and tick the dashboard.
     - On startup, check whether OHLCV data exists; if not, trigger a historical backfill.
     """
 
@@ -58,9 +57,10 @@ class DataIngestionWorker:
         await self._check_backfill()
         await self._start_feeds_with_reconnect()
 
+        # Crypto: CryptoFeed's own 60s loop refreshes CoinGecko (one call for
+        # every coin) and _poll_yahoo_eod prices + ticks crypto via Alpaca.
         self._tasks = [
             asyncio.create_task(self._poll_yahoo_eod()),
-            asyncio.create_task(self._poll_coingecko()),
             asyncio.create_task(self._poll_forex()),
         ]
 
@@ -134,43 +134,11 @@ class DataIngestionWorker:
         )
 
     async def _poll_yahoo_eod(self) -> None:
-        """Poll Yahoo Finance every 30 s for 1-min OHLCV data."""
+        """Refresh every watchlist price every 30 s (re-reads the list each cycle)."""
         try:
             while self._running:
                 try:
-                    symbols = settings.all_symbols
-                    logger.debug("polling_yahoo_eod", symbols_count=len(symbols))
-
-                    kv = get_kv_store()
-                    for symbol in symbols:
-                        prev_key = f"horizon:price:prev_close:{symbol}"
-                        existing = await kv.get(prev_key)
-                        if not existing:
-                            current = await kv.get(f"horizon:price:{symbol}")
-                            if current:
-                                await kv.set(prev_key, current)
-
-                    for symbol in symbols:
-                        try:
-                            await asyncio.wait_for(
-                                self.data_manager.yahoo_feed.fetch_latest(symbol),
-                                timeout=FETCH_TIMEOUT,
-                            )
-                            try:
-                                price_str = await kv.get(f"horizon:price:{symbol}")
-                                if price_str:
-                                    await self._publish_price_update(symbol, float(price_str))
-                            except Exception:
-                                pass
-                        except TimeoutError:
-                            logger.warning("yahoo_fetch_timeout", symbol=symbol)
-                        except Exception as exc:
-                            logger.warning(
-                                "yahoo_eod_fetch_error",
-                                symbol=symbol,
-                                error=str(exc),
-                            )
-
+                    await self._refresh_prices(settings.all_symbols)
                 except Exception as exc:
                     logger.error("yahoo_eod_poll_error", error=str(exc))
 
@@ -178,49 +146,42 @@ class DataIngestionWorker:
         except asyncio.CancelledError:
             pass
 
-    async def _poll_coingecko(self) -> None:
-        """Poll CoinGecko every 60 s for crypto price data."""
-        try:
-            while self._running:
-                try:
-                    crypto_symbols = [
-                        s.strip()
-                        for s in settings.crypto_symbols.split(",")
-                        if s.strip()
-                    ]
-                    logger.debug("polling_coingecko", symbols=crypto_symbols)
+    async def _refresh_prices(self, symbols: list[str]) -> None:
+        """Price the whole list in a handful of requests, then tick the dashboard.
 
-                    kv = get_kv_store()
-                    for symbol in crypto_symbols:
-                        try:
-                            await asyncio.wait_for(
-                                self.data_manager.crypto_feed.fetch_latest(symbol),
-                                timeout=FETCH_TIMEOUT,
-                            )
-                            try:
-                                raw = symbol.lower().split("-")[0]
-                                price_str = await kv.get(
-                                    f"horizon:price:{raw}"
-                                ) or await kv.get(f"horizon:price:{symbol}")
-                                if price_str:
-                                    await self._publish_price_update(symbol, float(price_str))
-                            except Exception:
-                                pass
-                        except TimeoutError:
-                            logger.warning("crypto_fetch_timeout", symbol=symbol)
-                        except Exception as exc:
-                            logger.warning(
-                                "coingecko_fetch_error",
-                                symbol=symbol,
-                                error=str(exc),
-                            )
+        Alpaca snapshots cover US equities + USD crypto in ceil(N/500) requests
+        and carry the real previous close. Whatever Alpaca can't price (no keys,
+        non-US) falls back to ONE multi-ticker yfinance download. This replaced
+        one Yahoo call per symbol per cycle, which at a few hundred symbols took
+        minutes per "30 s" cycle.
+        """
+        from datetime import datetime
 
-                except Exception as exc:
-                    logger.error("coingecko_poll_error", error=str(exc))
+        from app.data_layer import alpaca_quotes
 
-                await asyncio.sleep(COINGECKO_POLL_INTERVAL)
-        except asyncio.CancelledError:
-            pass
+        logger.debug("polling_prices", symbols_count=len(symbols))
+        quotes = await alpaca_quotes.get_snapshots(symbols)
+        missing = [s for s in symbols if s not in quotes]
+        if missing:
+            try:
+                prices = await self.data_manager.yahoo_feed.fetch_latest_batch(missing)
+            except Exception as exc:
+                logger.warning("yahoo_batch_fetch_error", n=len(missing), error=str(exc))
+                prices = {}
+            quotes.update({s: {"price": p, "prev_close": 0.0} for s, p in prices.items()})
+
+        kv = get_kv_store()
+        now = datetime.now(UTC).isoformat()
+        for symbol, quote in quotes.items():
+            await kv.set(f"horizon:price:{symbol}", str(quote["price"]))
+            await kv.set(f"horizon:price:{symbol}:ts", now)
+            prev_key = f"horizon:price:prev_close:{symbol}"
+            if quote["prev_close"]:
+                await kv.set(prev_key, str(quote["prev_close"]))
+            elif not await kv.get(prev_key):
+                # No real close from the fallback: first price seen, as before.
+                await kv.set(prev_key, str(quote["price"]))
+            await self._publish_price_update(symbol, quote["price"])
 
     async def _fetch_forex_once(self) -> None:
         """Fetch USD/INR from yfinance and write it to KV, if valid."""

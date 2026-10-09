@@ -179,6 +179,9 @@ async def _start_workers(orchestrator=None) -> list:
         workers.append((diw, task))
         if orchestrator:
             orchestrator.register_worker("data_ingestion_worker", diw, task)
+        # Watchlist add/remove re-subscribes the running feeds -- no restart.
+        from app.data_layer import watchlist as _wl
+        _wl.on_change("feeds", diw.data_manager.apply_watchlist)
     except Exception as exc:
         console.print(f"[yellow]data_ingestion_worker failed to start: {exc}[/yellow]")
 
@@ -203,6 +206,9 @@ async def _start_workers(orchestrator=None) -> list:
         )
         task = asyncio.create_task(sa.start(), name="sentiment_agent")
         workers.append((sa, task))
+        # SentimentAgent copies the list at construction; keep it current.
+        from app.data_layer import watchlist as _wl
+        _wl.on_change("sentiment", lambda *_: setattr(sa, "symbols", _cfg.all_symbols))
     except Exception as exc:
         console.print(f"[yellow]sentiment_agent failed to start: {exc}[/yellow]")
 
@@ -401,6 +407,10 @@ async def _run_with_tui(orchestrator) -> None:
             "buy",
             "sell",
             "watchlist",
+            "watchlist search",
+            "watchlist browse",
+            "watchlist recommended",
+            "watchlist info",
             "watchlist add",
             "watchlist remove",
             "portfolio",

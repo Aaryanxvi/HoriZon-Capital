@@ -49,10 +49,10 @@ class DataManager:
             self.polymarket_feed,
         ]
 
-    async def start_all(self) -> None:
-        """Connect, subscribe, register callbacks, and start every feed."""
+    @staticmethod
+    async def _symbol_lists() -> tuple[list[str], list[str], list[str]]:
+        """(all, us, crypto) from the live settings -- re-read on every call."""
         from app.config import settings
-        logger.info("data_manager.start_all")
 
         us_symbols = [s.strip() for s in settings.us_symbols.split(",") if s.strip()]
         crypto_symbols = [s.strip() for s in settings.crypto_symbols.split(",") if s.strip()]
@@ -64,6 +64,24 @@ class DataManager:
             for sym in await refresh_crypto_universe():
                 if sym not in crypto_symbols:
                     crypto_symbols.append(sym)
+        return all_symbols, us_symbols, crypto_symbols
+
+    async def apply_watchlist(self, *_: object) -> None:
+        """Push the current watchlist to running feeds -- no restart needed.
+
+        Registered as a watchlist change listener; the Alpaca stream diffs and
+        subscribes/unsubscribes on its open socket.
+        """
+        all_symbols, us_symbols, crypto_symbols = await self._symbol_lists()
+        await self.yahoo_feed.subscribe(all_symbols)
+        await self.alpaca_feed.subscribe(us_symbols)
+        await self.crypto_feed.subscribe(crypto_symbols)
+
+    async def start_all(self) -> None:
+        """Connect, subscribe, register callbacks, and start every feed."""
+        logger.info("data_manager.start_all")
+
+        all_symbols, us_symbols, crypto_symbols = await self._symbol_lists()
 
         for feed in self._feeds:
             feed.on_tick(self._handle_tick)

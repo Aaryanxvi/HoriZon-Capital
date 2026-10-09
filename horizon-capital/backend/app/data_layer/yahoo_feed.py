@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+import pandas as pd
 import yfinance as yf
 
 from app.core.logging import get_logger
@@ -124,6 +125,7 @@ class YahooFeed(BaseFeed):
         self._symbols: list[str] = []
         self._poll_task: asyncio.Task[None] | None = None
         self._running = False
+        self._last_emitted: dict[str, datetime] = {}
 
     # ------------------------------------------------------------------
     # BaseFeed interface
@@ -194,6 +196,13 @@ class YahooFeed(BaseFeed):
         if df is None or df.empty:
             return []
 
+        bars = self._to_bars(symbol, df, interval, exchange, currency)
+        logger.info("yahoo_feed.fetched", symbol=symbol, bars=len(bars))
+        return bars
+
+    def _to_bars(
+        self, symbol: str, df, interval: str, exchange: str, currency: str
+    ) -> list[NormalizedOHLCV]:
         bars: list[NormalizedOHLCV] = []
         for ts, row in df.iterrows():
             bar = NormalizedOHLCV(
@@ -205,30 +214,76 @@ class YahooFeed(BaseFeed):
                 high=float(row["High"]),
                 low=float(row["Low"]),
                 close=float(row["Close"]),
-                volume=int(row.get("Volume", 0)),
+                volume=int(row.get("Volume", 0) or 0),
                 currency=currency,
             )
             bars.append(bar)
-
-        logger.info("yahoo_feed.fetched", symbol=symbol, bars=len(bars))
         return bars
+
+    def _download_batch_sync(self, symbols: list[str]) -> dict[str, list[NormalizedOHLCV]]:
+        """Today's 1-min bars for every symbol in ONE yfinance call (executor)."""
+        yf_map = {self._to_yf_ticker(s): s for s in symbols}
+        try:
+            df = yf.download(
+                list(yf_map), period="1d", interval="1m", group_by="ticker",
+                auto_adjust=False, progress=False, threads=True,
+            )
+        except Exception:
+            logger.exception("yahoo_feed.batch_error", n=len(symbols))
+            return {}
+        if df is None or df.empty:
+            return {}
+
+        multi = isinstance(df.columns, pd.MultiIndex)
+        present = set(df.columns.get_level_values(0)) if multi else set()
+        out: dict[str, list[NormalizedOHLCV]] = {}
+        for yf_symbol, symbol in yf_map.items():
+            if multi and yf_symbol not in present:
+                continue
+            if not multi and len(yf_map) > 1:
+                break
+            sub = (df[yf_symbol] if multi else df).dropna(subset=["Close"])
+            exchange = _exchange_for_symbol(yf_symbol)
+            out[symbol] = self._to_bars(
+                symbol, sub, "1m", exchange, _currency_for_exchange(exchange)
+            )
+        return out
+
+    async def fetch_latest_batch(self, symbols: list[str]) -> dict[str, float]:
+        """Latest 1-min bars for many symbols at once; returns ``{symbol: last close}``.
+
+        One yfinance call per cycle instead of one per symbol (yfinance still
+        fans out per-ticker HTTP requests, but on parallel threads). Only bars
+        at or after the last one emitted are re-emitted -- the in-progress
+        minute keeps updating without re-upserting the whole session each poll.
+        """
+        if not symbols:
+            return {}
+        loop = asyncio.get_running_loop()
+        batch = await loop.run_in_executor(None, self._download_batch_sync, list(symbols))
+        prices: dict[str, float] = {}
+        for symbol, bars in batch.items():
+            last = self._last_emitted.get(symbol)
+            for bar in bars:
+                if last is None or bar.timestamp >= last:
+                    await self._emit_ohlcv(bar)
+            if bars:
+                self._last_emitted[symbol] = bars[-1].timestamp
+                prices[symbol] = bars[-1].close
+        return prices
 
     async def _poll_loop(self) -> None:
         """Periodically polls 1-min OHLCV data and emits bars via callbacks.
 
-        Skips symbols whose exchange is currently closed.
+        Skips symbols whose exchange is currently closed; everything open is
+        fetched in one batched download.
         """
         while self._running:
-            for symbol in self._symbols:
-                if not _is_market_open(symbol):
-                    logger.debug("yahoo_feed.market_closed", symbol=symbol)
-                    continue
-                try:
-                    bars = await self.poll_ohlcv(symbol, period="1d", interval="1m")
-                    for bar in bars:
-                        await self._emit_ohlcv(bar)
-                except Exception:
-                    logger.exception("yahoo_feed.poll_error", symbol=symbol)
+            open_now = [s for s in self._symbols if _is_market_open(s)]
+            try:
+                await self.fetch_latest_batch(open_now)
+            except Exception:
+                logger.exception("yahoo_feed.poll_error", n=len(open_now))
             await asyncio.sleep(30)
 
     # ------------------------------------------------------------------

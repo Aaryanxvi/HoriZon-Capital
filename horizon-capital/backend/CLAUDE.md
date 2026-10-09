@@ -62,7 +62,7 @@ app/
 ├── backtesting/     # backtest_engine (event-driven bar replay), backtest_broker (slippage+impact), metrics, trade_journal, report_exporter
 ├── workers/
 │   ├── agent_orchestrator.py        # Supervisor: agents + workers, heartbeat auto-restart
-│   ├── data_ingestion_worker.py     # Yahoo EOD 30s + CoinGecko 60s; 5y backfill if ohlcv empty
+│   ├── data_ingestion_worker.py     # 30s batched prices (Alpaca snapshots, 1 yf.download fallback); 5y backfill if ohlcv empty
 │   ├── performance_worker.py        # 900s; Sharpe/Sortino/Calmar + Jensen's alpha vs ^NSEI/^GSPC
 │   └── position_worker.py           # 30s mark-to-market + stop-loss enforcement (does NOT write NAV)
 ├── services/        # alert_manager, health_monitor, report_generator, performance, backup
@@ -70,6 +70,8 @@ app/
 ├── tui/             # dashboard.py (Rich Live 3-col, 2fps), commands.py (REPL), pixel_agents.py (ASCII office),
 │                    #   cio_chat.py, onboarding.py, settings_panel.py
 ├── data_layer/      # data_manager + yahoo_feed, alpaca_feed/quotes, crypto_feed (CoinGecko). zerodha/forex/polygon NOT present
+│                    #   watchlist.py: Alpaca asset catalog (~14k, disk-cached daily) + search + bulk add/remove,
+│                    #   shared by REPL + GUI, live via on_change listeners. NOT the strategy universe (universe.py)
 ├── models/          # SQLAlchemy ORM (POSTGRES path)
 ├── schemas/         # Pydantic DTOs
 └── api/v1/          # 11 FastAPI routers under /api/v1 (built for POSTGRES path) + websocket.py /ws/dashboard
@@ -98,6 +100,8 @@ Trading modes (read in `PortfolioAgent._handle_signal`):
 - **FULLY_AUTONOMOUS** — debate gate: PortfolioAgent buffers signals, releases order only on `DEBATE_CONCLUSION` APPROVED. DebateAgent refuses to auto-approve without an LLM here (emits REJECTED).
 
 Three nested gates: RiskAgent → DebateAgent (binding only in FULLY_AUTONOMOUS) → ExecutionAgent. CIOAgent sits above as crisis/override authority; AgentOrchestrator keeps everything alive.
+
+**Exits are different (real-money hardening, 2026-10-10 — see `docs/REAL_MONEY_READINESS_AUDIT.md` "Fixes").** A reduce-only SELL (≤ held qty) bypasses the daily-loss limit, the kill switch, CIO HALT, the debate gate and the qty de-dup; PortfolioAgent takes exits straight from `horizon.signal.*` so a dead RiskAgent cannot block them. Only the oversell guard (broker-verified on ALPACA) stops an exit. Every long equity carries a 20 % trailing stop from its high-water mark (`STOP_LOSS_TRAIL_PCT`): on ALPACA a GTC `trailing_stop` rests at the broker (whole shares; cancelled before any SELL, re-armed after), PositionMonitorWorker is the second layer. With `EXECUTION_BROKER=ALPACA` the broker is the source of truth: `ExecutionAgent._sync_from_broker` overwrites positions/cash/NAV every 60 s and audits diffs; there is no PaperBroker fallback (guard failure = no broker, unreachable = BUYs refused). `tests/test_risk_controls_proof.py` is the regression suite for all of this.
 
 ## Strategy Sleeves (`agents/front_office/strategy/sleeves/`)
 
@@ -167,7 +171,7 @@ One process: SQLite/KV storage + agents + workers + API + the built React UI.
 
 ## REPL Commands (`tui/commands.py`)
 
-help, status, portfolio, positions, orders, signals, backtest (+ results/list/compare), risk, sentiment, debate (+ why), agents, health, performance, config, approve, reject, pending, trades, pnl, cio, watchlist, buy, sell, strategy, dashboard, settings, model/models (list/agents/set/clear), sleeve (on/off/weight),
+help, status, portfolio, positions, orders, signals, backtest (+ results/list/compare), risk, sentiment, debate (+ why), agents, health, performance, config, approve, reject, pending, trades, pnl, cio, watchlist (search/browse/add/remove, multi-symbol), buy, sell, strategy, dashboard, settings, model/models (list/agents/set/clear), sleeve (on/off/weight),
 pm (add/remove/auto/scan), crypto (auto/scan), quit/exit. Tab completion via readline in `__main__.py`. (No `stress-test`/`alerts`/`report` commands.)
 
 ## LLM Routing (`llm/`)

@@ -32,6 +32,18 @@ _WS_MAX_RETRIES = 5          # attempts before permanently falling to REST
 _WS_BACKOFF_BASE = 2         # seconds; doubles each retry (2, 4, 8, 16, 32)
 _WS_BACKOFF_MAX = 60         # cap backoff at 60 seconds
 
+# Alpaca's free (Basic) plan streams at most 30 symbols per connection, and a
+# subscribe that would exceed it is rejected whole (error 405 "symbol limit
+# exceeded" -- measured Oct 2026). Paid plans are unlimited, so ask for
+# everything and trim to this only once the server refuses. Symbols past the
+# limit still get prices from the ingestion worker's 30s snapshot poll.
+FREE_PLAN_STREAM_LIMIT = 30
+_REST_CHUNK = 500
+
+# What the stream is actually delivering, for the watchlist screen. One feed
+# per process, so module state is enough.
+stream_status: dict[str, Any] = {"mode": "off", "streaming": 0, "requested": 0, "limit": None}
+
 
 class AlpacaFeed(BaseFeed):
     """Live US-equity ticks from Alpaca via WebSocket, REST polling fallback."""
@@ -44,6 +56,8 @@ class AlpacaFeed(BaseFeed):
         self._rest_task: asyncio.Task[None] | None = None
         self._running = False
         self._use_websocket = True  # try WS first; fall back if it fails
+        self._limit: int | None = None   # set once the server rejects a subscribe
+        self._streaming: list[str] = []  # server-confirmed subscription
 
     # ------------------------------------------------------------------
     # Properties
@@ -91,8 +105,56 @@ class AlpacaFeed(BaseFeed):
         logger.info("alpaca_feed.disconnect")
 
     async def subscribe(self, symbols: list[str]) -> None:
+        """Set the symbol list. On an open socket this re-syncs immediately, so a
+        watchlist change takes effect without reconnecting."""
         self._symbols = [self._strip_exchange(s) for s in symbols]
-        logger.info("alpaca_feed.subscribe", symbols=self._symbols)
+        logger.info("alpaca_feed.subscribe", n=len(self._symbols))
+        if self._ws is not None and self._use_websocket:
+            try:
+                await self._sync_subscription()
+            except Exception as exc:  # socket mid-reconnect: the next connect syncs
+                logger.warning("alpaca_feed.resubscribe_failed", error=str(exc))
+        self._publish_status()
+
+    def _wanted(self) -> list[str]:
+        return self._symbols[: self._limit] if self._limit else list(self._symbols)
+
+    async def _sync_subscription(self) -> None:
+        """Diff wanted vs confirmed and send unsubscribe-then-subscribe, so the
+        swap never momentarily exceeds the plan's symbol limit."""
+        want = self._wanted()
+        have = set(self._streaming)
+        drop = [s for s in have if s not in want]
+        add = [s for s in want if s not in have]
+        if drop:
+            await self._ws.send(json.dumps({"action": "unsubscribe", "trades": drop}))
+        if add:
+            await self._ws.send(json.dumps({"action": "subscribe", "trades": add}))
+
+    def _publish_status(self) -> None:
+        mode = "stream" if self._use_websocket else "rest"
+        stream_status.update(
+            mode=mode if self._is_connected else "off",
+            streaming=len(self._streaming) if self._use_websocket else len(self._symbols),
+            requested=len(self._symbols),
+            limit=self._limit,
+        )
+
+    async def _handle_control(self, msg: dict[str, Any]) -> None:
+        """Track the server's view of the subscription; trim on a limit error."""
+        if msg.get("T") == "subscription":
+            self._streaming = list(msg.get("trades") or [])
+            self._publish_status()
+        elif msg.get("T") == "error" and msg.get("code") == 405 and self._limit is None:
+            self._limit = FREE_PLAN_STREAM_LIMIT
+            logger.warning(
+                "alpaca_feed.symbol_limit -- streaming the first symbols only",
+                limit=self._limit,
+                requested=len(self._symbols),
+            )
+            await self._sync_subscription()
+        elif msg.get("T") == "error":
+            logger.warning("alpaca_feed.ws_error_message", msg=msg)
 
     async def start(self) -> None:
         if not self._is_connected:
@@ -137,10 +199,10 @@ class AlpacaFeed(BaseFeed):
                     if any(m.get("T") == "error" for m in replies):
                         raise ConnectionError(f"alpaca stream auth rejected: {resp}")
 
-                    # Subscribe to trades
-                    sub_msg = {"action": "subscribe", "trades": self._symbols}
-                    await ws.send(json.dumps(sub_msg))
-                    logger.info("alpaca_feed.ws_subscribed", symbols=self._symbols)
+                    # Subscribe to trades (a fresh connection has no subscription)
+                    self._streaming = []
+                    await self._sync_subscription()
+                    logger.info("alpaca_feed.ws_subscribed", n=len(self._wanted()))
 
                     # Connection succeeded -- reset retry counter
                     retry = 0
@@ -156,6 +218,8 @@ class AlpacaFeed(BaseFeed):
                                 tick = self._parse_ws_trade(msg)
                                 if tick:
                                     await self._emit_tick(tick)
+                            else:
+                                await self._handle_control(msg)
 
             except asyncio.CancelledError:
                 break
@@ -197,39 +261,44 @@ class AlpacaFeed(BaseFeed):
     # REST fallback polling
     # ------------------------------------------------------------------
     async def _rest_poll_loop(self) -> None:
-        """Poll latest trade for each symbol every 10 seconds."""
+        """Poll latest trades every 10 seconds -- one request per 500 symbols,
+        not one per symbol, so the fallback scales with the watchlist."""
+        self._publish_status()
         async with httpx.AsyncClient(headers=self._auth_headers, timeout=15) as client:
             while self._running:
-                for symbol in self._symbols:
+                symbols = list(self._symbols)
+                for i in range(0, len(symbols), _REST_CHUNK):
                     try:
-                        tick = await self._rest_fetch_latest_trade(client, symbol)
-                        if tick:
+                        for tick in await self._rest_fetch_latest_trades(
+                            client, symbols[i:i + _REST_CHUNK]
+                        ):
                             await self._emit_tick(tick)
                     except Exception:
-                        logger.exception("alpaca_feed.rest_poll_error", symbol=symbol)
+                        logger.exception("alpaca_feed.rest_poll_error", n=len(symbols))
                 await asyncio.sleep(10)
 
-    async def _rest_fetch_latest_trade(
-        self, client: httpx.AsyncClient, symbol: str
-    ) -> NormalizedTick | None:
-        url = f"{self._rest_base}/v2/stocks/{symbol}/trades/latest"
-        resp = await client.get(url)
+    async def _rest_fetch_latest_trades(
+        self, client: httpx.AsyncClient, symbols: list[str]
+    ) -> list[NormalizedTick]:
+        url = f"{self._rest_base}/v2/stocks/trades/latest"
+        resp = await client.get(url, params={"symbols": ",".join(symbols)})
         if resp.status_code != 200:
-            logger.warning("alpaca_feed.rest_error", status=resp.status_code, symbol=symbol)
-            return None
+            logger.warning("alpaca_feed.rest_error", status=resp.status_code, n=len(symbols))
+            return []
 
-        data = resp.json()
-        trade = data.get("trade", {})
-        return NormalizedTick(
-            symbol=symbol,
-            exchange="NASDAQ",
-            timestamp=datetime.fromisoformat(
-                trade["t"].replace("Z", "+00:00")
-            ) if "t" in trade else datetime.now(UTC),
-            last_price=float(trade["p"]),
-            volume=int(trade.get("s", 0)),
-            currency="USD",
-        )
+        ticks: list[NormalizedTick] = []
+        for symbol, trade in (resp.json().get("trades") or {}).items():
+            ticks.append(NormalizedTick(
+                symbol=symbol,
+                exchange="NASDAQ",
+                timestamp=datetime.fromisoformat(
+                    trade["t"].replace("Z", "+00:00")
+                ) if "t" in trade else datetime.now(UTC),
+                last_price=float(trade["p"]),
+                volume=int(trade.get("s", 0)),
+                currency="USD",
+            ))
+        return ticks
 
     # ------------------------------------------------------------------
     # OHLCV helper (REST)
@@ -281,7 +350,11 @@ class AlpacaFeed(BaseFeed):
     # ------------------------------------------------------------------
     @staticmethod
     def _strip_exchange(symbol: str) -> str:
-        """Remove trailing exchange tag (e.g. ``AAPL.NASDAQ`` -> ``AAPL``)."""
-        return symbol.rsplit(".", 1)[0] if "." in symbol else symbol
+        """Remove trailing exchange tag (``AAPL.NASDAQ`` -> ``AAPL``).
+
+        Share classes are stored yfinance-style (``BRK-B.NYSE``); Alpaca wants
+        ``BRK.B``.
+        """
+        return (symbol.rsplit(".", 1)[0] if "." in symbol else symbol).replace("-", ".")
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token 664E740F4717 - verify with scripts/authorship.py verify

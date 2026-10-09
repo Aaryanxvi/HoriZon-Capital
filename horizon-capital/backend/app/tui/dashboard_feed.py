@@ -65,6 +65,10 @@ async def route_message(dashboard, orchestrator, msg: AgentMessage) -> None:
         dashboard.remove_order(msg.payload.get("order_id", ""))
     elif msg.message_type == MessageType.SENTIMENT_UPDATE:
         dashboard.update_sentiment(msg.payload)
+    elif msg.message_type == MessageType.SETTINGS_UPDATED:
+        # Watchlist removals vanish from the panel now, not at the next restart.
+        for symbol in msg.payload.get("removed") or []:
+            dashboard._watchlist.pop(symbol, None)
     elif msg.message_type == MessageType.CIO_ADVISORY:
         dashboard.update_cio_advisory(msg.payload)
     elif msg.message_type == MessageType.HEALTH_CHECK:

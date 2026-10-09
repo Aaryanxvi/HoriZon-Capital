@@ -114,9 +114,15 @@ HELP_TEXT = """
   [green]cio confirm halt[/]    Confirm a CIO-recommended HALT in FULLY_AUTONOMOUS mode
 
   [bold yellow]Watchlist:[/bold yellow]
-  [green]watchlist[/]            Show current watchlist symbols
-  [green]watchlist add[/] <SYM>  Add a US symbol (e.g. NVDA.NASDAQ, JPM.NYSE)
-  [green]watchlist remove[/] <SYM>  Remove a symbol from watchlist
+  [green]watchlist[/]            Show the watchlist with prices
+  [green]watchlist search[/] <text>  Find stocks, ETFs and crypto by ticker or name
+  [green]watchlist browse[/] \\[group|sector]  Browse S&P 500, ETFs, crypto, or a sector
+  [green]watchlist add[/] <SYM ...>  Add one or more (AAPL MSFT BRK.B BTC-USD)
+  [green]watchlist remove[/] <SYM ...>  Remove one or more
+  [green]watchlist info[/] <SYM>     Price, 52w range, 1Y sparkline, news, sentiment (any symbol)
+  [green]watchlist recommended[/]   Strategy picks + market movers (labelled; not advice)
+  [dim]  Watchlist = what you monitor and trade manually; the strategy picks
+    from the S&P 500 on its own. Changes apply live.[/dim]
 
   [bold yellow]Optional sleeves (UNVALIDATED — off by default):[/bold yellow]
   [green]sleeve[/]              Show crypto / polymarket sleeve state
@@ -1323,92 +1329,286 @@ class CommandHandler:
     # ------------------------------------------------------------------ #
 
     async def _cmd_watchlist(self, args: list[str]) -> str:
-        """Show, add, or remove watchlist symbols."""
-        if not args:
-            symbols = settings.all_symbols
-            lines = ["[bold]Watchlist ([/bold]" + str(len(symbols)) + "[bold] symbols):[/bold]"]
-            for s in symbols:
-                lines.append(f"  {s}")
-            lines.append("\n  [dim]Use 'watchlist add <SYM>' or 'watchlist remove <SYM>'[/dim]")
+        """`watchlist` | `search <text>` | `browse [group|sector]` | `add A B` | `remove A B`.
+
+        add/remove go through ``data_layer.watchlist`` -- the same path the GUI
+        uses -- and take effect live (feeds re-subscribe, no restart).
+        """
+        from app.data_layer import watchlist as wl
+
+        sub = args[0].lower() if args else ""
+        rest = args[1:]
+        if not sub:
+            return await self._watchlist_show()
+        if sub == "search" and rest:
+            return await self._watchlist_search(" ".join(rest))
+        if sub == "browse":
+            return await self._watchlist_browse(" ".join(rest))
+        if sub in ("recommended", "recs", "picks"):
+            return await self._watchlist_recommended()
+        if sub == "info" and rest:
+            return await self._watchlist_info(rest[0])
+        if sub == "add" and rest:
+            return self._watchlist_result(await wl.add(rest))
+        if sub in ("remove", "rm") and rest:
+            return self._watchlist_result(await wl.remove(rest))
+        return (
+            "[red]Usage:[/red] watchlist | watchlist search <text> | watchlist info <SYM> | "
+            "watchlist recommended | "
+            "watchlist browse \\[sector] | watchlist add <SYM ...> | watchlist remove <SYM ...>"
+        )
+
+    async def _watchlist_show(self) -> str:
+        from rich.markup import escape
+
+        from app.data_layer import watchlist as wl
+
+        await wl.load_catalog()
+        symbols = wl.current_symbols()
+        quotes = await wl.quotes(symbols)
+        lines = [
+            f"[bold]Watchlist ({len(symbols)} symbols):[/bold]",
+            f"  {'Symbol':16s}  {'Name':32s}  {'Exch':7s}  {'Price':>11s}  {'Chg%':>7s}",
+        ]
+        for sym in symbols:
+            row = wl.lookup(sym)
+            q = quotes.get(sym, {})
+            price, chg = q.get("price") or 0.0, q.get("change_pct") or 0.0
+            color = "green" if chg >= 0 else "red"
+            name = escape((row["name"] if row else "")[:32])
+            exch = row["exchange"] if row else ""
+            lines.append(
+                f"  {sym:16s}  {name:32s}  {exch:7s}  "
+                + (f"${price:>10.2f}  [{color}]{chg:>+6.2f}%[/]" if price else f"{'--':>11s}")
+            )
+        lines.append(self._watchlist_stream_line())
+        lines.append(f"\n  [dim]{wl.strategy_note()}[/dim]")
+        lines.append(
+            "  [dim]watchlist search <text> | browse \\[sector] | add A B C | remove A B[/dim]"
+        )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _watchlist_stream_line() -> str:
+        from app.data_layer import watchlist as wl
+
+        info = wl.stream_info()
+        if info["mode"] == "stream" and info["limit"]:
+            return (
+                f"  [yellow]Live ticks: {info['streaming']} of {info['us_symbols']} US symbols "
+                f"(Alpaca free plan streams {info['limit']}); the rest refresh every "
+                f"{info['poll_seconds']}s.[/yellow]"
+            )
+        if info["mode"] == "off":
+            return f"  [dim]Prices refresh every {info['poll_seconds']}s.[/dim]"
+        return f"  [dim]Live ticks: {info['streaming']} US symbols ({info['mode']}).[/dim]"
+
+    async def _watchlist_search(self, text: str) -> str:
+        from rich.markup import escape
+
+        from app.data_layer import watchlist as wl
+
+        await wl.load_catalog()
+        if not wl.catalog_info()["size"]:
+            return f"[red]Symbol catalog unavailable:[/red] {wl.catalog_info()['error']}"
+        rows, total = wl.search(text, limit=15)
+        if not rows:
+            return f"[yellow]No matches for '{escape(text)}'.[/yellow]"
+        more = " (top 15)" if total > 15 else ""
+        lines = [f"[bold]{total} match{'es' if total != 1 else ''} for "
+                 f"'{escape(text)}'{more}:[/bold]"]
+        lines += self._watchlist_rows(rows)
+        lines.append("  [dim]watchlist add <SYM ...>  (* = already on your watchlist)[/dim]")
+        return "\n".join(lines)
+
+    async def _watchlist_browse(self, what: str) -> str:
+        from rich.markup import escape
+
+        from app.data_layer import watchlist as wl
+
+        await wl.load_catalog()
+        if not wl.catalog_info()["size"]:
+            return f"[red]Symbol catalog unavailable:[/red] {wl.catalog_info()['error']}"
+        cats = wl.categories()
+        want = what.strip().lower()
+        if not want:
+            lines = ["[bold]Browse the catalog:[/bold]"]
+            lines += [f"  {g['id']:24s} {g['label']} ({g['count']})" for g in cats["groups"]]
+            lines.append("[bold]Sectors (S&P 500):[/bold]")
+            lines += [f"  {s['name']:24s} {s['count']}" for s in cats["sectors"]]
+            lines.append(f"  [dim]India: {wl.INDIA_NOTE}.[/dim]")
+            lines.append(
+                "  [dim]watchlist browse <group|sector>, e.g. browse etf, browse energy[/dim]"
+            )
             return "\n".join(lines)
 
-        sub = args[0].lower()
-        if sub == "add" and len(args) >= 2:
-            symbol = args[1].upper()
-            return await self._watchlist_add(symbol)
-        elif sub == "remove" and len(args) >= 2:
-            symbol = args[1].upper()
-            return await self._watchlist_remove(symbol)
-        return "[red]Usage: watchlist [add|remove] <SYMBOL>[/red]"
-
-    async def _watchlist_add(self, symbol: str) -> str:
-        """Add a symbol to the trading universe via .env."""
-        current = settings.all_symbols
-        if symbol in current:
-            return f"[yellow]{symbol} already in watchlist.[/yellow]"
-
-        # US-only scope — Alpaca feed handles US equities; INR/crypto buckets
-        # are currently zero so orders would fail sizing.
-        if ".NSE" in symbol or ".BSE" in symbol:
-            return (
-                "[red]Indian symbols not supported in current scope "
-                "(INR cash bucket is 0).[/red]"
-            )
-        if "-USD" in symbol or "-USDT" in symbol:
-            return (
-                "[red]Crypto symbols not supported in current scope.[/red]"
-            )
-
-        key = "US_SYMBOLS"
-        current_csv = settings.us_symbols
-
-        new_csv = current_csv + "," + symbol if current_csv else symbol
-        self._update_env(key, new_csv)
-
-        # Update settings in-memory
-        if key == "INDIA_SYMBOLS":
-            settings.india_symbols = new_csv
-        elif key == "CRYPTO_SYMBOLS":
-            settings.crypto_symbols = new_csv
-        else:
-            settings.us_symbols = new_csv
-
-        return (
-            f"[green]{symbol} added to watchlist.[/green] "
-            "Restart for strategy agent to pick it up."
+        group = next(
+            (g["id"] for g in cats["groups"] if want in (g["id"], g["label"].lower())), None
         )
-
-    async def _watchlist_remove(self, symbol: str) -> str:
-        """Remove a symbol from the trading universe via .env."""
-        current = settings.all_symbols
-        if symbol not in current:
-            return f"[yellow]{symbol} not in watchlist.[/yellow]"
-
-        if ".NSE" in symbol or ".BSE" in symbol:
-            key = "INDIA_SYMBOLS"
-            current_csv = settings.india_symbols
-        elif "-USD" in symbol:
-            key = "CRYPTO_SYMBOLS"
-            current_csv = settings.crypto_symbols
-        else:
-            key = "US_SYMBOLS"
-            current_csv = settings.us_symbols
-
-        parts = [s.strip() for s in current_csv.split(",") if s.strip() != symbol]
-        new_csv = ",".join(parts)
-        self._update_env(key, new_csv)
-
-        if key == "INDIA_SYMBOLS":
-            settings.india_symbols = new_csv
-        elif key == "CRYPTO_SYMBOLS":
-            settings.crypto_symbols = new_csv
-        else:
-            settings.us_symbols = new_csv
-
-        return (
-            f"[green]{symbol} removed from watchlist.[/green] "
-            "Restart for changes to take effect."
+        sector = None if group else next(
+            (s["name"] for s in cats["sectors"] if want in s["name"].lower()), None
         )
+        if not group and not sector:
+            if want in ("india", "nse", "bse"):
+                return f"[yellow]{wl.INDIA_NOTE}.[/yellow]"
+            return f"[yellow]No group or sector matches '{escape(what)}'.[/yellow]"
+        rows, total = wl.search(group=group, sector=sector, limit=40)
+        label = sector or next(g["label"] for g in cats["groups"] if g["id"] == group)
+        more = " (first 40; narrow with watchlist search)" if total > 40 else ""
+        lines = [f"[bold]{escape(label)} -- {total} symbols{more}:[/bold]"]
+        lines += self._watchlist_rows(rows)
+        return "\n".join(lines)
+
+    async def _watchlist_info(self, token: str) -> str:
+        """Price, 52w range, 1Y sparkline, volume, sentiment and headlines for any symbol."""
+        from rich.markup import escape
+
+        from app.data_layer import market_info
+        from app.tui.dashboard import render_sparkline
+
+        d = await market_info.detail(token)
+        if not d["in_catalog"] and not d["quote"]["price"]:
+            return f"[yellow]{escape(token)}: not in the catalog and no price found.[/yellow]"
+        q, st = d["quote"], d["stats"]
+        chg = q["change_pct"]
+        color = "green" if chg >= 0 else "red"
+        tags = " · ".join(x for x in (d["exchange"], d["sector"]) if x)
+        lines = [
+            f"[bold]{escape(d['ticker'])}[/bold]  {escape(d['name'] or '')}  [dim]{escape(tags)}"
+            f"{' · on your watchlist' if d['on_watchlist'] else ''}[/dim]",
+            f"  [bold]${q['price']:,.2f}[/bold]  [{color}]{chg:+.2f}%[/] today"
+            if q["price"] else "  [dim]no live price[/dim]",
+        ]
+        if st["high_52w"]:
+            lo, hi = st["low_52w"], st["high_52w"]
+            where = (q["price"] - lo) / (hi - lo) * 100 if hi > lo and q["price"] else None
+            lines.append(
+                f"  52w range ${lo:,.2f} - ${hi:,.2f}"
+                + (f"  (price at {where:.0f}% of range)" if where is not None else "")
+            )
+            year = (await market_info.history(d["symbol"], "1Y"))["bars"]
+            closes = [b["close"] for b in year]
+            step = max(len(closes) // 60, 1)
+            lines.append(
+                f"  1Y  {render_sparkline(closes[::step])}  "
+                f"[dim]({d['history_source']} daily bars)[/dim]"
+            )
+            vfmt = ",.0f" if st["avg_volume_30d"] >= 1000 else ",.2f"  # crypto: coin units
+            lines.append(
+                f"  Volume {st['volume']:{vfmt}}  (30d avg {st['avg_volume_30d']:{vfmt}})"
+            )
+        else:
+            lines.append("  [dim]No price history available.[/dim]")
+        s = d["sentiment"]
+        if s:
+            lines.append(
+                f"  Sentiment: {s['label']} {s['score']:.2f}  "
+                "[dim](FinBERT on news; advisory, unvalidated)[/dim]"
+            )
+        if d["news"]:
+            lines.append("  [bold]Headlines (72h):[/bold]")
+            lines += [f"   - {escape(h[:100])}" for h in d["news"][:5]]
+        action = "remove" if d["on_watchlist"] else "add"
+        lines.append(f"  [dim]watchlist {action} {escape(d['ticker'])}[/dim]")
+        return "\n".join(lines)
+
+    async def _watchlist_recommended(self) -> str:
+        """Strategy picks + market movers + sentiment leaders, each labelled honestly."""
+        from rich.markup import escape
+
+        from app.data_layer import market_info
+
+        rec = await market_info.recommended(self._orchestrator)
+
+        def chg(r: dict) -> str:
+            if not r["price"]:
+                return f"{'--':>18s}"
+            color = "green" if r["change_pct"] >= 0 else "red"
+            return f"${r['price']:>10,.2f} [{color}]{r['change_pct']:>+6.2f}%[/]"
+
+        strat = rec["strategy"]
+        src = ("live strategy agent" if strat["source"] == "live"
+               else "last emitted signals (engine not running)")
+        lines = [
+            "[bold]Strategy picks[/bold] [dim]-- what Horizon's strategy is currently "
+            f"holding/targeting, not personal advice ({src})[/dim]",
+        ]
+        if strat["picks"]:
+            for p in strat["picks"][:20]:
+                held = " held" if p["held"] else ""
+                lines.append(
+                    f"  {p['ticker']:8s} {p['weight']:>6.1%}  {escape(p['sleeve'] or ''):16s} "
+                    f"{chg(p)}  [dim]{escape((p['reason'] or '')[:48])}{held}[/dim]"
+                )
+        else:
+            lines.append("  [dim]No targets yet -- the strategy hasn't produced a signal.[/dim]")
+
+        mv = rec["movers"]
+        lines.append(
+            "[bold]Market movers[/bold] [dim]-- market activity, not recommendations"
+            + (f" ({mv['filter']})" if mv.get("filter") else "") + "[/dim]"
+        )
+        if mv.get("error"):
+            lines.append(f"  [yellow]{escape(mv['error'])}[/yellow]")
+        for key, label in (("gainers", "Gainers"), ("losers", "Losers"),
+                           ("most_actives", "Most active")):
+            if mv.get(key):
+                lines.append(f"  [bold]{label}[/bold]")
+                lines += [
+                    f"   {r['ticker']:8s} {escape((r['name'] or '')[:30]):30s} {chg(r)}"
+                    for r in mv[key][:5]
+                ]
+        if rec["sentiment"]:
+            lines.append(
+                "[bold]News sentiment on your watchlist[/bold] "
+                "[dim]-- FinBERT on headlines; advisory, unvalidated[/dim]"
+            )
+            lines += [
+                f"   {r['ticker']:8s} {r['sentiment']['label']:8s} "
+                f"{r['sentiment']['score']:.2f}  {chg(r)}"
+                for r in rec["sentiment"]
+            ]
+        lines.append("  [dim]watchlist info <SYM> | watchlist add <SYM ...>[/dim]")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _watchlist_rows(rows: list[dict]) -> list[str]:
+        from rich.markup import escape
+
+        out = []
+        for r in rows:
+            mark = "*" if r.get("on_watchlist") else " "
+            note = "" if r["tradable"] else "  [red]not tradable[/red]"
+            name = escape(r["name"][:38])
+            sector = escape(r["sector"] or "")
+            out.append(f" {mark}{r['ticker']:10s} {name:38s} {r['exchange']:7s} {sector:22s}{note}")
+        return out
+
+    @staticmethod
+    def _watchlist_result(result: dict) -> str:
+        from rich.markup import escape
+
+        lines = []
+        if result.get("added"):
+            lines.append(
+                f"[green]Added {len(result['added'])}:[/green] " + ", ".join(result["added"])
+            )
+        if result.get("removed"):
+            lines.append(
+                f"[green]Removed {len(result['removed'])}:[/green] " + ", ".join(result["removed"])
+            )
+        if result.get("already"):
+            lines.append("[yellow]Already on the list:[/yellow] " + ", ".join(result["already"]))
+        if result.get("missing"):
+            lines.append("[yellow]Not on the list:[/yellow] " + ", ".join(result["missing"]))
+        for r in result.get("rejected", []):
+            lines.append(f"[red]Rejected {escape(r['symbol'])}:[/red] {escape(r['reason'])}")
+        if result.get("added") or result.get("removed"):
+            lines.append(
+                f"[dim]{result['count']} symbols on the watchlist -- live now, "
+                "no restart needed.[/dim]"
+            )
+        return "\n".join(lines) or "[dim]Nothing to do.[/dim]"
 
     async def _cmd_sleeve(self, args: list[str]) -> str:
         """Enable/disable/weight the optional sleeves. Usage:

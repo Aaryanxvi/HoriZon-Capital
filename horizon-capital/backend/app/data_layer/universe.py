@@ -52,8 +52,12 @@ _TTL = 24 * 3600  # constituents change slowly; refresh daily
 _cache: tuple[list[str], float] | None = None
 
 
-def _fetch_sp500_tickers() -> list[str]:
-    """Current S&P 500 tickers via the datasets/s-and-p-500-companies GitHub CSV."""
+def fetch_sp500_rows() -> list[dict[str, str]]:
+    """S&P 500 constituents CSV rows (Symbol, Security, GICS Sector, ...).
+
+    Source: the datasets/s-and-p-500-companies GitHub CSV. Also feeds sector
+    data to the watchlist catalog.
+    """
     import csv
     from io import StringIO
 
@@ -67,8 +71,12 @@ def _fetch_sp500_tickers() -> list[str]:
         follow_redirects=True,
     )
     resp.raise_for_status()
-    rows = list(csv.DictReader(StringIO(resp.text)))
-    syms = [r["Symbol"] for r in rows if r.get("Symbol")]
+    return list(csv.DictReader(StringIO(resp.text)))
+
+
+def _fetch_sp500_tickers() -> list[str]:
+    """Current S&P 500 tickers via the datasets/s-and-p-500-companies GitHub CSV."""
+    syms = [r["Symbol"] for r in fetch_sp500_rows() if r.get("Symbol")]
     # CSV uses BRK.B; yfinance wants BRK-B.
     return [s.strip().replace(".", "-") for s in syms if s.strip()]
 

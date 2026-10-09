@@ -455,19 +455,158 @@ async def alerts(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
 
 @router.get("/watchlist")
 async def watchlist() -> dict[str, Any]:
-    """Latest price and 24h move for every symbol the system tracks."""
-    kv = await _kv()
+    """Every watched symbol with catalog details, live price and day change.
+
+    Prices come from one batched Alpaca snapshot call (KV fallback), so this
+    stays one request whether the list holds 20 symbols or 2,000.
+    """
+    from app.data_layer import watchlist as wl
+
+    await wl.load_catalog()
+    symbols = wl.current_symbols()
+    quotes = await wl.quotes(symbols)
     out = []
-    for symbol in settings.all_symbols:
-        price = _f(await kv.get(f"horizon:price:{symbol}"))
-        prev = _f(await kv.get(f"horizon:price:prev_close:{symbol}"))
+    for symbol in symbols:
+        row = wl.lookup(symbol)
         out.append({
             "symbol": symbol,
-            "price": price,
-            "prev_close": prev,
-            "change_pct": ((price - prev) / prev * 100) if prev else 0.0,
+            "ticker": row["ticker"] if row else symbol.rsplit(".", 1)[0],
+            "name": row["name"] if row else None,
+            "exchange": row["exchange"] if row else None,
+            "asset_class": row["asset_class"] if row else None,
+            "sector": row["sector"] if row else None,
+            **quotes[symbol],
         })
-    return {"watchlist": out}
+    return {
+        "watchlist": out,
+        "count": len(out),
+        "stream": wl.stream_info(),
+        "note": wl.strategy_note(),
+        "catalog": wl.catalog_info(),
+    }
+
+
+@router.get("/watchlist/search")
+async def watchlist_search(
+    q: str = "",
+    asset_class: str | None = None,
+    exchange: str | None = None,
+    sector: str | None = None,
+    group: str | None = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> dict[str, Any]:
+    """Server-side search + filters over the ~14k-symbol catalog, paginated."""
+    import time
+
+    from app.data_layer import watchlist as wl
+
+    await wl.load_catalog()
+    started = time.perf_counter()
+    rows, total = wl.search(
+        q,
+        asset_class=asset_class or None,
+        exchange=exchange or None,
+        sector=sector or None,
+        group=group or None,
+        offset=offset,
+        limit=limit,
+    )
+    return {
+        "results": rows,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "took_ms": round((time.perf_counter() - started) * 1000, 1),
+        "catalog": wl.catalog_info(),
+    }
+
+
+@router.get("/watchlist/categories")
+async def watchlist_categories() -> dict[str, Any]:
+    """Groups, sectors, venues and markets to browse by, with counts."""
+    from app.data_layer import watchlist as wl
+
+    await wl.load_catalog()
+    return {**wl.categories(), "catalog": wl.catalog_info(), "note": wl.strategy_note()}
+
+
+async def _symbols_from(request: Request) -> list[str] | None:
+    body = await request.json()
+    symbols = body.get("symbols")
+    if isinstance(symbols, str):
+        symbols = symbols.replace(",", " ").split()
+    if not isinstance(symbols, list):
+        return None
+    return [str(s) for s in symbols]
+
+
+@router.post("/watchlist/add")
+async def watchlist_add(request: Request) -> dict[str, Any]:
+    """Bulk add, validated against the catalog. Same path as REPL `watchlist add`."""
+    from app.data_layer import watchlist as wl
+
+    symbols = await _symbols_from(request)
+    if symbols is None:
+        return {"ok": False, "error": "symbols must be a list"}
+    result = await wl.add(symbols)
+    return {"ok": not result["rejected"], **result}
+
+
+@router.post("/watchlist/remove")
+async def watchlist_remove(request: Request) -> dict[str, Any]:
+    """Bulk remove. Same path as REPL `watchlist remove`."""
+    from app.data_layer import watchlist as wl
+
+    symbols = await _symbols_from(request)
+    if symbols is None:
+        return {"ok": False, "error": "symbols must be a list"}
+    result = await wl.remove(symbols)
+    return {"ok": True, **result}
+
+
+@router.get("/quotes")
+async def quotes(symbols: str = "") -> dict[str, Any]:
+    """Prices for whatever is on screen, batched into Alpaca snapshot calls and
+    cached ~20s. On demand only: browsing never subscribes the feeds."""
+    from app.data_layer import alpaca_quotes
+
+    wanted = [s.strip() for s in symbols.split(",") if s.strip()][:1000]
+    snaps = await alpaca_quotes.get_snapshots(wanted)
+    return {
+        "quotes": {
+            sym: {**q, "change_pct": ((q["price"] - q["prev_close"]) / q["prev_close"] * 100)
+                  if q["prev_close"] else 0.0}
+            for sym, q in snaps.items()
+        }
+    }
+
+
+@router.get("/symbol/{symbol}")
+async def symbol_detail(symbol: str) -> dict[str, Any]:
+    """Detail panel for any symbol: quote, 52w stats, sentiment, headlines."""
+    from app.data_layer import market_info
+
+    return await market_info.detail(symbol)
+
+
+@router.get("/symbol/{symbol}/history")
+async def symbol_history(
+    symbol: str, rng: str = Query("1Y", alias="range", pattern="^(1M|6M|1Y|5Y)$")
+) -> dict[str, Any]:
+    """Adjusted daily OHLCV bars (Alpaca, yfinance fallback), cached 10 min."""
+    from app.data_layer import market_info
+
+    return await market_info.history(symbol, rng)
+
+
+@router.get("/watchlist/recommended")
+async def watchlist_recommended(request: Request) -> dict[str, Any]:
+    """Strategy picks (what it targets now, with reasons), market movers, and
+    news-sentiment leaders on the watchlist. Each row carries a live price."""
+    from app.data_layer import market_info
+
+    return await market_info.recommended(_orchestrator(request))
 
 
 # ---------------------------------------------------------------------------
@@ -573,10 +712,8 @@ EDITABLE_ENV: dict[str, str] = {
 
 # Changing these mid-flight does not reach the agent that read them at
 # construction; the UI says so instead of pretending the change took effect.
+# (The symbol lists apply live -- see update_settings.)
 NEEDS_RESTART = {
-    "US_SYMBOLS",
-    "INDIA_SYMBOLS",
-    "CRYPTO_SYMBOLS",
     "INITIAL_CAPITAL_USD",
     "INITIAL_CAPITAL_INR",
     "CIO_MODE",
@@ -629,6 +766,7 @@ async def update_settings(request: Request) -> dict[str, Any]:
 
     applied: list[str] = []
     errors: list[str] = []
+    before = list(settings.all_symbols)
     for key, value in updates.items():
         error = _apply_env(str(key).upper(), "" if value is None else str(value))
         if error:
@@ -646,6 +784,15 @@ async def update_settings(request: Request) -> dict[str, Any]:
     if "SYSTEM_MODE" in applied:
         kv = await _kv()
         await kv.set("horizon:system:mode", settings.system_mode.value)
+
+    if {"US_SYMBOLS", "INDIA_SYMBOLS", "CRYPTO_SYMBOLS"} & set(applied):
+        # Raw list edits (onboarding) re-subscribe the feeds like watchlist add/remove.
+        from app.data_layer import watchlist as wl
+
+        after = list(settings.all_symbols)
+        await wl.notify(
+            [s for s in after if s not in before], [s for s in before if s not in after]
+        )
 
     return {
         "ok": not errors,
@@ -865,7 +1012,8 @@ async def command_list() -> dict[str, Any]:
             "pnl", "backtest", "backtest results", "risk", "sentiment", "debate",
             "debate why", "agents", "health", "doctor", "performance", "report",
             "config", "pending", "approve", "reject", "cio", "cio why",
-            "cio confirm halt", "watchlist", "watchlist add", "watchlist remove",
+            "cio confirm halt", "watchlist", "watchlist search", "watchlist browse",
+            "watchlist recommended", "watchlist info", "watchlist add", "watchlist remove",
             "buy", "sell", "strategy", "strategy status", "sleeve", "sleeve on",
             "sleeve off", "sleeve weight", "pm", "pm add", "pm remove",
             "pm auto on", "pm auto off", "pm scan", "crypto", "crypto auto on",
