@@ -158,7 +158,7 @@ def test_no_duplicate_cio_creation_in_main():
     import ast
     from pathlib import Path
     main_path = Path(__file__).parent.parent / "app" / "__main__.py"
-    source = main_path.read_text()
+    source = main_path.read_text(encoding="utf-8")
     tree = ast.parse(source)
     cio_calls = 0
     for node in ast.walk(tree):

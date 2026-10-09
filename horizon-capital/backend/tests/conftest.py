@@ -8,7 +8,16 @@
 """Test-suite-wide fixtures."""
 from __future__ import annotations
 
+from functools import cache
+
 import pytest
+
+
+@cache
+def _factory_settings():
+    """Settings as the code defines them, ignoring ``.env``."""
+    from app.config import Settings
+    return Settings(_env_file=None)
 
 
 @pytest.fixture(autouse=True)
@@ -21,16 +30,26 @@ def _isolated_horizon_data_dir(tmp_path, monkeypatch):
     """
     monkeypatch.setenv("HORIZON_DATA_DIR", str(tmp_path))
 
-    # Force test-mode defaults so the suite is independent of the developer's
-    # real .env (which may be FULLY_AUTONOMOUS / CIO=AI for live trading). Tests
-    # that need another mode patch it themselves.
-    from app.config import CIOMode, SystemMode, settings
-    monkeypatch.setattr(settings, "system_mode", SystemMode.PAPER_TRADING, raising=False)
-    monkeypatch.setattr(settings, "cio_mode", CIOMode.HUMAN, raising=False)
-    monkeypatch.setattr(settings, "execution_broker", "PAPER", raising=False)
-    # Provider default: a real DEBATE_MODEL in .env would re-wrap every fake
-    # provider via with_model() and break identity assertions.
-    monkeypatch.setattr(settings, "debate_model", "", raising=False)
+    # Reset every setting to its factory default so the suite is independent of
+    # the developer's real .env (live broker + Alpaca keys would hit the network
+    # for fill prices, enabled optional sleeves change the strategy mix, a real
+    # DEBATE_MODEL re-wraps fake providers...). Tests that need another value
+    # patch it themselves.
+    from app.config import settings
+    defaults = _factory_settings()
+    for name in type(settings).model_fields:
+        default = getattr(defaults, name)
+        if getattr(settings, name) != default:
+            monkeypatch.setattr(settings, name, default)
+
+    # The LOCAL KV store is a process-wide singleton: without this, a key one
+    # test sets (e.g. the kill switch "horizon:system:halted") silently blocks
+    # every later test's orders even though each test gets a fresh DB.
+    from app.core.kv_store import get_kv_store
+    kv = get_kv_store()
+    kv._data.clear()
+    kv._hashes.clear()
+    kv._expiry.clear()
 
     # Drop cached modules so they pick up the new env var.
     import sys

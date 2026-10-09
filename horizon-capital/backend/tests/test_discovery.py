@@ -29,7 +29,9 @@ from app.data_layer.polymarket_feed import (
     refresh_discovery,
 )
 
-_NOW = datetime(2026, 8, 30, tzinfo=UTC)
+# Real clock: refresh_discovery() filters on datetime.now(), so a fixed date
+# here turns every end date stale once it passes (it did, 2026-09).
+_NOW = datetime.now(UTC)
 _TOKENS = json.dumps(["1" * 77, "2" * 77])
 
 

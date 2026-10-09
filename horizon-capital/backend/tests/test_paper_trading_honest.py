@@ -452,7 +452,9 @@ async def test_limit_buy_rejected_when_price_too_high():
 async def test_limit_buy_accepted_when_price_low_enough():
     """BUY limit far above live market price is always accepted."""
     from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
 
+    await get_kv_store().set("horizon:price:AAPL", "100.0")
     broker = PaperBroker()
     fill = await broker.execute({
         "id": "ord-t5-2", "symbol": "AAPL", "side": "BUY",
@@ -466,7 +468,9 @@ async def test_limit_buy_accepted_when_price_low_enough():
 async def test_limit_sell_rejected_when_price_too_low():
     """SELL limit at $100k rejected because no stock trades that high."""
     from app.agents.front_office.trading.paper_broker import PaperBroker
+    from app.core.kv_store import get_kv_store
 
+    await get_kv_store().set("horizon:price:AAPL", "100.0")
     broker = PaperBroker()
     fill = await broker.execute({
         "id": "ord-t5-3", "symbol": "AAPL", "side": "SELL",
