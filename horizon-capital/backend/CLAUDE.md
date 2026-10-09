@@ -180,7 +180,7 @@ Per-department setting `ai_<dept>` = auto|claude|openai|gemini|none; per-agent o
 python run_tests.py                  # root: sets LOCAL/PAPER env, runs backend/tests/test_smoke.py
 python -m pytest tests/ -v           # 48 files in backend/tests/ (asyncio_mode=auto)
 ```
-Two test trees: `backend/tests/` (48 files: smoke, integration, e2e, 9 CIO, feeds, strategy, desktop API) and root `tests/unit/` (3 files: drift, features, VaR). `pyproject` `testpaths=["../tests"]`. Known: several tests assert factory defaults and fail against a configured developer `.env` (`test_cio_mode_default` with CIO_MODE=AI; the sleeve-mix tests with CRYPTO/POLYMARKET_SLEEVE_ENABLED=true); hmmlearn won't build on py3.14 (handled gracefully); redis-dependent smoke test skips when redis absent.
+Two test trees: `backend/tests/` (48 files: smoke, integration, e2e, 9 CIO, feeds, strategy, desktop API) and root `tests/unit/` (3 files: drift, features, VaR). `pyproject` `testpaths=["../tests"]`. `tests/conftest.py` resets every Settings field to its factory default (`Settings(_env_file=None)`) and clears the shared LOCAL KV store per test, so the suite is independent of the developer `.env` — **run `pytest tests` from `backend/`** (bare `pytest` follows `testpaths=../tests`, the 3-file root tree); hmmlearn won't build on py3.14 (handled gracefully); redis-dependent smoke test skips when redis absent.
 
 ## Linting
 
