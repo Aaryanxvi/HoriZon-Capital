@@ -199,3 +199,38 @@ B0 has no gate; it is reported as the look-ahead cost: ΔSharpe(B0 − B_live).
   engine code, no orders, no paid APIs, no push.
 - Every number in the results file comes from one script run
   (`scripts/validate_profitability.py`), whose output is pasted verbatim.
+
+## Addendum A — written and committed BEFORE the first strategy run (2026-10-10)
+
+Triggered by harness findings relayed from the India-research agent. At the time of
+writing, this program had computed **no strategy return** (only the no-network
+self-checks of the tax engine and the SEC fetcher had run).
+
+- **A1. Price-print cleaning**, applied identically to every arm except B_harness (which
+  must reproduce the old numbers on raw data). (a) *Close spikes*: a close that moves
+  > 40% against the prior close and returns to within 10% of that prior close within 3
+  bars is a bad print; the spike bars are replaced by linear interpolation between the
+  bracketing good closes, and their opens are set to that close. (b) *Opens*: if an open
+  is > 10% away from the prior close **and** > 5% away from the same-day close, the open
+  is replaced by the close. Counts of corrected bars and series are printed.
+- **A2. Correction chain made explicit** (each step isolates one fix):
+  B_harness (old cadence quirk, drift trading, anchor leak, raw prices) →
+  **B_live_leak** (live cadence + target-change rule; anchor leak and raw prices kept) →
+  **B_live_raw** (+ strict point-in-time view: a single-name anchor is visible to the
+  sleeves only while it is an index member — the old harness showed today's mega-cap
+  anchors on every date, including years before they joined; ticker aliases META→FB,
+  GOOGL→GOOG for membership) → **B_live** (+ A1 cleaning) = the reference for all gates.
+- **A3. Risk-free**: `load_riskfree()` (^IRX) is asserted to cover both windows with
+  non-zero variance. No silent flat-rate fallback.
+- **A4. Candidate set change.** C4 (the C1+C3 combination) is **dropped** and replaced by
+  **C5 — regime-gate hysteresis** on research_stack: the sleeve flips RISK_ON/RISK_OFF
+  at GMM confidence 0.50 both ways; C5 leaves RISK_ON only when confidence < 0.35 and
+  re-enters only when > 0.65. Rationale: the India run found the same gate flipping
+  ~30× per window, rotating ~50% of NAV each time — pure short-term realizations; a dead
+  band removes flips caused by confidence hovering at 0.5 without delaying a decisive
+  move. One configuration, no sweep. Regime flip counts are printed for every arm as
+  measurement. Candidates remain four: C1, C2, C3, C5. N_program = **10** (B_harness,
+  B_live_leak, B_live_raw, B_live, B_live_whole, B0, C1, C2, C3, C5); N_project = **22**.
+  The dispersion set for the deflated margin is {B0, C1, C2, C3, C5}, N = 5.
+- **A5. Count correction**: `_RISK_UNIVERSE` holds 17 single names + 8 ETFs (not 18 + 7);
+  B0 replaces 17.

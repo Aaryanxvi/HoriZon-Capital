@@ -76,3 +76,6 @@ htmlcov/
 # Verdict JSONL is kept (it is paid-for experimental evidence).
 own research paper/debate_ab_bars_*.pkl
 own research paper/debate_ab_stream_*.json
+# Profitability harness caches/intermediates (regenerable; results live in docs/plans).
+own research paper/profitability_*.pkl
+own research paper/profitability_*.json
