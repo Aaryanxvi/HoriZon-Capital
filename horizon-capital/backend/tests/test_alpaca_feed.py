@@ -242,5 +242,45 @@ async def test_ws_loop_no_websockets_module():
             sys.modules["websockets"] = saved
         elif "websockets" in sys.modules:
             del sys.modules["websockets"]
+
+
+@pytest.mark.asyncio
+async def test_ws_auth_rejection_is_detected_and_never_subscribes():
+    """The greeting frame must not be mistaken for the auth reply."""
+    from app.data_layer.alpaca_feed import AlpacaFeed
+
+    feed = AlpacaFeed()
+    feed._running = True
+    feed._symbols = ["AAPL"]
+    sent: list[str] = []
+
+    class FakeWs:
+        def __init__(self):
+            self._frames = iter([
+                '[{"T":"success","msg":"connected"}]',
+                '[{"T":"error","code":402,"msg":"auth failed"}]',
+            ])
+
+        async def send(self, data):
+            sent.append(data)
+
+        async def recv(self):
+            return next(self._frames)
+
+    @asynccontextmanager
+    async def fake_connect(*args, **kwargs):
+        feed._running = False  # one attempt is enough
+        yield FakeWs()
+
+    fake_ws_module = MagicMock()
+    fake_ws_module.connect = fake_connect
+    with (
+        patch.dict("sys.modules", {"websockets": fake_ws_module}),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        await feed._ws_loop()
+
+    assert len(sent) == 1 and '"auth"' in sent[0]  # auth sent, subscribe never sent
+
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token 925A3A880A6B - verify with scripts/authorship.py verify

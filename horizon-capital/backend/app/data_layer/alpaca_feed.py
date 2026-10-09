@@ -23,10 +23,10 @@ from app.data_layer.data_normalizer import NormalizedOHLCV, NormalizedTick
 
 logger = get_logger(__name__)
 
-_STREAM_URL_PAPER = "wss://stream.data.sandbox.alpaca.markets/v2/iex"
-_STREAM_URL_LIVE = "wss://stream.data.alpaca.markets/v2/iex"
-_DATA_REST_PAPER = "https://data.sandbox.alpaca.markets"
-_DATA_REST_LIVE = "https://data.alpaca.markets"
+# Market data is one host for paper and live accounts. The "sandbox" data hosts
+# reject paper keys (REST 401, stream auth 402) -- they belong to Broker API.
+_STREAM_URL = "wss://stream.data.alpaca.markets/v2/iex"
+_DATA_REST = "https://data.alpaca.markets"
 
 _WS_MAX_RETRIES = 5          # attempts before permanently falling to REST
 _WS_BACKOFF_BASE = 2         # seconds; doubles each retry (2, 4, 8, 16, 32)
@@ -50,11 +50,11 @@ class AlpacaFeed(BaseFeed):
     # ------------------------------------------------------------------
     @property
     def _stream_url(self) -> str:
-        return _STREAM_URL_PAPER if settings.alpaca_paper_mode else _STREAM_URL_LIVE
+        return _STREAM_URL
 
     @property
     def _rest_base(self) -> str:
-        return _DATA_REST_PAPER if settings.alpaca_paper_mode else _DATA_REST_LIVE
+        return _DATA_REST
 
     @property
     def _auth_headers(self) -> dict[str, str]:
@@ -121,7 +121,10 @@ class AlpacaFeed(BaseFeed):
                 async with websockets.connect(self._stream_url) as ws:
                     self._ws = ws
 
-                    # Authenticate
+                    # Server greets first ("connected"); the auth reply is the NEXT
+                    # frame. Reading only one frame logged the greeting as the auth
+                    # result, so a rejected key looked fine and reconnect-looped.
+                    await ws.recv()
                     auth_msg = {
                         "action": "auth",
                         "key": settings.alpaca_api_key,
@@ -130,6 +133,9 @@ class AlpacaFeed(BaseFeed):
                     await ws.send(json.dumps(auth_msg))
                     resp = json.loads(await ws.recv())
                     logger.info("alpaca_feed.ws_auth_response", resp=resp)
+                    replies = resp if isinstance(resp, list) else [resp]
+                    if any(m.get("T") == "error" for m in replies):
+                        raise ConnectionError(f"alpaca stream auth rejected: {resp}")
 
                     # Subscribe to trades
                     sub_msg = {"action": "subscribe", "trades": self._symbols}
