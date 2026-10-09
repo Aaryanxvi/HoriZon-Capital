@@ -218,14 +218,16 @@ def _selfcheck() -> None:
         "Liabilities": {"units": {"USD": [inst("2019-12-31", 600.0, "2020-02-15")]}},
     }}
     b = {"us-gaap": {
-        "NetIncomeLoss": {"units": {"USD": [fact("2019-01-01", "2019-12-31", -10.0, "2020-03-01")]}},
+        "NetIncomeLoss": {"units": {"USD": [
+            fact("2019-01-01", "2019-12-31", -10.0, "2020-03-01")]}},
         "StockholdersEquity": {"units": {"USD": [inst("2019-12-31", 500.0, "2020-03-01")]}},
         "Assets": {"units": {"USD": [inst("2019-12-31", 2000.0, "2020-03-01")]}},
     }}
     q = PITQuality(["A", "B"], facts_override={"A": a, "B": b})
 
     # Before anything was filed: nothing known (the stub value).
-    assert q.raw("A", pd.Timestamp("2019-01-31")) == {"roe": None, "gm": None, "eg": None, "de": None}
+    nothing = {"roe": None, "gm": None, "eg": None, "de": None}
+    assert q.raw("A", pd.Timestamp("2019-01-31")) == nothing
     # Between filings: only the FY2018 10-K is visible, even though FY2019 ENDED already.
     r = q.raw("A", pd.Timestamp("2020-01-31"))
     assert abs(r["roe"] - 100.0 / 1000.0) < 1e-12, r

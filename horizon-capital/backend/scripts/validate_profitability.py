@@ -132,7 +132,7 @@ ARMS: dict[str, dict] = {
 CANDIDATES = ("C1_rs21", "C2_rs21_taxaware", "C3_pit_qmj", "C5_regime_hyst")
 DISPERSION_SET = ("B0_mech_univ",) + CANDIDATES    # sigma_delta set, gate doc section 5
 MARGIN_FROZEN = 0.112                               # addendum B: margin from the main run
-N_PROJECT_PRIOR = 12                                 # validate_deflated_sharpe.OBSERVED_TRIAL_SHARPES
+N_PROJECT_PRIOR = 12   # validate_deflated_sharpe.OBSERVED_TRIAL_SHARPES
 SPIKE_MOVE, SPIKE_REVERT, SPIKE_BARS = 0.40, 0.10, 3  # addendum A1(a)
 OPEN_VS_PREV, OPEN_VS_CLOSE = 0.10, 0.05              # addendum A1(b)
 _REAL_DETECT_REGIME = research_stack.detect_regime
@@ -546,7 +546,8 @@ def static_replay(weights: dict[str, float], closes, opens, cal, capital, annual
 # Indian tax engine
 # ---------------------------------------------------------------------------
 
-def net_gains(st: float, lt: float, cf_st: float, cf_lt: float) -> tuple[float, float, float, float]:
+def net_gains(st: float, lt: float, cf_st: float,
+              cf_lt: float) -> tuple[float, float, float, float]:
     """s.70/s.74: current-year set-off first, then brought-forward pools.
     STCL offsets STCG then LTCG; LTCL offsets LTCG only. Returns taxable (st, lt)
     and the updated carry-forward pools."""
@@ -611,14 +612,15 @@ def tax_engine(res: dict, cal: pd.DatetimeIndex, closes: pd.DataFrame, fx: pd.Se
 
     mv_eq = (nav - cash - res["mv_tlt"].reindex(cal).fillna(0.0)
              - res["mv_gld"].reindex(cal).fillna(0.0)).clip(lower=0.0)
+    mv_tlt = res["mv_tlt"].reindex(cal).fillna(0.0)
     div_usd = (mv_eq * y_spy.reindex(cal).fillna(0.0)
-               + res["mv_tlt"].reindex(cal).fillna(0.0) * y_tlt.reindex(cal).fillna(0.0)) / TRADING_DAYS
+               + mv_tlt * y_tlt.reindex(cal).fillna(0.0)) / TRADING_DAYS
     div_c = (div_usd * fx.reindex(cal)).groupby(fy.values).cumsum()
 
     fxc = fx.reindex(cal)
     cf_st = cf_lt = 0.0
-    M = 1.0
-    W = np.empty(len(cal))
+    scale = 1.0                      # cumulative shrink from taxes paid out of the book
+    wealth = np.empty(len(cal))
     tax_usd = 0.0        # total paid, in the scaled (after-tax) portfolio's USD
     st_tax_tot = lt_tax_tot = 0.0
     fyv = fy.values
@@ -626,7 +628,7 @@ def tax_engine(res: dict, cal: pd.DatetimeIndex, closes: pd.DataFrame, fx: pd.Se
     for k, d in enumerate(cal):
         st_tx, lt_tx, _, _ = net_gains(float(st_c.iloc[k]), float(lt_c.iloc[k]), cf_st, cf_lt)
         liab = st_tx * st_rate + lt_tx * lt_rate + float(div_c.iloc[k]) * div_rate   # INR
-        W[k] = M * (nav.iloc[k] - liab / fxc.iloc[k])
+        wealth[k] = scale * (nav.iloc[k] - liab / fxc.iloc[k])
         liab_last = liab
         if k == len(cal) - 1:
             break
@@ -636,8 +638,8 @@ def tax_engine(res: dict, cal: pd.DatetimeIndex, closes: pd.DataFrame, fx: pd.Se
             st_tax_tot += st_tx
             lt_tax_tot += lt_tx
             pay_usd = liab / fxc.iloc[k]
-            tax_usd += M * pay_usd
-            M *= max(1.0 - pay_usd / nav.iloc[k], 0.0)
+            tax_usd += scale * pay_usd
+            scale *= max(1.0 - pay_usd / nav.iloc[k], 0.0)
 
     # Terminal: last FY's running totals + liquidation, netted against the pools.
     st_fin = float(st_c.iloc[-1]) + float(g_term[~g_term["lt"]]["gain"].sum())
@@ -646,15 +648,15 @@ def tax_engine(res: dict, cal: pd.DatetimeIndex, closes: pd.DataFrame, fx: pd.Se
     liab_post = st_tx * st_rate + lt_tx * lt_rate + float(div_c.iloc[-1]) * div_rate
     st_tax_tot += st_tx
     lt_tax_tot += lt_tx
-    w_pre = float(W[-1])
-    w_post = M * (nav.iloc[-1] - liab_post / fxc.iloc[-1])
-    tax_usd_post = tax_usd + M * liab_post / fxc.iloc[-1]
+    w_pre = float(wealth[-1])
+    w_post = scale * (nav.iloc[-1] - liab_post / fxc.iloc[-1])
+    tax_usd_post = tax_usd + scale * liab_post / fxc.iloc[-1]
 
     allg = pd.concat([g_real, g_term])
     pos = allg[allg["gain"] > 0]
     pct_st = float(pos[~pos["lt"]]["gain"].sum() / pos["gain"].sum()) if len(pos) else float("nan")
     return {
-        "curve": pd.Series(W, index=cal), "w_pre": w_pre, "w_post": w_post,
+        "curve": pd.Series(wealth, index=cal), "w_pre": w_pre, "w_post": w_post,
         "tax_usd_post": tax_usd_post, "pct_st_gains": pct_st,
         "st_taxable_inr": st_tax_tot, "lt_taxable_inr": lt_tax_tot,
         "n_realized": len(g_real), "liab_pre_end_inr": liab_last,
@@ -706,7 +708,8 @@ def evaluate(name, res, cal, closes, fx, y_spy, y_tlt, rf, capital) -> tuple[dic
                 "pct_st": round(t["pct_st_gains"] * 100, 1),
                 "tax_pct_nav_yr": round(t["tax_usd_post"] / float(eq.mean()) / yrs * 100, 2),
                 "at_cagr_pre": round(_cagr(t["w_pre"] * (1 - FX_BASE) ** 2, capital, yrs) * 100, 2),
-                "at_cagr_post": round(_cagr(t["w_post"] * (1 - FX_BASE) ** 2, capital, yrs) * 100, 2),
+                "at_cagr_post": round(_cagr(t["w_post"] * (1 - FX_BASE) ** 2, capital, yrs)
+                                      * 100, 2),
                 "at_cagr_post_inr": round(_cagr(t["w_post"] * fx_end / fx0 * (1 - FX_BASE) ** 2,
                                                 capital, yrs) * 100, 2),
                 "at_sharpe_rf": round(sharpe_realized(ar, rf), 2),
@@ -785,7 +788,8 @@ def run_window(args) -> None:
           f"max {rf_w.max():.2%}")
     y_spy = fy_yields(aux["div"]["SPY"], closes[spy_col], cal)
     y_tlt = fy_yields(aux["div"]["TLT"], closes["TLT.NASDAQ"], cal)
-    print(f"FY dividend yields SPY {y_spy.groupby([fy_of(d) for d in cal]).first().round(4).to_dict()}")
+    y_by_fy = y_spy.groupby([fy_of(d) for d in cal]).first().round(4).to_dict()
+    print(f"FY dividend yields SPY {y_by_fy}")
 
     arms = args.arms.split(",") if args.arms else list(ARMS)
     pitq = None
@@ -869,7 +873,8 @@ def report() -> None:
     print("\n=== Baseline question: does the live mix beat an index fund after tax? ===")
     for w, t in (("design", d), ("holdout", h)):
         b, s, m = t["B_live"], t["SPY_bh"], t["6040_annual"]
-        print(f"{w:8s} after-tax post-liq CAGR: live {b['at_cagr_post']}%  SPY {s['at_cagr_post']}%  "
+        print(f"{w:8s} after-tax post-liq CAGR: live {b['at_cagr_post']}%  "
+              f"SPY {s['at_cagr_post']}%  "
               f"60/40 {m['at_cagr_post']}%  | after-tax Sharpe: live {b['at_sharpe_rf']} "
               f"SPY {s['at_sharpe_rf']} 60/40 {m['at_sharpe_rf']} | AT maxDD: live {b['at_maxdd']} "
               f"SPY {s['at_maxdd']}")
@@ -887,9 +892,10 @@ def report() -> None:
                       f"{t[a]['at_cagr_post']:>6}  turnover {t[a]['turnover']}  "
                       f"flips {t[a]['flips']}")
         if "B0_mech_univ" in t:
+            b0, bl = t["B0_mech_univ"], t["B_live"]
             print(f"{w:8s} look-ahead cost of the hard-coded research universe: "
-                  f"dSharpe(B0-B_live) = {round(t['B0_mech_univ']['sharpe_rf'] - t['B_live']['sharpe_rf'], 2)} "
-                  f"pre-tax, {round(t['B0_mech_univ']['at_sharpe_rf'] - t['B_live']['at_sharpe_rf'], 2)} after-tax")
+                  f"dSharpe(B0-B_live) = {round(b0['sharpe_rf'] - bl['sharpe_rf'], 2)} "
+                  f"pre-tax, {round(b0['at_sharpe_rf'] - bl['at_sharpe_rf'], 2)} after-tax")
 
     deltas = [d[a]["at_sharpe_rf"] - d["B_live"]["at_sharpe_rf"] for a in DISPERSION_SET if a in d]
     sigma = float(np.std(deltas, ddof=1)) if len(deltas) > 1 else 0.0
@@ -913,10 +919,11 @@ def report() -> None:
             dd_design = c_d["at_sharpe_rf"] - b_d["at_sharpe_rf"]
             g4 = dd_design * dsh > 0 or (dsh == 0 and dd_design == 0)
             res = "SHIP" if all((g1, g2, g3, g4)) else "KEEP CURRENT"
-            print(f"{a:18s} dATsharpe {dsh:+.3f} (G1 {'P' if g1 else 'F'}) | ATdd {c_h['at_maxdd']} "
-                  f"vs {b_h['at_maxdd']} (G2 {'P' if g2 else 'F'}) | ATpost {c_h['at_cagr_post']} vs "
-                  f"{b_h['at_cagr_post']} (G3 {'P' if g3 else 'F'}) | design d {dd_design:+.2f} "
-                  f"(G4 {'P' if g4 else 'F'}) -> {res}")
+            pf = ["P" if g else "F" for g in (g1, g2, g3, g4)]
+            print(f"{a:18s} dATsharpe {dsh:+.3f} (G1 {pf[0]}) | ATdd {c_h['at_maxdd']} "
+                  f"vs {b_h['at_maxdd']} (G2 {pf[1]}) | ATpost {c_h['at_cagr_post']} vs "
+                  f"{b_h['at_cagr_post']} (G3 {pf[2]}) | design d {dd_design:+.2f} "
+                  f"(G4 {pf[3]}) -> {res}")
 
     _gates("Gates on the holdout", CANDIDATES, "B_live", margin)
     if "B0C2_mech_rs21_tax" in h:
@@ -924,17 +931,18 @@ def report() -> None:
                "B0_mech_univ", MARGIN_FROZEN)
         for w, t in (("design", d), ("holdout", h)):
             if "B0C2_mech_rs21_tax" in t:
-                print(f"{w:8s} B0C2 vs SPY after tax: CAGR {t['B0C2_mech_rs21_tax']['at_cagr_post']} vs "
-                      f"{t['SPY_bh']['at_cagr_post']}, Sharpe {t['B0C2_mech_rs21_tax']['at_sharpe_rf']} "
-                      f"vs {t['SPY_bh']['at_sharpe_rf']}, maxDD {t['B0C2_mech_rs21_tax']['at_maxdd']} "
-                      f"vs {t['SPY_bh']['at_maxdd']}")
+                c, s = t["B0C2_mech_rs21_tax"], t["SPY_bh"]
+                print(f"{w:8s} B0C2 vs SPY after tax: CAGR {c['at_cagr_post']} vs "
+                      f"{s['at_cagr_post']}, Sharpe {c['at_sharpe_rf']} vs {s['at_sharpe_rf']}, "
+                      f"maxDD {c['at_maxdd']} vs {s['at_maxdd']}")
 
     # Data-coverage diagnostic for C3: share of the 17 research names with an SEC
     # point-in-time ROE available at the start of each year (XBRL begins mid-2009).
     singles = [_base(s) for s in _ORIG_RISK_UNIVERSE if s not in ETF_KEYS]
     try:
         pitq = PITQuality(singles)
-        cov = {y: sum(1 for t in singles if pitq.raw(t, pd.Timestamp(f"{y}-01-02"))["roe"] is not None)
+        cov = {y: sum(1 for t in singles
+                      if pitq.raw(t, pd.Timestamp(f"{y}-01-02"))["roe"] is not None)
                for y in range(2008, 2025)}
         print("\n=== C3 data coverage: names (of 17) with SEC point-in-time ROE on 2 Jan ===")
         print(" ".join(f"{y}:{n}" for y, n in cov.items()))
@@ -1037,7 +1045,8 @@ def _selfcheck() -> None:
     assert abs(shares["X"] - 3.0) < 1e-9 and len(realized) == 2
     assert realized[0][1] == cal[0] and abs(realized[0][2] - 10.0) < 1e-9     # oldest lot first
     assert realized[1][1] == cal[1] and abs(realized[1][2] - 2.0) < 1e-9
-    assert abs(_fifo_gain(lots["X"], None, 130.0) - 3.0 * (130.0 - 110.0 * (1 + SLIPPAGE_BPS / 1e4))) < 1e-6
+    expect_gain = 3.0 * (130.0 - 110.0 * (1 + SLIPPAGE_BPS / 1e4))
+    assert abs(_fifo_gain(lots["X"], None, 130.0) - expect_gain) < 1e-6
     # Whole shares: 7.9 -> 7; a full exit sells the fractional remainder too.
     lots2, sh2 = defaultdict(deque), {}
     c2 = _fill("Y", 10.0, 7.9, cal[0], 1000.0, sh2, lots2, [], [], True)
@@ -1059,7 +1068,7 @@ def _selfcheck() -> None:
                       index=idx)
     cleaned, info = clean_bars({"Z": df})
     cz = cleaned["Z"]["close"].to_numpy()
-    assert abs(cz[2] - (101 + (102 - 101) / 3)) < 1e-9 and abs(cz[3] - (101 + 2 * (102 - 101) / 3)) < 1e-9, cz
+    assert abs(cz[2] - (101 + 1 / 3)) < 1e-9 and abs(cz[3] - (101 + 2 / 3)) < 1e-9, cz
     assert cz[6] == 50 and cz[11] == 45, cz                    # the crash is kept
     assert cleaned["Z"]["open"].iloc[5] == 103.0 and cleaned["Z"]["open"].iloc[7] == 49.5
     assert info == {"close_bars": 2, "open_bars": 1, "series": 1}, info
