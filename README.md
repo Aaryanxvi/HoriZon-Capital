@@ -95,13 +95,7 @@ It runs on a laptop with **zero external infrastructure** by default (SQLite + i
 </p>
 
 ### The signal-to-fill pipeline
-
-```
-StrategyAgent ──SIGNAL──▶ RiskAgent ──approved──▶ PortfolioAgent ──ORDER_NEW──▶ ExecutionAgent ──▶ PaperBroker
-   (sleeves)             (pre-trade gate)        (target weights → size)        (guards + FSM)      (Almgren–Chriss fill)
-                                                         │
-                                         FULLY_AUTONOMOUS: buffered ──▶ DebateAgent ──APPROVED (≥3 of 4)──▶ order
-```
+<img src="pipeline.png" alt="Horizon Capital Signal-to-Fill Pipeline" width="900"/>
 
 ### Message bus
 
@@ -522,34 +516,6 @@ A four-hour live paper-trading session (USD 100,000 seed, four sleeves, live Yah
 ### Worked example (AAPL buy)
 
 667 shares @ $150.00 reference, σ = 2 %, ADV = 50 M → ρ = 1.334×10⁻⁵ → fill ≈ **$150.0152**, commission ≈ **$10.01**, total round-trip cost ≈ **2.02 bps** of notional.
-
----
-
-## 🚧 Known Limitations & Roadmap
-
-The thesis included a formal engineering audit of the paper-trading path: **46 gaps** (14 P0, 26 P1, 6 P2) and a composite production-readiness score of **6.5 / 10**.
-
-**Most important known items**
-
-- 🔴 **Restart safety:** signal-dedup state is in-memory, so a restart can re-emit duplicate orders
-- 🔴 **Realised P&L** is not yet summed into the NAV shown on the dashboard
-- 🔴 **Slippage bias:** the clamped noise term introduces a small systematic drag
-- 🔴 **No partial fills** are simulated; the `PARTIAL` state path is effectively dormant
-- 🔴 **Kill-switch** blocks BUYs but not short-opening orders
-- 🔴 **No market-hours gate** in the broker; injected or replayed weekend orders can fill against a stale close
-- 🟠 `risk_max_leverage` and `risk_max_orders_per_minute` are declared but not enforced
-- 🟠 Live-money broker routing (Zerodha / Alpaca) is **not certified**; paper-with-real-feed only
-
-**Roadmap**
-
-- [ ] Fix all P0 items, then the P1 set
-- [ ] Persist dedup / cooldown state across restarts
-- [ ] Partial fills + latency simulation
-- [ ] Enforce leverage and order-rate limits
-- [ ] Feed-health badge and tighter NAV refresh on the dashboard
-- [ ] Production deployment (Docker Compose, CI)
-- [ ] Expand Polymarket and crypto strategies and risk models
-- [ ] Train and integrate HMM regime and DRL strategy models
 
 ---
 
