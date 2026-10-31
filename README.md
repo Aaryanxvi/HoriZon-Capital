@@ -90,42 +90,9 @@ It runs on a laptop with **zero external infrastructure** by default (SQLite + i
 
 ---
 
-## 🏗️ System Architecture
-
-Horizon Capital is a **federation of independently-clocked agents** that communicate **exclusively through a publish/subscribe message bus**. There is no shared mutable state outside the persistence layer.
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                         PRESENTATION LAYER                               │
-│        Rich TUI (2 FPS) + REPL   │   FastAPI REST   │   React Web UI     │
-└──────────────────────────────────────────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          EXECUTIVE LAYER                                 │
-│                       CIOAgent (HUMAN / AI mode)                         │
-└──────────────────────────────────────────────────────────────────────────┘
-                                   │
-┌─────────────────────┬─────────────────────┬──────────────────────────────┐
-│    FRONT OFFICE     │    MIDDLE OFFICE    │         BACK OFFICE          │
-│  StrategyAgent      │  RiskAgent          │  AccountingAgent             │
-│  PortfolioAgent     │  ComplianceAgent    │  QuantAgent                  │
-│  ExecutionAgent     │  DebateAgent        │  ITAgent                     │
-│  IRAgent            │  AlphaMonitorAgent  │                              │
-│                     │  OperationsAgent    │                              │
-└─────────────────────┴─────────────────────┴──────────────────────────────┘
-                                   │
-┌──────────────────────────────────────────────────────────────────────────┐
-│          MESSAGE BUS (MemoryBus  ⇄  Redis AgentBus)  · 23 msg types      │
-└──────────────────────────────────────────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────────────────────────────────────────────┐
-│  WORKERS (5)  ·  SERVICES  ·  DATA LAYER  ·  FEATURE ENGINE (23 indic.)  │
-└──────────────────────────────────────────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────────────────────────────────────────────┐
-│     PERSISTENCE: SQLite (28 tables) / PostgreSQL  +  KV store / Redis    │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="architecture.png" alt="Horizon Capital Architecture" width="900"/>
+</p>
 
 ### The signal-to-fill pipeline
 
