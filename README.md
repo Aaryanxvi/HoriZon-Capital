@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/34210380/README.md)
 <div align="center">
 
 # 🏦 Horizon Capital
@@ -24,28 +23,27 @@
 
 1. [Overview](#-overview)
 2. [Key Features](#-key-features)
-3. [What's New](#-whats-new-beyond-the-original-thesis)
-4. [System Architecture](#-system-architecture)
-5. [The 13 Agents](#-the-13-agents)
-6. [Strategy Sleeves](#-strategy-sleeves)
-7. [LLM Debate Engine & AI CIO](#-llm-debate-engine--ai-cio)
-8. [Execution & Market Impact Model](#-execution--market-impact-model)
-9. [Risk Management](#-risk-management)
-10. [Operating Modes](#-operating-modes)
-11. [Tech Stack](#-tech-stack)
-12. [Project Structure](#-project-structure)
-13. [Getting Started](#-getting-started)
-14. [Configuration](#-configuration)
-15. [Terminal UI & REPL Commands](#-terminal-ui--repl-commands)
-16. [Web Dashboard](#-web-dashboard)
-17. [Data & Persistence](#-data--persistence)
-18. [Backtesting & Stress Testing](#-backtesting--stress-testing)
-19. [Testing](#-testing)
-20. [Results from the Demonstration Run](#-results-from-the-demonstration-run)
-21. [Known Limitations & Roadmap](#-known-limitations--roadmap)
-22. [Team](#-team)
-23. [References](#-references)
-24. [Disclaimer](#-disclaimer)
+3. [System Architecture](#-system-architecture)
+4. [The 13 Agents](#-the-13-agents)
+5. [Strategy Sleeves](#-strategy-sleeves)
+6. [LLM Debate Engine & AI CIO](#-llm-debate-engine--ai-cio)
+7. [Execution & Market Impact Model](#-execution--market-impact-model)
+8. [Risk Management](#-risk-management)
+9. [Operating Modes](#-operating-modes)
+10. [Tech Stack](#-tech-stack)
+11. [Project Structure](#-project-structure)
+12. [Getting Started](#-getting-started)
+13. [Configuration](#-configuration)
+14. [Terminal UI & REPL Commands](#-terminal-ui--repl-commands)
+15. [Web Dashboard](#-web-dashboard)
+16. [Data & Persistence](#-data--persistence)
+17. [Backtesting & Stress Testing](#-backtesting--stress-testing)
+18. [Testing](#-testing)
+19. [Results from the Demonstration Run](#-results-from-the-demonstration-run)
+20. [Known Limitations & Roadmap](#-known-limitations--roadmap)
+21. [Team](#-team)
+22. [References](#-references)
+23. [Disclaimer](#-disclaimer)
 
 ---
 
@@ -89,20 +87,6 @@ It runs on a laptop with **zero external infrastructure** by default (SQLite + i
 - 🖥️ **Rich TUI at 2 FPS** plus a React/Vite/Tailwind web dashboard
 - 🔌 **Plugin system** to add strategies, brokers and LLM providers without touching the core
 - 🪄 **No-key fallback**: rule-based logic keeps the system running end-to-end with zero LLM API keys
-
----
-
-## 🆕 What's New (beyond the original thesis)
-
-Since the thesis report was submitted, the project has been extended with:
-
-| Area | Update |
-|------|--------|
-| 🔮 **Polymarket integration** | Prediction-market data and trading support added alongside traditional assets |
-| 🪙 **Expanded crypto support** | Broader crypto coverage and tighter integration with the signal, risk and execution pipeline |
-| 🎨 **Improved GUI** | Redesigned dashboard / front-end experience |
-
-> 📝 *Maintainers: fill in the specifics for each row above (e.g. which Polymarket endpoints/markets are supported, which crypto pairs and exchanges, and screenshots of the new GUI).*
 
 ---
 
