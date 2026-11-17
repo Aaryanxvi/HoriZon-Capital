@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { runCommand, testAlpaca, useConfig, useOnboarding, useUpdateSettings } from "@/lib/api";
-import { ErrorNote } from "@/components/ui";
+import { ErrorNote, Segmented } from "@/components/ui";
 import { useTour } from "@/components/Tour";
 
 // Everything is written through /control/settings to backend/.env -- the same
@@ -31,32 +31,37 @@ type Provider = "claude" | "openai" | "gemini";
 // other departments run their provider's default model.
 const REC: Record<Provider, { name: string; cio: [string, string]; debate: [string, string]; fallback: string }> = {
   claude: {
-    name: "Anthropic",
+    name: "Claude",
     cio: ["claude-opus-4-7", "Claude Opus 4.7"],
     debate: ["claude-haiku-4-5-20251001", "Claude Haiku 4.5"],
     fallback: "Claude Sonnet 4",
   },
   openai: {
     name: "OpenAI",
-    cio: ["o3-mini", "o3-mini (reasoning)"],
-    debate: ["gpt-4o-mini", "GPT-4o mini"],
-    fallback: "GPT-4o",
+    cio: ["o3-mini", "OpenAI o3-mini"],
+    debate: ["gpt-4o-mini", "OpenAI GPT-4o mini"],
+    fallback: "OpenAI GPT-4o",
   },
   gemini: {
-    name: "Google",
+    name: "Gemini",
     cio: ["gemini-2.5-pro", "Gemini 2.5 Pro"],
     debate: ["gemini-2.0-flash", "Gemini 2.0 Flash"],
     fallback: "Gemini 2.0 Flash",
   },
 };
 
+// Same order as the key fields on the AI step; no provider is preferred.
+const PROVIDERS: Provider[] = ["claude", "openai", "gemini"];
+
+/** Each row: the picked provider's model, every other provider's in brackets. */
 function modelRows(p: Provider) {
-  const r = REC[p];
+  const pick = (f: (r: (typeof REC)[Provider]) => string) =>
+    `${f(REC[p])} (or ${PROVIDERS.filter((o) => o !== p).map((o) => f(REC[o])).join(" · ")})`;
   return [
-    { dept: "Executive · CIO", model: r.cio[1], effort: "High", why: "Few calls, highest stakes: crisis and override decisions." },
-    { dept: "Middle office · debates", model: r.debate[1], effort: "Low", why: "~8 calls per debate; a fast model stays under rate limits." },
-    { dept: "Front office · regime, sentiment, IR", model: `${r.fallback} (default)`, effort: "Low", why: "Frequent short reads; the default is plenty." },
-    { dept: "Back office · quant research", model: `${r.fallback} (default)`, effort: "Medium", why: "Periodic analysis, not latency-sensitive." },
+    { dept: "Executive · CIO", model: pick((r) => r.cio[1]), effort: "High", why: "Few calls, highest stakes: crisis and override decisions." },
+    { dept: "Middle office · debates", model: pick((r) => r.debate[1]), effort: "Low", why: "~8 calls per debate; a fast model stays under rate limits." },
+    { dept: "Front office · regime, sentiment, IR", model: pick((r) => r.fallback), effort: "Low", why: "Frequent short reads; the provider default is plenty." },
+    { dept: "Back office · quant research", model: pick((r) => r.fallback), effort: "Medium", why: "Periodic analysis on the provider default, not latency-sensitive." },
   ];
 }
 
@@ -116,12 +121,16 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
   const [restart, setRestart] = useState<string[]>([]);
 
   const saved = config?.keys ?? {};
-  // Recommend for the strongest configured provider (same order the CIO uses).
+  // Only providers the user has a key for; with several, they pick (default: first shown).
+  const hasKey: Record<Provider, boolean> = {
+    claude: Boolean(anthropic.trim() || saved.anthropic),
+    openai: Boolean(openai.trim() || saved.openai),
+    gemini: Boolean(google.trim() || saved.google),
+  };
+  const configured = PROVIDERS.filter((p) => hasKey[p]);
+  const [picked, setPicked] = useState<Provider | null>(null);
   const provider: Provider | null =
-    anthropic.trim() || saved.anthropic ? "claude"
-    : openai.trim() || saved.openai ? "openai"
-    : google.trim() || saved.google ? "gemini"
-    : null;
+    picked && configured.includes(picked) ? picked : (configured[0] ?? null);
 
   const updates = (): Record<string, string> => {
     const u: Record<string, string> = {
@@ -310,7 +319,17 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
           {step === 4 &&
             (provider ? (
               <>
-                <p className="text-sm text-ink-2">Recommended for {REC[provider].name}:</p>
+                {configured.length > 1 && (
+                  <Segmented
+                    ariaLabel="Provider to apply"
+                    options={configured.map((p) => ({ value: p, label: REC[p].name }))}
+                    value={provider}
+                    onChange={(p) => {
+                      setPicked(p);
+                      setApplied(false);
+                    }}
+                  />
+                )}
                 <table className="w-full text-xs">
                   <thead className="text-left text-ink-3">
                     <tr>
