@@ -31,6 +31,7 @@ from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect
 from rich.console import Console
 from sqlalchemy import text
 
+from app.agents.debate.claude_reasoner import salvage_fields
 from app.config import settings
 from app.core.logging import get_logger
 
@@ -401,6 +402,11 @@ async def debate_detail(session_id: str) -> dict[str, Any]:
         "ORDER BY round_number, created_at",
         {"id": session_id},
     )
+    # Rows saved before the parser could salvage almost-JSON hold the raw blob. Show the
+    # argument text; vote/confidence stay as stored because that is what the gate used.
+    for a in arguments:
+        if (a.get("argument") or "").lstrip().startswith("{"):
+            a["argument"] = salvage_fields(a["argument"])["argument"]
     return {"session": session[0] if session else None, "arguments": arguments}
 
 

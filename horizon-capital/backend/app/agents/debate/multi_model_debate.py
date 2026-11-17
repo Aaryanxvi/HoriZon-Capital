@@ -26,6 +26,7 @@ from typing import Any
 # Role prompts + user-prompt builder single-sourced from debate_engine so the two
 # engines can never drift apart. (Also brings in the Risk Metrics and target/stop
 # sections this file's old duplicated builder silently lacked.)
+from app.agents.debate.claude_reasoner import salvage_fields
 from app.agents.debate.debate_engine import DEBATER_ROLES, _build_user_prompt
 from app.config import settings
 from app.core.logging import get_logger
@@ -216,15 +217,7 @@ def _parse_debate_response(raw: str) -> dict[str, Any]:
     except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
-    # Heuristic fallback
-    vote = "ABSTAIN"
-    upper = raw.upper()
-    if '"FOR"' in upper or "VOTE: FOR" in upper:
-        vote = "FOR"
-    elif '"AGAINST"' in upper or "VOTE: AGAINST" in upper:
-        vote = "AGAINST"
-
-    return {"argument": raw[:2000], "vote": vote, "confidence": 0.5}
+    return salvage_fields(raw)
 
 
 # ------------------------------------------------------------------

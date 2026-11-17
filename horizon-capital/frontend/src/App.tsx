@@ -14,12 +14,15 @@ import { useLiveFeed } from "@/lib/live";
 
 const OverviewPage = lazy(() => import("@/pages/OverviewPage"));
 const PortfolioPage = lazy(() => import("@/pages/PortfolioPage"));
+const WatchlistPage = lazy(() => import("@/pages/WatchlistPage"));
 const TradingPage = lazy(() => import("@/pages/TradingPage"));
 const SignalsPage = lazy(() => import("@/pages/SignalsPage"));
 const AgentsPage = lazy(() => import("@/pages/AgentsPage"));
 const DebatesPage = lazy(() => import("@/pages/DebatesPage"));
 const RiskPage = lazy(() => import("@/pages/RiskPage"));
 const PerformancePage = lazy(() => import("@/pages/PerformancePage"));
+const BacktestPage = lazy(() => import("@/pages/BacktestPage"));
+const AnalysisPage = lazy(() => import("@/pages/AnalysisPage"));
 const TerminalPage = lazy(() => import("@/pages/TerminalPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 
@@ -32,12 +35,15 @@ export default function App() {
         <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/trades" element={<TradingPage />} />
           <Route path="/signals" element={<SignalsPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/debates" element={<DebatesPage />} />
           <Route path="/risk" element={<RiskPage />} />
           <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/analysis" element={<AnalysisPage />} />
+          <Route path="/backtest" element={<BacktestPage />} />
           <Route path="/terminal" element={<TerminalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

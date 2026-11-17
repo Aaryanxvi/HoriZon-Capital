@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { useCommandVocabulary } from "@/lib/api";
-import { PageHeader } from "@/components/ui";
+import { Card, Dot, PageHeader } from "@/components/ui";
 
 interface Line {
   kind: "input" | "output" | "note";
@@ -120,13 +120,9 @@ export default function TerminalPage() {
 
   return (
     <>
+      {/* No subtitle: header + frame must fit the 7.5rem budget; connection state lives in the toolbar. */}
       <PageHeader
         title="Terminal"
-        subtitle={
-          connected
-            ? "Connected to the running engine — same commands, same output as the CLI"
-            : "Reconnecting…"
-        }
         actions={
           <button className="btn" onClick={() => setLines([])}>
             <Eraser className="h-3.5 w-3.5" /> Clear
@@ -134,26 +130,35 @@ export default function TerminalPage() {
         }
       />
 
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {QUICK.map((command) => (
-          <button
-            key={command}
-            onClick={() => send(command)}
-            disabled={busy || !connected}
-            className="btn btn-ghost font-mono text-xs"
-          >
-            {command}
-          </button>
-        ))}
-      </div>
+      <Card
+        className="flex h-[calc(100vh-7.5rem)] flex-col"
+        bodyClassName="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2">
+          {QUICK.map((command) => (
+            <button
+              key={command}
+              onClick={() => send(command)}
+              disabled={busy || !connected}
+              className="h-6 rounded border border-line px-1.5 font-mono text-2xs text-ink-2 transition-colors duration-100 hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {command}
+            </button>
+          ))}
+          <span className="ml-auto inline-flex items-center gap-1.5 text-2xs text-ink-3">
+            <Dot tone={connected ? "ok" : "warning"} pulse={!connected} />
+            {connected
+              ? "Connected to the running engine — same commands, same output as the CLI"
+              : "Reconnecting…"}
+          </span>
+        </div>
 
-      <div className="card flex h-[calc(100vh-15rem)] flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="flex-1 overflow-y-auto px-3 py-2">
           {lines.map((line, i) => {
             if (line.kind === "input")
               return (
-                <div key={i} className="mt-2 font-mono text-xs text-clay">
-                  <span className="select-none text-faint">horizon&gt; </span>
+                <div key={i} className="mt-2 font-mono text-xs text-accent-strong">
+                  <span className="select-none text-ink-3">horizon&gt; </span>
                   {line.text}
                 </div>
               );
@@ -161,7 +166,7 @@ export default function TerminalPage() {
               return (
                 <pre
                   key={i}
-                  className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-faint"
+                  className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-ink-3"
                 >
                   {line.text}
                 </pre>
@@ -174,7 +179,7 @@ export default function TerminalPage() {
               />
             );
           })}
-          {busy && <div className="mt-2 font-mono text-xs text-faint">working…</div>}
+          {busy && <div className="mt-2 font-mono text-xs text-ink-3">working…</div>}
           <div ref={bottomRef} />
         </div>
 
@@ -183,9 +188,9 @@ export default function TerminalPage() {
             event.preventDefault();
             send(input);
           }}
-          className="flex items-center gap-2 border-t border-line bg-raised px-3 py-2"
+          className="flex items-center gap-2 border-t border-line bg-surface-2 px-3 py-1.5"
         >
-          <span className="select-none font-mono text-xs text-faint">horizon&gt;</span>
+          <span className="select-none font-mono text-xs text-ink-3">horizon&gt;</span>
           <input
             ref={inputRef}
             autoFocus
@@ -195,13 +200,19 @@ export default function TerminalPage() {
             spellCheck={false}
             disabled={!connected}
             placeholder={connected ? "" : "disconnected"}
-            className="flex-1 bg-transparent font-mono text-xs text-ink outline-none placeholder:text-faint"
+            aria-label="Command"
+            className="flex-1 bg-transparent font-mono text-xs text-ink caret-accent-strong outline-none placeholder:text-ink-3"
           />
-          <button type="submit" className="btn btn-ghost" disabled={busy || !connected}>
+          <button
+            type="submit"
+            className="btn btn-ghost"
+            aria-label="Run command"
+            disabled={busy || !connected}
+          >
             <CornerDownLeft className="h-3.5 w-3.5" />
           </button>
         </form>
-      </div>
+      </Card>
     </>
   );
 }

@@ -6,8 +6,18 @@
 // ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
 // --------------------------------------------------------------------------
 import clsx from "clsx";
-import { Check, KeyRound, Power, RefreshCw, RotateCcw, Save, Wand2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  KeyRound,
+  Power,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Wand2,
+} from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   useCommand,
@@ -71,8 +81,8 @@ function EditableRow({
   return (
     <div className="flex items-center gap-2 py-1.5">
       <div className="min-w-0 flex-1">
-        <div className="text-sm text-soft">{label}</div>
-        {hint && <div className="text-2xs text-faint">{hint}</div>}
+        <div className="text-sm text-ink-2">{label}</div>
+        {hint && <div className="text-2xs text-ink-3">{hint}</div>}
       </div>
       <input
         type={type}
@@ -84,7 +94,7 @@ function EditableRow({
             setDraft(null);
           }
         }}
-        className="nums w-44 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-right text-sm text-ink"
+        className="input nums w-44 text-right"
       />
       <button
         className={clsx("btn px-2", dirty ? "btn-primary" : "invisible")}
@@ -162,7 +172,7 @@ export default function SettingsPage() {
       />
 
       {notice && (
-        <p className="mb-3 rounded-lg border border-up/20 bg-up/5 px-3 py-2 text-sm text-up">
+        <p className="mb-3 rounded border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ink">
           {notice}
         </p>
       )}
@@ -177,7 +187,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <Card title="Trading mode" subtitle="Takes effect on the next signal">
           <div className="space-y-2">
             {MODES.map((mode) => (
@@ -186,17 +196,17 @@ export default function SettingsPage() {
                 disabled={update.isPending}
                 onClick={() => save("SYSTEM_MODE", mode.key)}
                 className={clsx(
-                  "block w-full rounded-lg border px-3 py-2.5 text-left transition",
+                  "block w-full rounded border px-3 py-2.5 text-left transition-colors duration-100",
                   data.system_mode === mode.key
-                    ? "border-clay bg-clay/5"
-                    : "border-line hover:bg-raised",
+                    ? "border-accent bg-accent/10"
+                    : "border-line hover:bg-surface-2",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-ink">{mode.label}</span>
                   {data.system_mode === mode.key && <Badge tone="accent">active</Badge>}
                 </div>
-                <p className="mt-0.5 text-xs text-soft">{mode.blurb}</p>
+                <p className="mt-0.5 text-xs text-ink-2">{mode.blurb}</p>
               </button>
             ))}
           </div>
@@ -226,18 +236,17 @@ export default function SettingsPage() {
               <RefreshCw className="h-3.5 w-3.5" /> Restart
             </button>
             <button
-              className="btn text-down"
+              className="btn"
               disabled={engine.isPending || !overview?.agents_running}
               onClick={() => engine.mutate("stop")}
             >
-              <Power className="h-3.5 w-3.5" /> Stop
+              <Power className="h-3.5 w-3.5 text-crit" /> Stop
             </button>
           </div>
-          <p className="mt-3 text-xs text-soft">
-            Restart after changing the universe or starting capital — those are read once when
-            an agent starts. Storage stays up either way, so nothing is lost.
+          <p className="mt-3 text-xs text-ink-2">
+            Restart after changing starting capital — it is read once when an agent starts. Storage stays up either way, so nothing is lost.
           </p>
-          <div className="mt-3 border-t border-line pt-3 text-xs text-soft">
+          <div className="mt-3 border-t border-line pt-3 text-xs text-ink-2">
             <div className="flex justify-between py-0.5">
               <span>Storage backend</span>
               <span className="nums text-ink">{data.storage_backend}</span>
@@ -253,7 +262,7 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Card title="Capital and universe" subtitle="Restart the engine after changing these">
+        <Card title="Capital and watchlist" subtitle="Restart the engine after changing capital">
           <EditableRow
             label="Starting capital (USD)"
             hint={`currently ${money(data.initial_capital_usd)}`}
@@ -262,27 +271,22 @@ export default function SettingsPage() {
             onSave={save}
             saving={update.isPending}
           />
-          <EditableRow
-            label="US symbols"
-            envKey="US_SYMBOLS"
-            value={data.universe.us}
-            onSave={save}
-            saving={update.isPending}
-          />
-          <EditableRow
-            label="India symbols"
-            envKey="INDIA_SYMBOLS"
-            value={data.universe.india}
-            onSave={save}
-            saving={update.isPending}
-          />
-          <EditableRow
-            label="Crypto symbols"
-            envKey="CRYPTO_SYMBOLS"
-            value={data.universe.crypto}
-            onSave={save}
-            saving={update.isPending}
-          />
+          {/* Symbols moved to the Watchlist screen: validated, searchable, and live
+              without a restart. */}
+          <div className="flex items-center gap-2 py-1.5">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-ink-2">Watchlist</div>
+              <div className="text-2xs text-ink-3">
+                {[data.universe.us, data.universe.crypto]
+                  .flatMap((csv) => csv.split(",").filter((s) => s.trim()))
+                  .length}{" "}
+                symbols · changes apply live
+              </div>
+            </div>
+            <Link to="/watchlist" className="btn">
+              Manage <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </Card>
 
         <Card title="Risk limits" subtitle="Enforced pre-trade by the risk agent">
@@ -349,12 +353,12 @@ export default function SettingsPage() {
             ] as const
           ).map(([label, envKey, current]) => (
             <div key={envKey} className="flex items-center justify-between gap-2 py-1.5">
-              <span className="text-sm text-soft">{label}</span>
+              <span className="text-sm text-ink-2">{label}</span>
               <select
                 value={current}
                 disabled={update.isPending}
                 onChange={(e) => save(envKey, e.target.value)}
-                className="w-36 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+                className="input w-36"
               >
                 {PROVIDERS.map((provider) => (
                   <option key={provider} value={provider}>
@@ -381,11 +385,11 @@ export default function SettingsPage() {
         <Card title="API keys" subtitle="Stored in .env; shown masked once saved">
           {KEY_FIELDS.map((field) => (
             <div key={field.envKey} className="flex items-center gap-2 py-1.5">
-              <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-soft">
-                <KeyRound className="h-3.5 w-3.5 shrink-0 text-faint" />
+              <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-ink-2">
+                <KeyRound className="h-3.5 w-3.5 shrink-0 text-ink-3" />
                 <span className="truncate">{field.label}</span>
                 {field.current ? (
-                  <span className="nums text-2xs text-faint">{field.current}</span>
+                  <span className="nums text-2xs text-ink-3">{field.current}</span>
                 ) : (
                   <Badge>not set</Badge>
                 )}
@@ -397,7 +401,7 @@ export default function SettingsPage() {
                 onChange={(e) =>
                   setKeyDrafts((prev) => ({ ...prev, [field.envKey]: e.target.value }))
                 }
-                className="w-40 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
+                className="input w-40"
               />
               <button
                 className={clsx(
@@ -414,14 +418,14 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
-          <p className="mt-2 text-2xs text-faint">
+          <p className="mt-2 text-2xs text-ink-3">
             New LLM keys register immediately; broker keys apply on the next engine restart.
           </p>
         </Card>
 
         <Card title="Optional sleeves" subtitle="Toggle them on the Signals screen">
           <div className="flex items-center justify-between py-1.5 text-sm">
-            <span className="text-soft">Crypto trend</span>
+            <span className="text-ink-2">Crypto trend</span>
             <Badge tone={data.sleeves.crypto.enabled ? "good" : "neutral"}>
               {data.sleeves.crypto.enabled
                 ? `on · ${(data.sleeves.crypto.weight * 100).toFixed(0)}%`
@@ -429,7 +433,7 @@ export default function SettingsPage() {
             </Badge>
           </div>
           <div className="flex items-center justify-between py-1.5 text-sm">
-            <span className="text-soft">Polymarket momentum</span>
+            <span className="text-ink-2">Polymarket momentum</span>
             <Badge tone={data.sleeves.polymarket.enabled ? "good" : "neutral"}>
               {data.sleeves.polymarket.enabled
                 ? `on · ${(data.sleeves.polymarket.weight * 100).toFixed(0)}%`
@@ -437,7 +441,7 @@ export default function SettingsPage() {
             </Badge>
           </div>
           {data.sleeves.polymarket.markets && (
-            <p className="mt-2 break-words text-2xs text-faint">
+            <p className="mt-2 break-words text-2xs text-ink-3">
               {data.sleeves.polymarket.markets}
             </p>
           )}

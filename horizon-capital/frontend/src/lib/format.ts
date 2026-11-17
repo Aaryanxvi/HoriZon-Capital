@@ -61,7 +61,7 @@ export function pct(value: number | null | undefined, digits = 2): string {
 
 /** Tailwind class for a signed number: green up, red down, muted flat. */
 export function tone(value: number | null | undefined): string {
-  if (!value) return "text-soft";
+  if (!value) return "text-ink-2";
   return value > 0 ? "text-up" : "text-down";
 }
 

@@ -7,62 +7,59 @@
 // --------------------------------------------------------------------------
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: "class",
+  // Tokens do the theming; this only matters if a `dark:` utility ever appears.
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Driven by CSS variables so one `dark` class flips the whole app.
-        paper: "rgb(var(--paper) / <alpha-value>)",
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
         surface: "rgb(var(--surface) / <alpha-value>)",
-        raised: "rgb(var(--raised) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
         rail: "rgb(var(--rail) / <alpha-value>)",
         line: "rgb(var(--line) / <alpha-value>)",
+        "line-strong": "rgb(var(--line-strong) / <alpha-value>)",
         ink: "rgb(var(--ink) / <alpha-value>)",
-        soft: "rgb(var(--soft) / <alpha-value>)",
-        faint: "rgb(var(--faint) / <alpha-value>)",
-        clay: "rgb(var(--clay) / <alpha-value>)",
+        "ink-2": "rgb(var(--ink-2) / <alpha-value>)",
+        "ink-3": "rgb(var(--ink-3) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
+        "accent-strong": "rgb(var(--accent-strong) / <alpha-value>)",
+        "accent-ink": "rgb(var(--accent-ink) / <alpha-value>)",
         up: "rgb(var(--up) / <alpha-value>)",
         down: "rgb(var(--down) / <alpha-value>)",
+        ok: "rgb(var(--ok) / <alpha-value>)",
         warn: "rgb(var(--warn) / <alpha-value>)",
+        serious: "rgb(var(--serious) / <alpha-value>)",
+        crit: "rgb(var(--crit) / <alpha-value>)",
       },
       fontFamily: {
-        sans: [
-          "ui-sans-serif",
-          "-apple-system",
-          "Segoe UI",
-          "Inter",
-          "system-ui",
-          "sans-serif",
-        ],
-        mono: [
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "Consolas",
-          "Liberation Mono",
-          "monospace",
-        ],
+        sans: ["ui-sans-serif", "system-ui", "-apple-system", '"Segoe UI"', "Roboto", "sans-serif"],
+        mono: ["ui-monospace", '"Cascadia Mono"', "Consolas", "Menlo", "monospace"],
       },
       fontSize: {
-        "2xs": ["0.6875rem", { lineHeight: "1rem" }],
+        "2xs": ["11px", { lineHeight: "14px" }],
+        xs: ["12px", { lineHeight: "16px" }],
+        sm: ["13px", { lineHeight: "18px" }],
+        base: ["14px", { lineHeight: "20px" }],
+        lg: ["16px", { lineHeight: "22px" }],
+        xl: ["20px", { lineHeight: "26px" }],
+        "2xl": ["24px", { lineHeight: "30px" }],
       },
+      // Two radii only: 4px controls, 6px cards. lg/xl/2xl fold into 6px so older markup stays on-system.
       borderRadius: {
-        xl: "0.75rem",
-        "2xl": "1rem",
+        DEFAULT: "4px",
+        md: "6px",
+        lg: "6px",
+        xl: "6px",
+        "2xl": "6px",
       },
       keyframes: {
-        "fade-in": {
-          from: { opacity: 0, transform: "translateY(4px)" },
-          to: { opacity: 1, transform: "none" },
-        },
         "pulse-dot": {
           "0%, 100%": { opacity: 1 },
           "50%": { opacity: 0.35 },
         },
       },
       animation: {
-        "fade-in": "fade-in 160ms ease-out",
         "pulse-dot": "pulse-dot 2s ease-in-out infinite",
       },
     },

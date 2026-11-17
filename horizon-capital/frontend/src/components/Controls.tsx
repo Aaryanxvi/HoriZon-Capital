@@ -55,7 +55,7 @@ export function ModeSwitcher() {
     <div className="relative no-drag" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-2xs font-medium text-soft transition hover:bg-raised hover:text-ink"
+        className="flex h-6 items-center gap-1.5 rounded border border-line-strong px-2 text-2xs font-medium text-ink-2 transition-colors duration-100 hover:bg-surface-2 hover:text-ink"
         title="Trading mode"
       >
         {current?.label ?? data?.system_mode ?? "mode"}
@@ -63,7 +63,7 @@ export function ModeSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-50 w-64 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+        <div className="absolute right-0 top-8 z-50 w-64 overflow-hidden rounded-md border border-line bg-surface shadow-lg">
           {MODES.map((mode) => (
             <button
               key={mode.key}
@@ -73,18 +73,18 @@ export function ModeSwitcher() {
                 setOpen(false);
               }}
               className={clsx(
-                "block w-full px-3 py-2.5 text-left transition hover:bg-raised",
-                data?.system_mode === mode.key && "bg-clay/5",
+                "block w-full px-3 py-2 text-left transition-colors duration-100 hover:bg-surface-2",
+                data?.system_mode === mode.key && "bg-accent/10",
               )}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-ink">{mode.label}</span>
                 {data?.system_mode === mode.key && <Dot tone="good" />}
               </div>
-              <div className="text-2xs text-soft">{mode.hint}</div>
+              <div className="text-2xs text-ink-2">{mode.hint}</div>
             </button>
           ))}
-          <p className="border-t border-line px-3 py-2 text-2xs text-faint">
+          <p className="border-t border-line px-3 py-2 text-2xs text-ink-3">
             Applies to new signals immediately and is saved to .env.
           </p>
         </div>
@@ -107,7 +107,7 @@ export function HaltButton() {
         <button
           onClick={() => setConfirmResume((c) => !c)}
           disabled={halt.isPending}
-          className="flex items-center gap-1.5 rounded-md bg-down px-2.5 py-1 text-2xs font-semibold uppercase tracking-wide text-white transition hover:bg-down/90"
+          className="flex h-6 items-center gap-1.5 rounded bg-crit px-2.5 text-2xs font-semibold uppercase tracking-wide text-white transition-colors duration-100 hover:bg-crit/90"
           title={data?.halt_reason ?? "Trading halted"}
         >
           <OctagonAlert className="h-3.5 w-3.5" />
@@ -115,14 +115,14 @@ export function HaltButton() {
         </button>
 
         {confirmResume && (
-          <div className="absolute right-0 top-8 z-50 w-72 rounded-xl border border-line bg-surface p-3 shadow-lg">
+          <div className="absolute right-0 top-8 z-50 w-72 rounded-md border border-line bg-surface p-3 shadow-lg">
             <p className="text-sm font-medium text-ink">Resume trading?</p>
-            <p className="mt-1 text-xs text-soft">
+            <p className="mt-1 text-xs text-ink-2">
               {data?.halt_reason
                 ? `Halted because: ${data.halt_reason}`
                 : "Trading is halted; the execution agent is rejecting new orders."}
             </p>
-            <p className="mt-1 text-xs text-soft">
+            <p className="mt-1 text-xs text-ink-2">
               Resuming clears the kill switch. If a drawdown limit caused it, the risk agent
               can trip it again within seconds.
             </p>
@@ -151,10 +151,10 @@ export function HaltButton() {
     <button
       onClick={() => halt.mutate({ halted: true, reason: "Halted from the desktop app" })}
       disabled={halt.isPending}
-      className="no-drag flex items-center gap-1.5 rounded-md border border-down/30 px-2.5 py-1 text-2xs font-semibold uppercase tracking-wide text-down transition hover:bg-down hover:text-white"
+      className="no-drag group flex h-6 items-center gap-1.5 rounded border border-crit/70 px-2.5 text-2xs font-semibold uppercase tracking-wide text-ink transition-colors duration-100 hover:bg-crit hover:text-white"
       title="Stop all new orders immediately"
     >
-      <OctagonAlert className="h-3.5 w-3.5" />
+      <OctagonAlert className="h-3.5 w-3.5 text-crit group-hover:text-white" />
       Halt
     </button>
   );
@@ -172,7 +172,7 @@ export function EngineButton() {
     <div className="relative no-drag" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-2xs text-soft transition hover:bg-raised hover:text-ink"
+        className="flex h-6 items-center gap-1.5 rounded px-2 text-2xs text-ink-2 transition-colors duration-100 hover:bg-surface-2 hover:text-ink"
         title={running ? "Agents running" : "Agents stopped"}
       >
         <Dot tone={running ? "good" : "bad"} pulse={running} />
@@ -181,9 +181,9 @@ export function EngineButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-50 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+        <div className="absolute right-0 top-8 z-50 w-56 overflow-hidden rounded-md border border-line bg-surface shadow-lg">
           <button
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink transition hover:bg-raised disabled:opacity-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition-colors duration-100 hover:bg-surface-2 disabled:opacity-50"
             disabled={engine.isPending || running}
             onClick={() => {
               engine.mutate("start");
@@ -193,7 +193,7 @@ export function EngineButton() {
             <Play className="h-3.5 w-3.5" /> Start agents
           </button>
           <button
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-ink transition hover:bg-raised disabled:opacity-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition-colors duration-100 hover:bg-surface-2 disabled:opacity-50"
             disabled={engine.isPending || !running}
             onClick={() => {
               engine.mutate("restart");
@@ -203,16 +203,16 @@ export function EngineButton() {
             <RefreshCw className="h-3.5 w-3.5" /> Restart agents
           </button>
           <button
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-down transition hover:bg-raised disabled:opacity-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition-colors duration-100 hover:bg-surface-2 disabled:opacity-50"
             disabled={engine.isPending || !running}
             onClick={() => {
               engine.mutate("stop");
               setOpen(false);
             }}
           >
-            <Power className="h-3.5 w-3.5" /> Stop agents
+            <Power className="h-3.5 w-3.5 text-crit" /> Stop agents
           </button>
-          <p className="border-t border-line px-3 py-2 text-2xs text-faint">
+          <p className="border-t border-line px-3 py-2 text-2xs text-ink-3">
             Stopping keeps the app and your data open — it only stops trading activity.
           </p>
         </div>

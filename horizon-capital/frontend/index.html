@@ -19,8 +19,9 @@
     <title>Horizon Capital</title>
     <style>
       /* Paint the shell colour before the bundle loads so there is no flash. */
-      html { background: #faf9f5; }
-      html.dark { background: #1f1e1d; }
+      html { background: #f4f5f7; }
+      @media (prefers-color-scheme: dark) { html:not([data-theme="light"]) { background: #101216; } }
+      html[data-theme="dark"] { background: #101216; }
     </style>
   </head>
   <body>

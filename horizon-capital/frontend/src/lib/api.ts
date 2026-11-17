@@ -5,7 +5,11 @@
 // HC-AUTH-AARYAN-BAADKAR-A12B3D373865
 // ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
 // --------------------------------------------------------------------------
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 // The UI is served by the backend it talks to, so relative URLs always work —
 // in dev the Vite proxy forwards them to the same place.
@@ -17,13 +21,13 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string): Promise<T> {
+export async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) throw new ApiError(`${path} failed (${res.status})`, res.status);
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+export async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -341,18 +345,47 @@ export const useAlerts = () =>
     refetchInterval: 20_000,
   });
 
+export interface WatchItem {
+  symbol: string;
+  ticker: string;
+  name: string | null;
+  exchange: string | null;
+  asset_class: string | null;
+  sector: string | null;
+  price: number;
+  prev_close: number;
+  change_pct: number;
+}
+
+export interface CatalogInfo {
+  size: number;
+  updated_at: number | null;
+  source: string | null;
+  error: string | null;
+}
+
+export interface StreamInfo {
+  mode: "stream" | "rest" | "off";
+  streaming: number;
+  requested: number;
+  limit: number | null;
+  us_symbols: number;
+  free_plan_limit: number;
+  poll_seconds: number;
+}
+
+export interface WatchlistResponse {
+  watchlist: WatchItem[];
+  count: number;
+  stream: StreamInfo;
+  note: string;
+  catalog: CatalogInfo;
+}
+
 export const useWatchlist = () =>
   useQuery({
     queryKey: ["watchlist"],
-    queryFn: () =>
-      get<{
-        watchlist: {
-          symbol: string;
-          price: number;
-          prev_close: number;
-          change_pct: number;
-        }[];
-      }>("/watchlist"),
+    queryFn: () => get<WatchlistResponse>("/watchlist"),
     refetchInterval: 20_000,
   });
 

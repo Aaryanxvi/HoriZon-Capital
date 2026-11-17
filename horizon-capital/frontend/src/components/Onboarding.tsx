@@ -39,13 +39,13 @@ function Field({
   return (
     <label className="block">
       <span className="text-sm font-medium text-ink">{label}</span>
-      {hint && <span className="mt-0.5 block text-xs text-soft">{hint}</span>}
+      {hint && <span className="mt-0.5 block text-xs text-ink-2">{hint}</span>}
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint"
+        className="input mt-1.5 w-full"
       />
     </label>
   );
@@ -96,18 +96,18 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-md border border-line bg-surface shadow-lg">
         <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-clay text-xs font-bold text-white">
+            <span className="grid h-6 w-6 place-items-center rounded bg-accent text-xs font-bold text-accent-ink">
               H
             </span>
             <div>
               <h2 className="text-sm font-semibold text-ink">Set up Horizon Capital</h2>
-              <p className="text-2xs text-soft">Saved to .env — the same file the terminal reads</p>
+              <p className="text-2xs text-ink-2">Saved to .env — the same file the terminal reads</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-md p-1 text-faint hover:bg-raised hover:text-ink">
+          <button onClick={onClose} className="rounded p-1 text-ink-3 hover:bg-surface-2 hover:text-ink" aria-label="Close setup">
             <X className="h-4 w-4" />
           </button>
         </header>
@@ -118,14 +118,14 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
               key={label}
               onClick={() => setStep(index)}
               className={clsx(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-2xs font-medium transition",
-                index === step ? "bg-raised text-ink" : "text-faint hover:text-soft",
+                "flex items-center gap-1.5 rounded px-2 py-1 text-2xs font-medium transition-colors duration-100",
+                index === step ? "bg-surface-2 text-ink" : "text-ink-3 hover:text-ink-2",
               )}
             >
               <span
                 className={clsx(
                   "grid h-4 w-4 place-items-center rounded-full text-[9px]",
-                  index < step ? "bg-up text-white" : index === step ? "bg-clay text-white" : "bg-line text-soft",
+                  index < step ? "bg-ok text-white" : index === step ? "bg-accent-strong text-accent-ink" : "bg-line text-ink-2",
                 )}
               >
                 {index < step ? <Check className="h-2.5 w-2.5" /> : index + 1}
@@ -138,8 +138,8 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 px-5 py-5">
           {step === 0 && (
             <>
-              <p className="flex items-center gap-2 text-sm text-soft">
-                <SlidersHorizontal className="h-4 w-4 text-clay" />
+              <p className="flex items-center gap-2 text-sm text-ink-2">
+                <SlidersHorizontal className="h-4 w-4 text-accent-strong" />
                 How should orders be released?
               </p>
               <div className="space-y-2">
@@ -148,12 +148,12 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
                     key={option.key}
                     onClick={() => setMode(option.key)}
                     className={clsx(
-                      "block w-full rounded-lg border px-3 py-2.5 text-left transition",
-                      mode === option.key ? "border-clay bg-clay/5" : "border-line hover:bg-raised",
+                      "block w-full rounded border px-3 py-2.5 text-left transition-colors duration-100",
+                      mode === option.key ? "border-accent bg-accent/10" : "border-line hover:bg-surface-2",
                     )}
                   >
                     <span className="text-sm font-medium text-ink">{option.label}</span>
-                    <span className="mt-0.5 block text-xs text-soft">{option.hint}</span>
+                    <span className="mt-0.5 block text-xs text-ink-2">{option.hint}</span>
                   </button>
                 ))}
               </div>
@@ -181,8 +181,8 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
 
           {step === 2 && (
             <>
-              <p className="flex items-center gap-2 text-sm text-soft">
-                <KeyRound className="h-4 w-4 text-clay" />
+              <p className="flex items-center gap-2 text-sm text-ink-2">
+                <KeyRound className="h-4 w-4 text-accent-strong" />
                 Optional. Without an LLM key, debates auto-approve and the CIO stays quiet.
               </p>
               <Field label="Anthropic API key" value={anthropic} onChange={setAnthropic} type="password" placeholder="sk-ant-…" />
@@ -197,7 +197,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
 
           {errors.length > 0 && <ErrorNote message={errors.join(" · ")} />}
           {restart.length > 0 && (
-            <p className="rounded-lg border border-warn/20 bg-warn/5 px-3 py-2 text-xs text-warn">
+            <p className="rounded border border-warn/40 bg-warn/15 px-3 py-2 text-xs text-ink">
               Saved. {restart.join(", ")} need an engine restart to take effect — use the engine
               menu in the title bar.
             </p>

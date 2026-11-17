@@ -552,6 +552,11 @@ class CommandHandler:
             else:
                 i += 1
 
+        from app.backtesting.rule_strategies import STRATEGIES
+
+        if strategy_name not in STRATEGIES:
+            return f"[red]Unknown strategy:[/red] {strategy_name} (try: {', '.join(STRATEGIES)})"
+
         console.print(
             f"[dim]Running backtest on {symbol} "
             f"({days}d, strategy={strategy_name})...[/dim]"
@@ -560,80 +565,10 @@ class CommandHandler:
         try:
             from datetime import datetime, timedelta
 
-            from app.backtesting.backtest_broker import SimOrder
             from app.backtesting.backtest_engine import BacktestEngine
 
             end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=days)
-
-            def _make_strategy(name: str):
-                if name == "momentum":
-                    def strategy(history, context):
-                        if len(history) < 20:
-                            return None
-                        sma_fast = float(history["close"].iloc[-5:].mean())
-                        sma_slow = float(history["close"].iloc[-20:].mean())
-                        if sma_fast > sma_slow * 1.02 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif sma_fast < sma_slow * 0.98 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol, side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                elif name == "mean_reversion":
-                    def strategy(history, context):
-                        if len(history) < 20:
-                            return None
-                        close = history["close"]
-                        sma = float(close.iloc[-20:].mean())
-                        std = float(close.iloc[-20:].std())
-                        if std == 0:
-                            return None
-                        z_score = (float(close.iloc[-1]) - sma) / std
-                        if z_score < -2.0 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(close.iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif z_score > 1.0 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol, side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                elif name == "volatility":
-                    def strategy(history, context):
-                        if len(history) < 30:
-                            return None
-                        returns = history["close"].pct_change().dropna()
-                        vol = float(returns.iloc[-20:].std())
-                        avg_vol = float(returns.iloc[-30:].std())
-                        if vol < avg_vol * 0.7 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.1 / float(history["close"].iloc[-1])
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif vol > avg_vol * 1.5 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol, side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                else:
-                    def strategy(history, context):
-                        if len(history) < 50:
-                            return None
-                        close = history["close"]
-                        sma_50 = float(close.iloc[-50:].mean())
-                        current = float(close.iloc[-1])
-                        if current > sma_50 and context["position_qty"] == 0:
-                            qty = context["cash"] * 0.05 / current
-                            return SimOrder(symbol=symbol, side="BUY", quantity=round(qty, 4))
-                        elif current < sma_50 * 0.95 and context["position_qty"] > 0:
-                            return SimOrder(
-                                symbol=symbol, side="SELL",
-                                quantity=context["position_qty"],
-                            )
-                        return None
-                return strategy
 
             from app.config import settings as _cfg
             engine = BacktestEngine(initial_capital=_cfg.initial_capital_usd)
@@ -641,7 +576,7 @@ class CommandHandler:
                 symbol=symbol,
                 start_date=start_date,
                 end_date=end_date,
-                strategy=_make_strategy(strategy_name),
+                strategy=STRATEGIES[strategy_name][0],
             )
 
             self._last_backtest_result = {

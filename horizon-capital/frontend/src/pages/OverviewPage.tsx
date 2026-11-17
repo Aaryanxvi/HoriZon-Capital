@@ -5,27 +5,14 @@
 // HC-AUTH-AARYAN-BAADKAR-BBE68EA80F1F
 // ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
 // --------------------------------------------------------------------------
-import { ArrowUpRight, CircleDollarSign, Layers, TrendingUp, Wallet } from "lucide-react";
-import { Link } from "react-router-dom";
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ArrowUpRight } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import {
-  useAlerts,
-  useEquityCurve,
-  useOverview,
-  usePositions,
-  useWatchlist,
-} from "@/lib/api";
-import { tooltipStyle, useChartColors } from "@/lib/colors";
-import { axisMoney, clock, money, pct, timeAgo, tone } from "@/lib/format";
-import { describeEvent, useLiveStore } from "@/lib/live";
+import { ChartCard, HBarList, StatTile, type StatTileProps } from "@/components/charts";
+import { MorningBrief } from "@/components/MorningBrief";
+import { PortfolioVsBenchmark } from "@/components/PortfolioVsBenchmark";
+import { RegimeGauge } from "@/components/RegimeGauge";
 import {
   Badge,
   Card,
@@ -34,66 +21,101 @@ import {
   ErrorNote,
   Loading,
   PageHeader,
-  Stat,
+  StatusChip,
+  type StatusChipTone,
 } from "@/components/ui";
+import {
+  ApiError,
+  useAlerts,
+  useEquityCurve,
+  useOverview,
+  usePositions,
+  useRisk,
+  useWatchlist,
+  type Overview,
+} from "@/lib/api";
+import { clock, money, timeAgo } from "@/lib/format";
+import { describeEvent, useLiveStore } from "@/lib/live";
+import { allocationRows, CASH_KEY } from "@/lib/portfolio";
+import { useNavDaily } from "@/lib/viz-api";
 
-function EquityChart() {
-  const { data, isLoading } = useEquityCurve();
-  const colors = useChartColors();
-  const points = (data?.points ?? []).map((p) => ({
-    t: p.created_at,
-    value: p.total_value,
-  }));
+/** Signed percent from a PERCENT number: 1.234 → "+1.23%", −0.5 → "−0.50%". */
+const signedPct = (v: number, d = 2) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(d)}%`;
+/** Drawdown magnitude (fraction) → "−1.23%". */
+const ddText = (dd: number) => `${dd ? "−" : ""}${(Math.abs(dd) * 100).toFixed(2)}%`;
+const weight = (v: number) => `${v.toFixed(1)}%`;
 
-  if (isLoading) return <Loading label="Loading equity curve" />;
-  if (points.length < 2)
-    return (
-      <Empty
-        message="Not enough history yet"
-        hint="The portfolio agent writes a snapshot every minute; the curve appears once two exist."
-      />
-    );
+function failure(endpoint: string, e: unknown): string {
+  const why = e instanceof ApiError ? `HTTP ${e.status}` : e instanceof Error ? e.message : "request failed";
+  return `GET ${endpoint} failed (${why})`;
+}
 
-  const first = points[0].value;
-  const last = points[points.length - 1].value;
-  const up = last >= first;
-  const values = points.map((p) => p.value);
-  const [min, max] = [Math.min(...values), Math.max(...values)];
+// Bullet thresholds (spec §5): ratio of value to limit.
+function limitStatus(ratio: number): NonNullable<StatTileProps["status"]> {
+  if (ratio >= 1) return { tone: "critical", label: "Breach" };
+  if (ratio >= 0.85) return { tone: "serious", label: "Near limit" };
+  if (ratio >= 0.6) return { tone: "warning", label: "Elevated" };
+  return { tone: "ok", label: "OK" };
+}
+
+function severityTone(severity: string | null | undefined): StatusChipTone {
+  const s = (severity ?? "").toUpperCase();
+  if (s === "CRITICAL") return "critical";
+  if (s === "HIGH" || s === "ERROR") return "serious";
+  if (s === "WARNING" || s === "MEDIUM") return "warning";
+  return "neutral";
+}
+
+function KpiRow({ data }: { data: Overview }) {
+  const curve = useEquityCurve();
+  const navDaily = useNavDaily();
+  const risk = useRisk();
+
+  const intraday = useMemo(() => (curve.data?.points ?? []).slice(-120).map((p) => p.total_value), [curve.data]);
+  const dayTrend = useMemo(() => intraday.map((v) => v - intraday[0]), [intraday]);
+  const dailyNavs = useMemo(() => (navDaily.data?.points ?? []).map((p) => p.nav), [navDaily.data]);
+
+  // current_drawdown / max_drawdown are FRACTIONS; limits.*_pct are PERCENT.
+  const latest = risk.data?.latest;
+  const history = risk.data?.history ?? [];
+  const dd = typeof latest?.current_drawdown === "number" ? Math.abs(latest.current_drawdown) : null;
+  const maxDd = typeof latest?.max_drawdown === "number" ? latest.max_drawdown : null;
+  const ddLimit = risk.data?.limits.max_drawdown_pct ?? null;
+  const ddTrend = useMemo(() => history.map((h) => -Math.abs(h.current_drawdown)), [history]);
 
   return (
-    <div className="h-[280px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={points} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={up ? colors.up : colors.down} stopOpacity={0.22} />
-              <stop offset="100%" stopColor={up ? colors.up : colors.down} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="t" hide />
-          <YAxis
-            domain={["dataMin", "dataMax"]}
-            width={62}
-            tick={{ fontSize: 11, fill: colors.faint }}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(v: number) => axisMoney(v, min, max)}
-          />
-          <Tooltip
-            contentStyle={tooltipStyle(colors)}
-            labelFormatter={(label: string) => clock(label)}
-            formatter={(value: number) => [money(value), "NAV"]}
-          />
-          <Area
-            type="monotone"
-            dataKey="value"
-            stroke={up ? colors.up : colors.down}
-            strokeWidth={1.75}
-            fill="url(#equityFill)"
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatTile
+        label="NAV"
+        value={money(data.nav)}
+        delta={{ value: data.day_pnl_pct, format: signedPct, label: "today" }}
+        trend={intraday}
+      />
+      <StatTile
+        label="Day P&L"
+        value={`${data.day_pnl > 0 ? "+" : ""}${money(data.day_pnl)}`}
+        delta={{ value: data.day_pnl_pct, format: signedPct }}
+        trend={dayTrend}
+      />
+      <StatTile
+        label="Total return"
+        value={signedPct(data.total_return_pct)}
+        hint={`from ${money(data.initial_capital)}`}
+        trend={dailyNavs}
+      />
+      <StatTile
+        label="Drawdown"
+        value={dd === null ? "—" : ddText(dd)}
+        status={dd !== null && ddLimit ? limitStatus((dd * 100) / ddLimit) : undefined}
+        hint={
+          risk.isLoading
+            ? undefined
+            : dd === null
+              ? "No risk snapshot yet"
+              : `max ${maxDd === null ? "—" : ddText(maxDd)}${ddLimit ? ` · limit ${ddLimit}%` : ""}`
+        }
+        trend={ddTrend}
+      />
     </div>
   );
 }
@@ -115,35 +137,141 @@ function ActivityFeed() {
     );
 
   return (
-    <ul className="max-h-[356px] divide-y divide-line/70 overflow-y-auto">
+    <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">
       {events.slice(0, 60).map((event, i) => (
-        <li key={i} className="flex items-start gap-2.5 px-4 py-2 text-sm">
-          <span className="nums w-16 shrink-0 whitespace-nowrap pt-0.5 text-2xs text-faint">
+        <li key={i} className="flex items-center gap-2.5 px-3 py-1.5 text-sm">
+          <span className="w-[60px] shrink-0 whitespace-nowrap font-mono text-2xs text-ink-3">
             {clock(event.timestamp)}
           </span>
-          <span className="w-[92px] shrink-0 truncate text-2xs font-semibold uppercase tracking-wide text-clay">
-            {event.type.toLowerCase()}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-soft">{describeEvent(event)}</span>
+          <Badge tone="accent" className="max-w-[104px] shrink-0">
+            <span className="min-w-0 truncate">{event.type.replace(/_/g, " ")}</span>
+          </Badge>
+          <span className="min-w-0 flex-1 truncate text-ink-2">{describeEvent(event)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
+function AllocationCard({ nav, cash }: { nav: number; cash: number }) {
+  const navigate = useNavigate();
+  const positions = usePositions();
+  const risk = useRisk();
+  const limit = risk.data?.limits.max_position_pct ?? null;
+  const list = positions.data?.positions ?? [];
+  // allocationRows is sorted desc by weight, so the first 10 non-cash rows are the top 10 by |value|.
+  let shown = 0;
+  const rows = allocationRows(list, nav, cash, limit).filter((r) => r.key === CASH_KEY || shown++ < 10);
+
+  return (
+    <ChartCard
+      title="Allocation by position"
+      subtitle={`% of NAV${limit !== null ? ` · limit ${limit}%` : ""}`}
+      isLoading={positions.isLoading}
+      isFetching={positions.isFetching && !positions.isLoading}
+      error={positions.error ? failure("/api/desktop/positions", positions.error) : null}
+      empty={
+        rows.length
+          ? null
+          : { message: "No NAV to allocate yet", hint: "Weights appear once the portfolio agent writes its first snapshot." }
+      }
+    >
+      <HBarList rows={rows} format={weight} maxRows={11} onRowClick={() => navigate("/portfolio")} />
+      {list.length === 0 && (
+        <p className="mt-2 text-xs text-ink-3">No open positions — signals become orders once the sleeves fire.</p>
+      )}
+      {list.length > 10 && <p className="mt-2 text-xs text-ink-3">Top 10 of {list.length} positions.</p>}
+    </ChartCard>
+  );
+}
+
+function WatchlistCard() {
+  const { data, isLoading, error } = useWatchlist();
+  return (
+    <Card
+      title="Watchlist"
+      subtitle="Latest marks"
+      action={
+        <Link to="/watchlist" className="btn btn-ghost text-xs">
+          Manage <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      }
+      bodyClassName=""
+    >
+      {isLoading ? (
+        <Loading />
+      ) : error ? (
+        <div className="p-3">
+          <ErrorNote message={failure("/api/desktop/watchlist", error)} />
+        </div>
+      ) : !data?.watchlist.length ? (
+        <Empty message="No symbols priced yet" hint="Add symbols on the Watchlist screen." />
+      ) : (
+        <ul className="max-h-[280px] divide-y divide-line overflow-y-auto">
+          {data.watchlist.map((w) => {
+            const change = w.prev_close ? w.change_pct : null;
+            return (
+              <li key={w.symbol} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                <span className="truncate text-sm text-ink">{w.symbol}</span>
+                <span className="flex items-center gap-3">
+                  <span className="nums text-sm text-ink-2">{w.price ? money(w.price) : "—"}</span>
+                  <span
+                    className={`nums w-[72px] text-right text-xs ${
+                      change === null || change === 0 ? "text-ink-3" : change > 0 ? "text-up" : "text-down"
+                    }`}
+                  >
+                    {change === null ? "—" : `${change > 0 ? "▲ " : change < 0 ? "▼ " : ""}${signedPct(change)}`}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function AlertsCard() {
+  const { data, isLoading, error } = useAlerts();
+  return (
+    <Card title="Alerts" subtitle="Most recent first" bodyClassName="">
+      {isLoading ? (
+        <Loading />
+      ) : error ? (
+        <div className="p-3">
+          <ErrorNote message={failure("/api/desktop/alerts", error)} />
+        </div>
+      ) : !data?.alerts.length ? (
+        <Empty message="No alerts" hint="Risk, health and compliance alerts land here." />
+      ) : (
+        <ul className="max-h-[280px] divide-y divide-line overflow-y-auto">
+          {data.alerts.slice(0, 20).map((a) => (
+            <li key={a.id} className="px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm text-ink">{a.title}</span>
+                <StatusChip tone={severityTone(a.severity)} label={a.severity || "info"} />
+              </div>
+              <div className="mt-0.5 truncate text-xs text-ink-2">{a.message}</div>
+              <div className="mt-0.5 text-2xs text-ink-3">{timeAgo(a.created_at)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 export default function OverviewPage() {
   const { data, isLoading, error } = useOverview();
-  const { data: positions } = usePositions();
-  const { data: watchlist } = useWatchlist();
-  const { data: alerts } = useAlerts();
 
   if (isLoading) return <Loading label="Loading portfolio" />;
   if (error || !data)
-    return <ErrorNote message="Could not reach the backend. Is the engine running?" />;
-
-  const top = [...(positions?.positions ?? [])]
-    .sort((a, b) => Math.abs(b.market_value) - Math.abs(a.market_value))
-    .slice(0, 6);
+    return (
+      <ErrorNote
+        message={`${error ? failure("/api/desktop/overview", error) : "No overview data"} — is the engine running?`}
+      />
+    );
 
   return (
     <>
@@ -155,17 +283,17 @@ export default function OverviewPage() {
               <Dot tone={data.agents_running > 0 ? "good" : "bad"} pulse={data.agents_running > 0} />
               {data.agents_running}/{data.agents_total} agents
             </span>
-            <span className="text-faint">·</span>
+            <span className="text-ink-3">·</span>
             <span>{data.system_mode.replace(/_/g, " ").toLowerCase()}</span>
             {data.regime && (
               <>
-                <span className="text-faint">·</span>
+                <span className="text-ink-3">·</span>
                 <span>regime {data.regime.toLowerCase()}</span>
               </>
             )}
             {data.llm_providers.length > 0 && (
               <>
-                <span className="text-faint">·</span>
+                <span className="text-ink-3">·</span>
                 <span>llm {data.llm_providers.join(", ")}</span>
               </>
             )}
@@ -173,8 +301,8 @@ export default function OverviewPage() {
         }
       />
 
-      {(data.halted || data.kill_switch) && (
-        <div className="mb-5">
+      <div className="flex flex-col gap-3">
+        {(data.halted || data.kill_switch) && (
           <ErrorNote
             message={
               data.kill_switch
@@ -182,144 +310,27 @@ export default function OverviewPage() {
                 : `Trading halted${data.halt_reason ? `: ${data.halt_reason}` : "."}`
             }
           />
+        )}
+
+        <MorningBrief />
+
+        <KpiRow data={data} />
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          <PortfolioVsBenchmark className="lg:col-span-2" syncKey="overview" />
+          <Card title="Live activity" subtitle="Straight off the agent bus" bodyClassName="">
+            <ActivityFeed />
+          </Card>
         </div>
-      )}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          label="Net asset value"
-          value={money(data.nav)}
-          hint={`${pct(data.total_return_pct)} since inception`}
-          icon={<Wallet className="h-3 w-3" />}
-        />
-        <Stat
-          label="Day P&L"
-          value={money(data.day_pnl)}
-          hint={pct(data.day_pnl_pct)}
-          valueClass={tone(data.day_pnl)}
-          icon={<TrendingUp className="h-3 w-3" />}
-        />
-        <Stat
-          label="Cash"
-          value={money(data.cash_usd)}
-          hint={`${money(data.equity_value)} invested`}
-          icon={<CircleDollarSign className="h-3 w-3" />}
-        />
-        <Stat
-          label="Positions"
-          value={data.positions_count}
-          hint={`${money(data.unrealized_pnl)} unrealised`}
-          icon={<Layers className="h-3 w-3" />}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card
-          className="lg:col-span-2"
-          title="Equity curve"
-          subtitle="Portfolio snapshots, newest on the right"
-          action={
-            <Link to="/performance" className="btn btn-ghost text-xs">
-              Performance <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          }
-        >
-          <EquityChart />
-        </Card>
-
-        <Card
-          title="Live activity"
-          subtitle="Straight off the agent bus"
-          bodyClassName=""
-        >
-          <ActivityFeed />
-        </Card>
-
-        <Card
-          title="Largest positions"
-          action={
-            <Link to="/portfolio" className="btn btn-ghost text-xs">
-              All <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          }
-          bodyClassName=""
-        >
-          {top.length === 0 ? (
-            <Empty message="No open positions" hint="Signals become orders once the sleeves fire." />
-          ) : (
-            <ul className="divide-y divide-line/70">
-              {top.map((p) => (
-                <li key={p.symbol} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-ink">{p.symbol}</div>
-                    <div className="nums text-xs text-soft">
-                      {p.quantity} @ {money(p.avg_entry_price, p.currency)}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="nums text-sm text-ink">{money(p.market_value, p.currency)}</div>
-                    <div className={`nums text-xs ${tone(p.unrealized_pnl)}`}>
-                      {pct(p.return_pct)}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Watchlist" subtitle="Latest marks" bodyClassName="">
-          {!watchlist?.watchlist.length ? (
-            <Empty message="No symbols priced yet" />
-          ) : (
-            <ul className="max-h-[280px] divide-y divide-line/70 overflow-y-auto">
-              {watchlist.watchlist.map((w) => (
-                <li key={w.symbol} className="flex items-center justify-between px-4 py-2">
-                  <span className="text-sm text-ink">{w.symbol}</span>
-                  <span className="flex items-center gap-3">
-                    <span className="nums text-sm text-soft">
-                      {w.price ? money(w.price) : "—"}
-                    </span>
-                    <span className={`nums w-16 text-right text-xs ${tone(w.change_pct)}`}>
-                      {w.prev_close ? pct(w.change_pct) : "—"}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Alerts" subtitle="Most recent first" bodyClassName="">
-          {!alerts?.alerts.length ? (
-            <Empty message="No alerts" hint="Risk, health and compliance alerts land here." />
-          ) : (
-            <ul className="max-h-[280px] divide-y divide-line/70 overflow-y-auto">
-              {alerts.alerts.slice(0, 20).map((a) => (
-                <li key={a.id} className="px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm text-ink">{a.title}</span>
-                    <Badge
-                      tone={
-                        a.severity?.toUpperCase() === "CRITICAL"
-                          ? "bad"
-                          : a.severity?.toUpperCase() === "WARNING"
-                            ? "warn"
-                            : "neutral"
-                      }
-                    >
-                      {a.severity}
-                    </Badge>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-soft">
-                    <span className="truncate">{a.message}</span>
-                  </div>
-                  <div className="mt-0.5 text-2xs text-faint">{timeAgo(a.created_at)}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <AllocationCard nav={data.nav} cash={data.cash_usd} />
+          <RegimeGauge />
+          <div className="flex flex-col gap-3">
+            <WatchlistCard />
+            <AlertsCard />
+          </div>
+        </div>
       </div>
     </>
   );

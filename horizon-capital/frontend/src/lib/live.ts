@@ -49,6 +49,8 @@ const REFRESH_ON: Record<string, string[]> = {
   AGENT_STATUS: ["agents"],
   HEALTH_CHECK: ["alerts"],
   CIO_ADVISORY: ["overview", "alerts"],
+  // Watchlist changed (here or from the terminal): refresh marks and catalog flags.
+  SETTINGS_UPDATED: ["watchlist", "catalog", "config"],
 };
 
 /**
@@ -139,6 +141,13 @@ export function describeEvent(event: LiveEvent): string {
     case "AGENT_STATUS":
       return `${p.agent_id ?? event.sender} ${p.status ?? ""}`;
     case "SETTINGS_UPDATED":
+      if (Array.isArray(p.added) || Array.isArray(p.removed)) {
+        const added = (p.added as string[] | undefined) ?? [];
+        const removed = (p.removed as string[] | undefined) ?? [];
+        return `watchlist ${added.length ? `+${added.join(" ")}` : ""}${
+          removed.length ? ` -${removed.join(" ")}` : ""
+        }`.trim();
+      }
       return `settings changed: ${Object.keys(p).join(", ")}`;
     case "CIO_OVERRIDE":
       return `CIO override: ${p.trigger ?? ""}`;

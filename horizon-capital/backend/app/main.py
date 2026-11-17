@@ -139,6 +139,20 @@ from app.api.desktop import router as desktop_router  # noqa: E402
 from app.api.websocket import ws_router  # noqa: E402
 
 app.include_router(desktop_router)
+from app.api.desktop_viz import router as desktop_viz_router  # noqa: E402, I001
+app.include_router(desktop_viz_router)
+from app.api.desktop_insights import router as desktop_insights_router  # noqa: E402, I001
+app.include_router(desktop_insights_router)
+from app.api.desktop_analysis import router as desktop_analysis_router  # noqa: E402, I001
+app.include_router(desktop_analysis_router)
+from app.api.desktop_brief import router as desktop_brief_router  # noqa: E402, I001
+app.include_router(desktop_brief_router)
+from app.api.desktop_trades import router as desktop_trades_router  # noqa: E402, I001
+app.include_router(desktop_trades_router)
+from app.api.desktop_org import router as desktop_org_router  # noqa: E402, I001
+app.include_router(desktop_org_router)
+from app.api.desktop_backtest import router as desktop_backtest_router  # noqa: E402, I001
+app.include_router(desktop_backtest_router)
 app.include_router(ws_router)
 
 # api/v1 is the Postgres/ORM surface — importing it pulls in asyncpg and the ORM

@@ -22,6 +22,9 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
+        // The live feed is /api/desktop/ws/live, so this proxy must pass
+        // upgrades too — without it the dev UI shows "offline".
+        ws: true,
       },
       "/ws": {
         target: "ws://localhost:8000",

@@ -8,10 +8,10 @@
 import { Stethoscope } from "lucide-react";
 import { useState } from "react";
 
-import { useAgents, useCommand } from "@/lib/api";
+import OrgChart from "@/components/OrgChart";
+import { useAgents, useCommand, type AgentInfo } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import {
-  Badge,
   Card,
   CommandEcho,
   Dot,
@@ -19,7 +19,9 @@ import {
   ErrorNote,
   Loading,
   PageHeader,
+  StatusChip,
   statusTone,
+  type StatusChipTone,
 } from "@/components/ui";
 
 const DEPARTMENT_LABELS: Record<string, string> = {
@@ -37,32 +39,48 @@ const DEPARTMENT_BLURB: Record<string, string> = {
   executive: "CIO — advisory, crisis and override authority",
 };
 
+const CHIP: Record<string, StatusChipTone> = {
+  good: "ok",
+  bad: "critical",
+  warn: "warning",
+  neutral: "neutral",
+};
+
+const isRunning = (status: string) => status.toUpperCase() === "RUNNING";
+
+/** Header chip: everything up → ok, nothing up → critical, otherwise warning. */
+function CountChip({ running, total }: { running: number; total: number }) {
+  if (!total) return null;
+  const tone = running === total ? "ok" : running === 0 ? "critical" : "warning";
+  return <StatusChip tone={tone} label={`${running}/${total} running`} className="nums" />;
+}
+
+function Restarts({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return <StatusChip tone="warning" label={`${count} restart${count === 1 ? "" : "s"}`} />;
+}
+
 export default function AgentsPage() {
-  const { data, isLoading } = useAgents();
+  const { data, isLoading, error } = useAgents();
   const command = useCommand();
   const [echo, setEcho] = useState<{ html: string; text: string } | null>(null);
 
-  if (isLoading) return <Loading label="Loading agents" />;
-  if (!data?.live)
-    return (
-      <>
-        <PageHeader title="Agents" />
-        <ErrorNote message="No orchestrator in this process — the API is running without agents." />
-      </>
-    );
-
-  const grouped = data.agents.reduce<Record<string, typeof data.agents>>((acc, agent) => {
+  const grouped = (data?.agents ?? []).reduce<Record<string, AgentInfo[]>>((acc, agent) => {
     (acc[agent.department] ??= []).push(agent);
     return acc;
   }, {});
 
-  const running = data.agents.filter((a) => a.status.toUpperCase() === "RUNNING").length;
+  const running = data?.agents.filter((a) => isRunning(a.status)).length ?? 0;
 
   return (
     <>
       <PageHeader
         title="Agents"
-        subtitle={`${running}/${data.agents.length} running · the orchestrator restarts anything that dies`}
+        subtitle={
+          data?.live
+            ? `${running}/${data.agents.length} running · the orchestrator restarts anything that dies`
+            : "The firm's agents by department"
+        }
         actions={
           <button
             className="btn"
@@ -85,66 +103,88 @@ export default function AgentsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {Object.entries(grouped).map(([department, agents]) => (
+      <OrgChart live={data} />
+
+      {isLoading ? (
+        <Loading label="Loading agents" />
+      ) : error ? (
+        <ErrorNote message={`Could not load agents — ${error.message}`} />
+      ) : data?.live ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {Object.entries(grouped).map(([department, agents]) => (
+            <Card
+              key={department}
+              title={DEPARTMENT_LABELS[department] ?? department}
+              subtitle={DEPARTMENT_BLURB[department]}
+              action={
+                <CountChip
+                  running={agents.filter((a) => isRunning(a.status)).length}
+                  total={agents.length}
+                />
+              }
+              bodyClassName=""
+            >
+              <ul className="divide-y divide-line">
+                {agents.map((agent) => (
+                  <li
+                    key={agent.agent_id}
+                    className="flex h-8 items-center justify-between gap-3 px-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Dot tone={statusTone(agent.status)} pulse={isRunning(agent.status)} />
+                      <span className="truncate font-mono text-xs text-ink">{agent.agent_id}</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Restarts count={agent.retries} />
+                      <span className="nums text-2xs text-ink-3" title={agent.last_heartbeat}>
+                        {timeAgo(agent.last_heartbeat)}
+                      </span>
+                      <StatusChip tone={CHIP[statusTone(agent.status)]} label={agent.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ))}
+
           <Card
-            key={department}
-            title={DEPARTMENT_LABELS[department] ?? department}
-            subtitle={DEPARTMENT_BLURB[department]}
+            title="Workers"
+            subtitle="Supervised background loops"
+            action={
+              <CountChip
+                running={data.workers.filter((w) => isRunning(w.status)).length}
+                total={data.workers.length}
+              />
+            }
             bodyClassName=""
           >
-            <ul className="divide-y divide-line/70">
-              {agents.map((agent) => (
-                <li
-                  key={agent.agent_id}
-                  className="flex items-center justify-between gap-3 px-4 py-2.5"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Dot
-                      tone={statusTone(agent.status)}
-                      pulse={agent.status.toUpperCase() === "RUNNING"}
-                    />
-                    <span className="truncate font-mono text-sm text-ink">{agent.agent_id}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {agent.retries > 0 && (
-                      <span className="text-2xs text-warn">{agent.retries} restarts</span>
-                    )}
-                    <span className="text-xs text-soft">{timeAgo(agent.last_heartbeat)}</span>
-                    <Badge tone={statusTone(agent.status)}>{agent.status}</Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {data.workers.length === 0 ? (
+              <Empty
+                message="No supervised workers"
+                hint="Workers register when the engine starts its background loops."
+              />
+            ) : (
+              <ul className="divide-y divide-line">
+                {data.workers.map((worker) => (
+                  <li
+                    key={worker.name}
+                    className="flex h-8 items-center justify-between gap-3 px-3"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Dot tone={statusTone(worker.status)} pulse={isRunning(worker.status)} />
+                      <span className="truncate font-mono text-xs text-ink">{worker.name}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <Restarts count={worker.restarts} />
+                      <StatusChip tone={CHIP[statusTone(worker.status)]} label={worker.status} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
-        ))}
-
-        <Card title="Workers" subtitle="Supervised background loops" bodyClassName="">
-          {data.workers.length === 0 ? (
-            <Empty message="No supervised workers" />
-          ) : (
-            <ul className="divide-y divide-line/70">
-              {data.workers.map((worker) => (
-                <li
-                  key={worker.name}
-                  className="flex items-center justify-between px-4 py-2.5"
-                >
-                  <span className="flex items-center gap-2">
-                    <Dot tone={statusTone(worker.status)} />
-                    <span className="font-mono text-sm text-ink">{worker.name}</span>
-                  </span>
-                  <span className="flex items-center gap-3">
-                    {worker.restarts > 0 && (
-                      <span className="text-2xs text-warn">{worker.restarts} restarts</span>
-                    )}
-                    <Badge tone={statusTone(worker.status)}>{worker.status}</Badge>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
+        </div>
+      ) : null}
     </>
   );
 }

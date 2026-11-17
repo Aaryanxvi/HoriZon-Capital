@@ -12,6 +12,7 @@ import { HashRouter } from "react-router-dom";
 
 import App from "./App";
 import "./index.css";
+import { initTheme } from "./lib/theme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,9 +21,7 @@ const queryClient = new QueryClient({
 });
 
 // Theme is applied before first paint so the app never flashes light-on-dark.
-if (localStorage.getItem("horizon-theme") === "dark") {
-  document.documentElement.classList.add("dark");
-}
+initTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

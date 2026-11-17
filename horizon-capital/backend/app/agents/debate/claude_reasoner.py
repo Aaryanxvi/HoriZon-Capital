@@ -14,6 +14,7 @@ API errors.
 
 import asyncio
 import json
+import re
 from typing import Any
 
 import anthropic
@@ -149,19 +150,37 @@ class ClaudeReasoner:
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
-        # Fallback: heuristic extraction
-        vote = "ABSTAIN"
-        upper = raw.upper()
-        if "\"FOR\"" in upper or "VOTE: FOR" in upper or "VOTE\":\"FOR" in upper:
-            vote = "FOR"
-        elif "\"AGAINST\"" in upper or "VOTE: AGAINST" in upper:
-            vote = "AGAINST"
+        return salvage_fields(raw)
 
-        return {
-            "argument": raw[:2000],
-            "vote": vote,
-            "confidence": 0.5,
-        }
+
+_ARGUMENT_RE = re.compile(r'"argument"\s*:\s*"(.*?)"\s*,\s*"(?:vote|confidence)"\s*:', re.DOTALL)
+_VOTE_RE = re.compile(r'"vote"\s*:\s*"(FOR|AGAINST|ABSTAIN)"', re.IGNORECASE)
+_CONFIDENCE_RE = re.compile(r'"confidence"\s*:\s*([0-9]*\.?[0-9]+)')
+
+
+def salvage_fields(raw: str) -> dict[str, Any]:
+    """Pull argument/vote/confidence out of a reply that is almost-JSON.
+
+    LLMs often quote inside the argument without escaping ("too big to fail"),
+    which breaks json.loads. Keying on the field names still recovers each one,
+    so the UI shows the argument rather than the raw blob and the real
+    confidence survives instead of defaulting to 0.5.
+    """
+    arg = _ARGUMENT_RE.search(raw)
+    vote = _VOTE_RE.search(raw)
+    if vote:
+        verdict = vote.group(1).upper()
+    else:
+        upper = raw.upper()
+        verdict = (
+            "FOR" if "VOTE: FOR" in upper else "AGAINST" if "VOTE: AGAINST" in upper else "ABSTAIN"
+        )
+    conf = _CONFIDENCE_RE.search(raw)
+    return {
+        "argument": (arg.group(1).replace('\\"', '"') if arg else raw)[:2000],
+        "vote": verdict,
+        "confidence": _clamp(float(conf.group(1)), 0.0, 1.0) if conf else 0.5,
+    }
 
 
 def _normalise_vote(vote: str) -> str:

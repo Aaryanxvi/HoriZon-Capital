@@ -330,3 +330,22 @@ def test_rate_limit_delay_honours_provider_hint():
     assert _rate_limit_delay(Exception("boom"), 1) == pytest.approx(4.0)
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token 1414794F6900 - verify with scripts/authorship.py verify
+
+
+def test_salvage_fields_recovers_almost_json() -> None:
+    """Unescaped quotes inside the argument break json.loads; fields must still survive."""
+    from app.agents.debate.multi_model_debate import _parse_debate_response
+
+    raw = (
+        '{"argument": "I\'m voting FOR. The \'too big\' and "too big to fail" risk is narrative.", '
+        '"vote": "FOR", "confidence": 0.66}'
+    )
+    out = _parse_debate_response(raw)
+    assert out["vote"] == "FOR"
+    assert out["confidence"] == 0.66
+    assert out["argument"].startswith("I'm voting FOR.")
+    assert '"vote"' not in out["argument"]
+
+    # No JSON at all: falls back to the raw text and an abstain.
+    plain = _parse_debate_response("no structure here")
+    assert plain == {"argument": "no structure here", "vote": "ABSTAIN", "confidence": 0.5}

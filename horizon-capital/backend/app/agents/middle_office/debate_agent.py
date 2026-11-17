@@ -207,7 +207,7 @@ class DebateAgent(BaseAgent):
             )
 
             # Persist debate result
-            await self._persist_debate(result)
+            await self._persist_debate(result, signal_payload.get("signal_id"))
 
             logger.info(
                 "debate_completed",
@@ -262,7 +262,9 @@ class DebateAgent(BaseAgent):
                     "timestamp": now.isoformat(),
                 },
             )
-            await self._persist_auto_rejection(session_id, symbol, action)
+            await self._persist_auto_rejection(
+                session_id, symbol, action, signal_payload.get("signal_id")
+            )
             return
 
         session_id = str(uuid.uuid4())
@@ -359,7 +361,7 @@ class DebateAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _persist_debate(result) -> None:
+    async def _persist_debate(result, signal_id: str | None = None) -> None:
         """Store debate result in the debate_sessions table."""
         try:
             # Build a one-line reason from the first argument of the majority vote
@@ -385,16 +387,17 @@ class DebateAgent(BaseAgent):
                     text(
                         """
                         INSERT INTO debate_sessions
-                            (id, symbol, proposed_action, status,
+                            (id, symbol, proposed_action, signal_id, status,
                              total_rounds, final_decision, consensus_score,
                              reason, created_at)
                         VALUES
-                            (:id, :symbol, :action, 'COMPLETED',
+                            (:id, :symbol, :action, :signal_id, 'COMPLETED',
                              :rounds, :decision, :consensus, :reason, :now)
                         """
                     ),
                     {
                         "id": result.session_id,
+                        "signal_id": signal_id,
                         "symbol": result.symbol,
                         "action": result.proposed_action,
                         "rounds": result.rounds,
@@ -471,7 +474,7 @@ class DebateAgent(BaseAgent):
 
     @staticmethod
     async def _persist_auto_rejection(
-        session_id: str, symbol: str, action: str
+        session_id: str, symbol: str, action: str, signal_id: str | None = None
     ) -> None:
         """Store auto-rejection in the debate_sessions table."""
         try:
@@ -480,16 +483,17 @@ class DebateAgent(BaseAgent):
                     text(
                         """
                         INSERT INTO debate_sessions
-                            (id, symbol, proposed_action, status,
+                            (id, symbol, proposed_action, signal_id, status,
                              total_rounds, final_decision, consensus_score,
                              reason, created_at)
                         VALUES
-                            (:id, :symbol, :action, 'COMPLETED',
+                            (:id, :symbol, :action, :signal_id, 'COMPLETED',
                              0, 'REJECTED', 0.0, :reason, :now)
                         """
                     ),
                     {
                         "id": session_id,
+                        "signal_id": signal_id,
                         "symbol": symbol,
                         "action": action,
                         "reason": "FULLY_AUTONOMOUS mode requires LLM debate; no providers",
@@ -516,16 +520,17 @@ class DebateAgent(BaseAgent):
                     text(
                         """
                         INSERT INTO debate_sessions
-                            (id, symbol, proposed_action, status,
+                            (id, symbol, proposed_action, signal_id, status,
                              total_rounds, final_decision, consensus_score,
                              reason, created_at)
                         VALUES
-                            (:id, :symbol, :action, 'COMPLETED',
+                            (:id, :symbol, :action, :signal_id, 'COMPLETED',
                              0, 'APPROVED', 1.0, :reason, :now)
                         """
                     ),
                     {
                         "id": session_id,
+                        "signal_id": signal_payload.get("signal_id"),
                         "symbol": symbol,
                         "action": action,
                         "reason": reason,

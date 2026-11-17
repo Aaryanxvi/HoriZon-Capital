@@ -11,36 +11,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Warm-paper light theme, low-contrast dark theme. One variable set per mode. */
+/* Colour tokens as space-separated RGB so Tailwind can apply alpha.
+   No data-theme attribute = follow the OS; data-theme="light"|"dark" pins it. */
 :root {
-  --paper: 250 249 245;
+  --canvas: 244 245 247;
   --surface: 255 255 255;
-  --raised: 245 243 237;
-  --rail: 240 238 230;
-  --line: 228 224 213;
-  --ink: 31 30 29;
-  --soft: 107 104 98;
-  --faint: 150 146 138;
-  --clay: 201 100 66;
-  --up: 33 122 82;
-  --down: 185 58 45;
-  --warn: 176 122 20;
+  --surface-2: 245 246 248;
+  --rail: 250 251 252;
+  --line: 227 230 234;
+  --line-strong: 203 209 217;
+  --ink: 21 24 30;
+  --ink-2: 74 82 96;
+  --ink-3: 99 108 122;
+  --accent: 42 120 214;
+  --accent-strong: 31 99 184;
+  --accent-ink: 255 255 255;
+  --up: 15 123 79;
+  --down: 201 52 52;
+  --ok: 12 163 12;
+  --warn: 250 178 25;
+  --serious: 236 131 90;
+  --crit: 208 59 59;
   color-scheme: light;
 }
 
-.dark {
-  --paper: 31 30 29;
-  --surface: 38 38 36;
-  --raised: 46 45 43;
-  --rail: 26 25 24;
-  --line: 58 56 53;
-  --ink: 244 243 238;
-  --soft: 166 162 154;
-  --faint: 124 120 113;
-  --clay: 217 119 87;
-  --up: 74 176 128;
-  --down: 226 106 92;
-  --warn: 212 160 62;
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: 16 18 22;
+    --surface: 23 26 31;
+    --surface-2: 30 34 40;
+    --rail: 19 21 25;
+    --line: 38 42 49;
+    --line-strong: 52 58 67;
+    --ink: 230 232 235;
+    --ink-2: 166 173 184;
+    --ink-3: 133 141 153;
+    --accent: 57 135 229;
+    --accent-strong: 74 147 234;
+    --accent-ink: 15 17 21;
+    --up: 38 161 123;
+    --down: 238 90 85;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: 16 18 22;
+  --surface: 23 26 31;
+  --surface-2: 30 34 40;
+  --rail: 19 21 25;
+  --line: 38 42 49;
+  --line-strong: 52 58 67;
+  --ink: 230 232 235;
+  --ink-2: 166 173 184;
+  --ink-3: 133 141 153;
+  --accent: 57 135 229;
+  --accent-strong: 74 147 234;
+  --accent-ink: 15 17 21;
+  --up: 38 161 123;
+  --down: 238 90 85;
   color-scheme: dark;
 }
 
@@ -52,15 +81,18 @@
   }
 
   body {
-    @apply bg-paper text-ink antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04";
-    -webkit-font-smoothing: antialiased;
+    @apply bg-canvas font-sans text-sm text-ink antialiased;
     overflow: hidden;
   }
 
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 1px;
+  }
+
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
@@ -68,77 +100,88 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full border-4 border-transparent bg-faint/40 bg-clip-content;
+    background: rgb(var(--line-strong));
+    border-radius: 4px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-faint/70 bg-clip-content;
+  /* Chromium ignores ::-webkit-scrollbar once these are set, so only Firefox gets them. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(var(--line-strong)) transparent;
+    }
   }
 
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--faint) / 0.4) transparent;
-  }
-
-  :focus-visible {
-    @apply outline-none ring-2 ring-clay/50;
-  }
-
-  /* Tabular numerals everywhere money and metrics are shown. */
+  /* Tabular numerals for columns, axis ticks and anything that must align. */
   .nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply rounded-md border border-line bg-surface;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line
-           bg-surface px-3 py-1.5 text-sm font-medium text-ink transition
-           hover:bg-raised active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-7 items-center justify-center gap-1.5 rounded border border-line-strong
+           bg-surface px-2.5 text-sm font-medium text-ink transition-colors duration-100
+           hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply border-transparent bg-clay text-white hover:bg-clay/90;
+    @apply border-transparent bg-accent-strong text-accent-ink hover:bg-accent-strong/90;
   }
 
   .btn-ghost {
-    @apply border-transparent bg-transparent hover:bg-raised;
+    @apply border-transparent bg-transparent hover:bg-surface-2;
+  }
+
+  .input {
+    @apply h-7 rounded border border-line-strong bg-surface px-2 text-sm text-ink
+           placeholder:text-ink-3 focus:outline focus:outline-2 focus:-outline-offset-1
+           focus:outline-accent disabled:opacity-50;
   }
 
   .th {
-    @apply px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-faint;
+    @apply px-3 py-1.5 text-left text-2xs font-semibold uppercase tracking-wide text-ink-3;
   }
 
   .td {
-    @apply px-3 py-2 text-sm text-ink;
+    @apply px-3 py-1.5 text-sm text-ink;
   }
 
   .row-hover {
-    @apply transition-colors hover:bg-raised/60;
+    @apply transition-colors duration-100 hover:bg-surface-2;
   }
-}
 
-/* Rich-exported terminal output: keep its colours, inherit our layout. */
-.rich-output pre,
-.rich-output code {
-  font-family: inherit;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-  background: transparent !important;
-}
+  /* Rich-exported terminal output: keep its colours, inherit our layout. */
+  .rich-output pre,
+  .rich-output code {
+    font-family: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    background: transparent !important;
+  }
 
-/* Electron drag regions for the frameless window. */
-.drag {
-  -webkit-app-region: drag;
-}
+  /* Electron drag regions for the frameless window. */
+  .drag {
+    -webkit-app-region: drag;
+  }
 
-.no-drag {
-  -webkit-app-region: no-drag;
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
 }
 /*
  * Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
