@@ -730,10 +730,12 @@ NEEDS_RESTART = {
 
 
 def _env_path() -> str:
+    import os
     from pathlib import Path
 
-    # backend/.env — the file pydantic-settings actually reads.
-    return str(Path(__file__).resolve().parents[2] / ".env")
+    # Installed build: HORIZON_ENV_FILE (~/.horizon-capital/.env, Program Files is
+    # read-only). Dev: backend/.env — the file pydantic-settings actually reads.
+    return os.environ.get("HORIZON_ENV_FILE") or str(Path(__file__).resolve().parents[2] / ".env")
 
 
 def _apply_env(key: str, value: str) -> str | None:
