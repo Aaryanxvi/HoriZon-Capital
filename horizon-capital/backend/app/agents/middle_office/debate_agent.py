@@ -177,13 +177,23 @@ class DebateAgent(BaseAgent):
         from app.agents.debate.multi_model_debate import MultiModelDebateEngine
         from app.llm.provider_registry import provider_registry
 
-        # Get regime for context
-        regime = signal_payload.get("regime")
+        # Ground the debate in data. Without regime, risk metrics, an exit plan
+        # and price features the debaters (correctly) abstain for lack of
+        # evidence, which turned almost every equity debate into a rejection.
+        regime = signal_payload.get("regime") or await self._get_regime()
         sentiment = await self._get_sentiment_context(symbol)
+        risk_metrics = await self._get_risk_metrics()
+        equity_context = await self._get_equity_context(symbol)
         signal_payload = {
-            **signal_payload,
+            **equity_context,
+            **{k: v for k, v in signal_payload.items() if v not in (None, "", "N/A")},
             **await self._get_market_context(symbol),
         }
+        # The signal may carry its own features; keep both sets.
+        signal_payload["features"] = {
+            **equity_context.get("features", {}),
+            **(signal_payload.get("features") or {}),
+        } or None
 
         engine = MultiModelDebateEngine(
             registry=provider_registry,
@@ -203,6 +213,7 @@ class DebateAgent(BaseAgent):
                 signal_data=signal_payload,
                 regime=regime,
                 sentiment=sentiment,
+                risk_metrics=risk_metrics,
                 allowed_providers=_allowed,
             )
 
@@ -323,9 +334,129 @@ class DebateAgent(BaseAgent):
                 "label": data.get("label"),
                 "score": data.get("score"),
                 "avg_sentiment_24h": f"{data.get('label')} ({data.get('score')})",
+                "article_count_14d": data.get("headline_count") or "N/A",
+                "headlines": [h for h in (data.get("headlines") or "").split("\n") if h],
             }
         except Exception:
             return None
+
+    @staticmethod
+    async def _get_regime() -> str | None:
+        """Current market regime as published to KV (same value the UI shows)."""
+        try:
+            from app.core.kv_store import get_kv_store
+
+            regime = await get_kv_store().get("horizon:regime:current")
+            return regime.upper() if regime else None
+        except Exception:
+            return None
+
+    @staticmethod
+    async def _get_risk_metrics() -> dict | None:
+        """Latest portfolio risk snapshot from RiskAgent (fractions -> percent).
+
+        Returns None when RiskAgent has not produced a real reading yet (fresh
+        database: not enough NAV history), so the prompt says "not available"
+        instead of presenting a misleading 0% VaR.
+        """
+        try:
+            from app.core.kv_store import get_kv_store
+
+            data = await get_kv_store().hgetall("horizon:risk:latest")
+            if not data:
+                return None
+            var95 = float(data.get("var_1d_95") or 0.0)
+            cvar95 = float(data.get("cvar_1d_95") or 0.0)
+            cur_dd = float(data.get("current_drawdown") or 0.0)
+            max_dd = float(data.get("max_drawdown") or 0.0)
+            if var95 == 0.0 and cvar95 == 0.0 and cur_dd == 0.0 and max_dd == 0.0:
+                return None
+            return {
+                "var_pct": f"{abs(var95) * 100:.2f} (1-day 95%; CVaR {abs(cvar95) * 100:.2f}%)",
+                "drawdown_pct": f"{abs(cur_dd) * 100:.2f} (max {abs(max_dd) * 100:.2f}%)",
+                "gross_exposure": "see Portfolio intent",
+                "correlation": "see Signal Features (correlation to SPY)",
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    async def _get_equity_context(symbol: str) -> dict:
+        """Price-based evidence for a stock/ETF debate.
+
+        Uses the same daily bars the StrategyAgent trades on, so the debaters
+        judge the position on momentum, volatility, drawdown, trend, liquidity
+        and correlation, plus the real exit policy (trailing stop). Never
+        raises: on any failure the prompt is simply thinner.
+        """
+        if symbol.endswith(".POLY") or "-USD" in symbol:
+            return {}
+        try:
+            import numpy as np
+
+            from app.agents.front_office.strategy.strategy_agent import StrategyAgent
+            from app.config import settings
+
+            df = await StrategyAgent._get_ohlcv(symbol)
+            if df is None or len(df) < 60:
+                return {}
+            close = df["close"].astype(float)
+            rets = close.pct_change().dropna()
+            last = float(close.iloc[-1])
+
+            def ret(days: int) -> str:
+                if len(close) <= days:
+                    return "N/A"
+                return f"{(last / float(close.iloc[-days - 1]) - 1) * 100:+.2f}%"
+
+            def vs_sma(n: int) -> str:
+                if len(close) < n:
+                    return "N/A"
+                sma = float(close.iloc[-n:].mean())
+                return f"{(last / sma - 1) * 100:+.2f}% ({'above' if last > sma else 'below'})"
+
+            window = close.iloc[-252:]
+            max_dd = float((window / window.cummax() - 1).min())
+            vol20 = float(rets.iloc[-20:].std() * np.sqrt(252))
+            var95 = float(-np.percentile(rets.iloc[-252:], 5))
+            adv = float((df["close"] * df["volume"]).iloc[-20:].mean())
+
+            features: dict[str, str] = {
+                "Last close": f"${last:,.2f}",
+                "Return 1M / 3M / 6M": f"{ret(21)} / {ret(63)} / {ret(126)}",
+                "Momentum 12-1": (
+                    f"{(float(close.iloc[-22]) / float(close.iloc[-253]) - 1) * 100:+.2f}%"
+                    if len(close) > 253 else "N/A"
+                ),
+                "Price vs 50d SMA": vs_sma(50),
+                "Price vs 200d SMA": vs_sma(200),
+                "Realized vol (20d, annualized)": f"{vol20 * 100:.1f}%",
+                "1-day 95% historical VaR (this name)": f"{var95 * 100:.2f}%",
+                "Max drawdown (1y)": f"{max_dd * 100:.1f}%",
+                "Avg daily dollar volume (20d)": f"${adv / 1e6:,.0f}M",
+            }
+
+            if not symbol.startswith("SPY"):
+                spy = await StrategyAgent._get_ohlcv("SPY.NYSE")
+                if spy is not None and len(spy) >= 60:
+                    joined = rets.to_frame("a").join(
+                        spy["close"].astype(float).pct_change().rename("b"), how="inner"
+                    ).dropna().iloc[-60:]
+                    if len(joined) >= 30:
+                        corr = joined["a"].corr(joined["b"])
+                        features["Correlation to SPY (60d)"] = f"{corr:.2f}"
+
+            out: dict = {"features": features, "target_price": "none - rebalance-driven exit"}
+            trail = float(settings.stop_loss_trail_pct or 0.0)
+            if trail > 0:
+                out["stop_loss"] = (
+                    f"${last * (1 - trail / 100):,.2f} initial "
+                    f"({trail:.0f}% trailing stop from high-water mark, resting at the broker)"
+                )
+            return out
+        except Exception as exc:
+            logger.warning("debate_equity_context_failed", symbol=symbol, error=str(exc))
+            return {}
 
     @staticmethod
     async def _get_market_context(symbol: str) -> dict:

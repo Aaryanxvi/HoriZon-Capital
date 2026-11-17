@@ -188,7 +188,22 @@ async def test_debate_sentiment_dict_built_from_seeded_kv():
         "label": "positive",
         "score": "0.6",
         "avg_sentiment_24h": "positive (0.6)",
+        "article_count_14d": "N/A",
+        "headlines": [],
     }
+
+
+@pytest.mark.asyncio
+async def test_debate_sentiment_includes_headline_evidence():
+    kv = get_kv_store()
+    await kv.hset("horizon:sentiment:NVDA", {
+        "label": "positive", "score": "0.4",
+        "headline_count": "2", "headlines": "Nvidia beats estimates\nNew chip launch",
+    })
+
+    sentiment = await DebateAgent._get_sentiment_context("NVDA.NASDAQ")
+    assert sentiment["article_count_14d"] == "2"
+    assert sentiment["headlines"] == ["Nvidia beats estimates", "New chip launch"]
 
 
 @pytest.mark.asyncio

@@ -177,6 +177,8 @@ def _build_user_prompt(
         lines.append(f"- Average sentiment (24h): {sentiment.get('avg_sentiment_24h', 'N/A')}")
         lines.append(f"- Lifecycle stage: {sentiment.get('lifecycle_stage', 'N/A')}")
         lines.append(f"- Article count (14d): {sentiment.get('article_count_14d', 'N/A')}")
+        for headline in (sentiment.get("headlines") or [])[:5]:
+            lines.append(f"  - Headline: {headline}")
     else:
         lines.append("- No sentiment data available")
 

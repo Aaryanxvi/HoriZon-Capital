@@ -89,10 +89,11 @@ class SentimentAgent:
         logger.info("SentimentAgent started for %d symbols", len(self.symbols))
         while self._running:
             try:
-                scores = await self._score_symbols(await self._gather_headlines())
+                headlines_by_symbol = await self._gather_headlines()
+                scores = await self._score_symbols(headlines_by_symbol)
             except Exception:
                 logger.exception("Sentiment sweep failed")
-                scores = {}
+                headlines_by_symbol, scores = {}, {}
             for symbol, (sentiment, score) in scores.items():
                 try:
                     # Persist to KV store so the sentiment REPL command can read it
@@ -100,10 +101,14 @@ class SentimentAgent:
                         from app.core.kv_store import get_kv_store
                         kv = get_kv_store()
                         raw = symbol.split(".")[0] if "." in symbol else symbol
+                        headlines = headlines_by_symbol.get(symbol) or []
                         await kv.hset(f"horizon:sentiment:{raw}", {
                             "label": sentiment,
                             "score": str(round(score, 4)),
                             "timestamp": datetime.now(UTC).isoformat(),
+                            # Evidence for the debate's sentiment role.
+                            "headline_count": str(len(headlines)),
+                            "headlines": "\n".join(h[:160] for h in headlines[:5]),
                         })
                     except Exception:
                         pass
