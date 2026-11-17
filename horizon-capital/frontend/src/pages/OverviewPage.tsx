@@ -27,6 +27,7 @@ import {
 import {
   ApiError,
   useAlerts,
+  useConfig,
   useEquityCurve,
   useOverview,
   usePositions,
@@ -264,6 +265,7 @@ function AlertsCard() {
 
 export default function OverviewPage() {
   const { data, isLoading, error } = useOverview();
+  const userName = useConfig().data?.user_name;
 
   if (isLoading) return <Loading label="Loading portfolio" />;
   if (error || !data)
@@ -276,7 +278,7 @@ export default function OverviewPage() {
   return (
     <>
       <PageHeader
-        title="Overview"
+        title={userName ? `Welcome back, ${userName}` : "Overview"}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5">

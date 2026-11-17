@@ -42,6 +42,7 @@ import { useThemeStore, type ThemePref } from "@/lib/theme";
 import { EngineButton, HaltButton, ModeSwitcher } from "@/components/Controls";
 import { Dot, IconButton, StatusChip } from "@/components/ui";
 import { Onboarding } from "@/components/Onboarding";
+import { Tour } from "@/components/Tour";
 
 // The Electron preload exposes window controls; in a plain browser it is absent
 // and the titlebar quietly drops its buttons.
@@ -103,7 +104,7 @@ function TitleBar() {
       </div>
 
       {/* Controls that must always be one click away, whatever screen you are on. */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5" data-tour="controls">
         <HaltButton />
         <ModeSwitcher />
         <EngineButton />
@@ -175,6 +176,7 @@ function NavItem({
     <NavLink
       to={to}
       end={end}
+      data-tour={`nav-${to}`}
       title={collapsed ? (badge ? `${label} · ${badge} pending` : label) : undefined}
       className={({ isActive }) =>
         clsx(
@@ -347,6 +349,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <Onboarding />
+      <Tour />
     </div>
   );
 }

@@ -677,6 +677,7 @@ async def config(request: Request) -> dict[str, Any]:
             "newsapi": _mask(settings.newsapi_api_key),
             "telegram": _mask(settings.telegram_bot_token),
         },
+        "user_name": settings.user_name,
         "version": "0.2.0",
     }
 
@@ -714,6 +715,8 @@ EDITABLE_ENV: dict[str, str] = {
     "AI_BACK_OFFICE": "ai_back_office",
     "AI_EXECUTIVE": "ai_executive",
     "DEBATE_MODEL": "debate_model",
+    "USER_NAME": "user_name",
+    "ONBOARDED": "onboarded",
 }
 
 # Changing these mid-flight does not reach the agent that read them at
@@ -743,6 +746,10 @@ def _apply_env(key: str, value: str) -> str | None:
     attr = EDITABLE_ENV.get(key)
     if attr is None:
         return f"{key} is not editable from the app"
+    # One .env line per key: a newline would smuggle in a second key
+    # (e.g. a live ALPACA_BASE_URL), so reject it outright.
+    if "\n" in value or "\r" in value or len(value) > 500:
+        return f"{key}: value must be a single line under 500 characters"
 
     field = type(settings).model_fields.get(attr)
     if field is None:
@@ -897,7 +904,9 @@ async def onboarding_state() -> dict[str, Any]:
     )
     return {
         "env_exists": env_exists,
-        "completed": env_exists and os.environ.get("HORIZON_ONBOARDED") != "0" and has_llm,
+        "completed": settings.onboarded
+        or (env_exists and os.environ.get("HORIZON_ONBOARDED") != "0" and has_llm),
+        "user_name": settings.user_name,
         "has_llm_key": has_llm,
         "has_broker_key": bool(settings.alpaca_api_key),
         "system_mode": settings.system_mode.value,
@@ -916,6 +925,30 @@ async def onboarding_state() -> dict[str, Any]:
             )
             if not value
         ],
+    }
+
+
+@router.post("/control/test-alpaca")
+async def test_alpaca(request: Request) -> dict[str, Any]:
+    """Check Alpaca credentials against the paper account endpoint.
+
+    Uses the key/secret in the body, or the saved ones when blank. Never logs or
+    returns either value -- only whether Alpaca accepted them.
+    """
+    body = await request.json()
+    key = str(body.get("key") or "").strip() or settings.alpaca_api_key
+    secret = str(body.get("secret") or "").strip() or settings.alpaca_api_secret
+    if not key or not secret:
+        return {"ok": False, "message": "Enter both the API key and the secret."}
+
+    from app.tui.onboarding import _verify_alpaca_key
+
+    ok = await _verify_alpaca_key(key, secret)
+    return {
+        "ok": ok,
+        "message": "Connected to your Alpaca paper account."
+        if ok
+        else "Alpaca rejected these credentials (or is unreachable).",
     }
 
 

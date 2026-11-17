@@ -229,6 +229,7 @@ export interface Config {
     executive: string;
   };
   keys: Record<string, string | null>;
+  user_name: string;
   version: string;
 }
 
@@ -442,6 +443,7 @@ export interface OnboardingState {
   initial_capital_usd: number;
   universe: { us: string; india: string; crypto: string };
   missing: string[];
+  user_name: string;
 }
 
 export const useOnboarding = () =>
@@ -465,6 +467,10 @@ export function useUpdateSettings() {
     onSuccess: () => qc.invalidateQueries(),
   });
 }
+
+/** Checks Alpaca credentials (blank = the saved ones). Secrets never come back. */
+export const testAlpaca = (key: string, secret: string) =>
+  post<{ ok: boolean; message: string }>("/control/test-alpaca", { key, secret });
 
 export function useEngineControl() {
   const qc = useQueryClient();

@@ -9,6 +9,7 @@ import clsx from "clsx";
 import {
   ArrowUpRight,
   Check,
+  Compass,
   KeyRound,
   Power,
   RefreshCw,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/api";
 import { money } from "@/lib/format";
 import { OnboardingWizard } from "@/components/Onboarding";
+import { useTour } from "@/components/Tour";
 import {
   Badge,
   Card,
@@ -121,6 +123,7 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [wizard, setWizard] = useState(false);
+  const startTour = useTour((s) => s.start);
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
 
   if (isLoading || !data) return <Loading label="Loading configuration" />;
@@ -160,7 +163,10 @@ export default function SettingsPage() {
         actions={
           <>
             <button className="btn" onClick={() => setWizard(true)}>
-              <Wand2 className="h-3.5 w-3.5" /> Run setup
+              <Wand2 className="h-3.5 w-3.5" /> Run setup again
+            </button>
+            <button className="btn" onClick={startTour}>
+              <Compass className="h-3.5 w-3.5" /> Take the tour
             </button>
             <button className="btn" onClick={() => command.mutate("config", {
               onSuccess: (r) => setEcho({ html: r.html, text: r.text }),

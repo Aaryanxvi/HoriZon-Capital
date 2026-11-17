@@ -159,3 +159,41 @@ async def test_render_markup_keeps_colour_and_text():
     assert "color" in rendered["html"]
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token D80BA301187F - verify with scripts/authorship.py verify
+
+
+async def test_alpaca_check_never_echoes_secrets(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "alpaca_api_key", "")
+    monkeypatch.setattr(settings, "alpaca_api_secret", "")
+    body = client.post("/api/desktop/control/test-alpaca", json={}).json()
+    assert body["ok"] is False
+
+    seen: list[tuple[str, str]] = []
+
+    async def fake_verify(key, secret):
+        seen.append((key, secret))
+        return True
+
+    monkeypatch.setattr("app.tui.onboarding._verify_alpaca_key", fake_verify)
+    resp = client.post(
+        "/api/desktop/control/test-alpaca", json={"key": "PKTESTKEY", "secret": "s3cr3tvalue"}
+    )
+    assert resp.json()["ok"] is True
+    assert seen == [("PKTESTKEY", "s3cr3tvalue")]
+    assert "PKTESTKEY" not in resp.text and "s3cr3tvalue" not in resp.text
+
+
+async def test_settings_rejects_multiline_values(client, monkeypatch):
+    """A newline would write a second .env key (e.g. a live broker URL)."""
+    written: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "app.tui.settings_panel._write_env_key",
+        lambda path, key, value: written.append((key, value)),
+    )
+    body = client.post(
+        "/api/desktop/control/settings",
+        json={"updates": {"USER_NAME": "Ada\nALPACA_BASE_URL=https://api.alpaca.markets"}},
+    ).json()
+    assert body["ok"] is False
+    assert written == []

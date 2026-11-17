@@ -158,6 +158,10 @@ class Settings(BaseSettings):
     ai_back_office: str = "auto"
     ai_executive: str = "auto"
 
+    # Desktop first-run: the operator's name (greeting) and whether setup ran.
+    user_name: str = ""
+    onboarded: bool = False
+
     # Debate role pinning: which provider argues each role.
     # Values: "auto" (round-robin) | "claude" | "openai" | "gemini"
     debate_role_strategy: str = "auto"
