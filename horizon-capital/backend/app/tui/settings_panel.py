@@ -14,6 +14,7 @@ AI allocation, and debate role assignments, then resumes the dashboard.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -77,7 +78,10 @@ def _read_env(env_path: str) -> dict[str, str]:
 
 def _write_env_key(env_path: str, key: str, value: str) -> None:
     """Update or append a single key=value pair in the .env file."""
-    path = Path(env_path)
+    # ponytail: callers derive backend/.env from __file__, which in the installed
+    # app is read-only Program Files; desktop_entry points every write at the
+    # user's data dir instead.
+    path = Path(os.environ.get("HORIZON_ENV_FILE") or env_path)
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
 
     key_upper = key.upper()

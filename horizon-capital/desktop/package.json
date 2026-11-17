@@ -7,7 +7,7 @@
     "start": "electron .",
     "dev": "electron .",
     "icon": "python ../desktop/make_icon.py",
-    "dist": "electron-builder"
+    "dist": "electron-builder --win --publish never"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -32,19 +32,38 @@
         "from": "../backend-dist/",
         "to": "backend",
         "filter": [
-          "**/*"
+          "**/*",
+          "!**/.env*",
+          "!**/*.db",
+          "!**/*.db-*",
+          "!**/*.sqlite*",
+          "!**/*.log",
+          "!**/.git/**"
         ]
       },
       {
         "from": "../frontend/dist/",
         "to": "frontend",
         "filter": [
-          "**/*"
+          "**/*",
+          "!**/.env*",
+          "!**/*.db",
+          "!**/*.db-*",
+          "!**/*.sqlite*",
+          "!**/*.log",
+          "!**/.git/**"
         ]
       }
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "icons/icon.ico"
     },
     "mac": {
@@ -61,7 +80,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "icons/icon.ico",
-      "shortcutName": "Horizon Capital"
+      "shortcutName": "Horizon Capital",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "uninstallerIcon": "icons/icon.ico",
+      "artifactName": "HorizonCapital-Setup.${ext}"
     }
   },
   "author": "Aaryan Baadkar <aaryanbaadkar71@gmail.com>",

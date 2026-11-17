@@ -79,3 +79,9 @@ own research paper/debate_ab_stream_*.json
 # Profitability harness caches/intermediates (regenerable; results live in docs/plans).
 own research paper/profitability_*.pkl
 own research paper/profitability_*.json
+
+# Desktop build outputs (python build_desktop.py)
+backend-dist/
+backend/desktop_entry.spec
+*.exe
+*.blockmap

@@ -371,7 +371,10 @@ def _gradient_panel(content: str, title: str = "") -> Panel:
 
 def _env_path() -> Path:
     """Return the path to the .env file in the backend directory."""
-    return Path(__file__).resolve().parent.parent.parent / ".env"
+    import os
+
+    override = os.environ.get("HORIZON_ENV_FILE")  # installed desktop build
+    return Path(override) if override else Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 def needs_onboarding() -> bool:

@@ -8,9 +8,9 @@
 """Build script for Horizon Capital desktop app.
 
 Steps:
-  1. Build React frontend  → frontend/dist/
-  2. Bundle Python backend  → backend-dist/desktop_entry/
-  3. Package with Electron  → desktop/dist/ (installer)
+  1. Build React frontend  -> frontend/dist/
+  2. Bundle Python backend  -> backend-dist/desktop_entry/
+  3. Package with Electron  -> desktop/dist/ (installer)
 
 Usage:
   python build_desktop.py          # Full build
@@ -30,6 +30,11 @@ FRONTEND_DIR = ROOT / "frontend"
 BACKEND_DIR = ROOT / "backend"
 DESKTOP_DIR = ROOT / "desktop"
 BACKEND_DIST = ROOT / "backend-dist"
+EXCLUDED_MODULES = (
+    "pytest", "tkinter", "IPython", "matplotlib",
+    "torch", "transformers",  # FinBERT is optional
+    "numba", "llvmlite",  # arch's optional JIT
+)
 
 
 def run(cmd: list[str], cwd: Path, label: str) -> None:
@@ -37,7 +42,8 @@ def run(cmd: list[str], cwd: Path, label: str) -> None:
     print(f"  {label}")
     print(f"  > {' '.join(cmd)}")
     print(f"{'='*60}\n")
-    result = subprocess.run(cmd, cwd=cwd)
+    # npm is npm.cmd on Windows, which subprocess can't run without the full path.
+    result = subprocess.run([shutil.which(cmd[0]) or cmd[0], *cmd[1:]], cwd=cwd)
     if result.returncode != 0:
         print(f"\nERROR: {label} failed with exit code {result.returncode}")
         sys.exit(result.returncode)
@@ -50,7 +56,7 @@ def build_frontend() -> None:
     if not dist.is_dir():
         print("ERROR: frontend/dist not found after build")
         sys.exit(1)
-    print(f"  Frontend built → {dist}")
+    print(f"  Frontend built -> {dist}")
 
 
 def build_backend() -> None:
@@ -71,7 +77,17 @@ def build_backend() -> None:
             "--clean",
             "--name", "desktop_entry",
             "--distpath", str(BACKEND_DIST),
-            "--add-data", f"{BACKEND_DIR / 'app'};app",
+            # uvicorn loads "app.main:app" by string, so PyInstaller can't see the
+            # app package -- collect it as modules (not as data: no source/.env copy).
+            "--paths", str(BACKEND_DIR),
+            "--collect-submodules", "app",
+            "--collect-submodules", "uvicorn",
+            # SQLAlchemy loads the driver from the "sqlite+aiosqlite" URL at runtime.
+            "--hidden-import", "aiosqlite",
+            "--hidden-import", "sqlalchemy.dialects.sqlite.aiosqlite",
+            # Dev/test-only or optional heavyweights. FinBERT (torch/transformers)
+            # is optional -- the scorer falls back to the L-M dictionary without it.
+            *[a for m in EXCLUDED_MODULES for a in ("--exclude-module", m)],
             str(entry),
         ],
         cwd=BACKEND_DIR,
@@ -82,7 +98,7 @@ def build_backend() -> None:
     if not out.is_dir():
         print(f"ERROR: {out} not found after PyInstaller")
         sys.exit(1)
-    print(f"  Backend bundled → {out}")
+    print(f"  Backend bundled -> {out}")
 
 
 def build_electron() -> None:
@@ -91,7 +107,17 @@ def build_electron() -> None:
     run(["npm", "run", "dist"], cwd=DESKTOP_DIR, label="Packaging desktop app (electron-builder)")
 
     dist = DESKTOP_DIR / "dist"
-    print(f"\n  Desktop app packaged → {dist}")
+    check_no_secrets(dist / "win-unpacked")
+    print(f"\n  Desktop app packaged -> {dist}")
+
+
+def check_no_secrets(unpacked: Path) -> None:
+    """Fail the build if user config/data slipped into the shipped app."""
+    banned = (".env*", "*.db", "*.db-*", "*.sqlite*", "*.log", ".git")
+    leaks = [p for pat in banned for p in unpacked.rglob(pat)]
+    if leaks:
+        print("ERROR: secrets/user data in the package:", *leaks, sep="\n  ")
+        sys.exit(1)
 
 
 def main() -> None:

@@ -59,6 +59,18 @@ def main() -> None:
     os.environ.setdefault("HORIZON_RUN_AGENTS", "1")
     os.environ["APP_PORT"] = str(port)
 
+    if getattr(sys, "frozen", False):
+        # Installed build: the exe sits in Program Files (read-only, shared). Keep the
+        # user's .env with the rest of their data (~/.horizon-capital), and run from
+        # there so pydantic's relative ".env" and every writer agree on one file.
+        from pathlib import Path
+
+        data_dir = Path(os.environ.setdefault(
+            "HORIZON_DATA_DIR", str(Path.home() / ".horizon-capital")))
+        data_dir.mkdir(parents=True, exist_ok=True)
+        os.environ["HORIZON_ENV_FILE"] = str(data_dir / ".env")
+        os.chdir(data_dir)
+
     try:
         asyncio.run(_serve(port))
     except KeyboardInterrupt:
