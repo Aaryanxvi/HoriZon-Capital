@@ -255,6 +255,9 @@ button {
   font-family: var(--font-mono);
   font-size: 0.9rem;
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin-right: 1rem;
 }
 
 .copy-btn {
@@ -276,37 +279,6 @@ button {
 .copy-btn svg {
   width: 14px;
   height: 14px;
-}
-
-.gui-downloads {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 1.5rem;
-}
-.gui-downloads span {
-  display: block;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin-bottom: 1rem;
-}
-.os-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.os-links a {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-.os-links svg {
-  width: 18px;
-  height: 18px;
-  color: var(--text-secondary);
 }
 
 /* Terminal Window Mockup */

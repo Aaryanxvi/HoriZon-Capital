@@ -8,8 +8,18 @@
 import './style.css';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import {
+  Bot, Check, Copy, Crown, Database, MessagesSquare, ShieldAlert, TrendingUp, User,
+  createIcons,
+} from 'lucide';
 
 gsap.registerPlugin(ScrollTrigger);
+
+// Bundled icons (was unpkg lucide@latest — unpinned CDN could break the page).
+const renderIcons = () => createIcons({
+  icons: { Bot, Check, Copy, Crown, Database, MessagesSquare, ShieldAlert, TrendingUp, User },
+});
+renderIcons();
 
 // JS Smooth Scrolling removed to fix main-thread jitter against heavy WebGL scenes.
 
@@ -63,7 +73,7 @@ gsap.fromTo(".hero-actions",
 // 5. TERMINAL TYPEWRITER EFFECT
 // ==========================================
 const terminalTexts = [
-  "cd horizon-capital && python -m app",
+  "cd backend && python -m app",
   "<span class='success'>[INFO]</span> Initialized SQLite local backend",
   "<span class='success'>[INFO]</span> Loaded HMM Regime Model (INDIA, US, CRYPTO)",
   "<span class='success'>[INFO]</span> Started Multi-Agent Orchestrator",
@@ -119,11 +129,11 @@ copyBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(copyCode).then(() => {
     const originalHTML = copyBtn.innerHTML;
     copyBtn.innerHTML = "<i data-lucide='check'></i> Copied!";
-    lucide.createIcons(); // Re-render the new check icon
-    
+    renderIcons(); // Re-render the new check icon
+
     setTimeout(() => {
       copyBtn.innerHTML = originalHTML;
-      lucide.createIcons();
+      renderIcons();
     }, 2000);
   });
 });
