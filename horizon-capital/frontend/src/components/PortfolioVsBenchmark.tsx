@@ -26,7 +26,7 @@ import {
   type DatedValue,
   type RangeKey as DailyRange,
 } from "@/lib/series";
-import { useBenchmark, useNavDaily, type BenchmarkRange } from "@/lib/viz-api";
+import { useBacktestShowcase, useBenchmark, useNavDaily, type BenchmarkRange } from "@/lib/viz-api";
 
 /** "1D" is the intraday NAV view; every other range is daily and benchmarked. */
 export type RangeKey = "1D" | DailyRange;
@@ -140,6 +140,25 @@ export function PortfolioVsBenchmark({
     };
   }, [nav.data, bench.data, range]);
 
+  // Until the live book has MIN_DAYS of history, show the saved full-stack
+  // backtest vs SPY instead of an empty card, clearly badged as a simulation.
+  const showcase = useBacktestShowcase(!intraday && daily.total < MIN_DAYS);
+  const sim = useMemo(() => {
+    const data = showcase.data;
+    if (intraday || daily.total >= MIN_DAYS || !data?.available || !data.has_spy) return null;
+    const pts = (data.points ?? []).filter((p) => p.spy !== null);
+    if (pts.length < 2) return null;
+    const dd = drawdown(pts.map((p) => p.portfolio));
+    return {
+      withSpy: true,
+      port: toTS(indexTo100(pts.map((p) => ({ date: p.date, value: p.portfolio })))),
+      spy: toTS(indexTo100(pts.map((p) => ({ date: p.date, value: p.spy as number })))),
+      dd: pts.map((p, i) => ({ time: p.date, value: dd[i] })),
+      years: `${pts[0].date.slice(0, 4)}–${pts[pts.length - 1].date.slice(0, 4)}`,
+    };
+  }, [showcase.data, intraday, daily.total]);
+  const view = sim ?? daily;
+
   // ponytail: "1D" = the 24 h before the latest snapshot, capped by the hook's 800-row limit (~13 h).
   const intra = useMemo<TSPoint[]>(() => {
     const pts = (curve.data?.points ?? [])
@@ -154,14 +173,14 @@ export function PortfolioVsBenchmark({
       intraday
         ? [{ id: "nav", label: "NAV", kind: "area", data: intra, color: t.accent, fillColor: t.accentFill, format: money }]
         : [
-            { id: "port", label: "Portfolio", kind: "line", data: daily.port, color: t.accent, lineWidth: 2, format: idx },
-            ...(daily.withSpy
+            { id: "port", label: sim ? "Strategy (backtest)" : "Portfolio", kind: "line", data: view.port, color: t.accent, lineWidth: 2, format: idx },
+            ...(view.withSpy
               ? [
                   {
                     id: "spy",
                     label: "SPY",
                     kind: "line" as const,
-                    data: daily.spy,
+                    data: view.spy,
                     color: t.neutral,
                     lineWidth: 2 as const,
                     format: idx,
@@ -169,7 +188,7 @@ export function PortfolioVsBenchmark({
                 ]
               : []),
           ],
-    [intraday, intra, daily, t],
+    [intraday, intra, view, sim, t],
   );
 
   const ddSeries = useMemo<TSSeries[]>(
@@ -178,14 +197,14 @@ export function PortfolioVsBenchmark({
         id: "dd",
         label: "Drawdown",
         kind: "area",
-        data: daily.dd,
+        data: view.dd,
         color: t.down,
         fillColor: t.downFill,
         format: ddPct,
         scaleMargins: { top: 0.15, bottom: 0.1 },
       },
     ],
-    [daily.dd, t],
+    [view.dd, t],
   );
 
   // Memoized: crosshair moves re-render this component and the intraday table is ~800 rows.
@@ -198,11 +217,11 @@ export function PortfolioVsBenchmark({
           }
         : {
             columns: ["Date", "Portfolio idx", "SPY idx", "Drawdown"],
-            rows: daily.port
-              .map((p, i) => [p.time as string, idx(p.value), idxOrDash(daily.spy[i]?.value), ddPct(daily.dd[i].value)])
+            rows: view.port
+              .map((p, i) => [p.time as string, idx(p.value), idxOrDash(view.spy[i]?.value), ddPct(view.dd[i].value)])
               .reverse(),
           },
-    [intraday, intra, daily],
+    [intraday, intra, view],
   );
 
   const src = intraday ? curve : nav;
@@ -218,6 +237,8 @@ export function PortfolioVsBenchmark({
         hint: "Snapshots are written every minute while the engine runs.",
       };
     }
+  } else if (sim) {
+    empty = null;
   } else if (daily.total < MIN_DAYS) {
     empty = {
       message: "Building history",
@@ -232,7 +253,7 @@ export function PortfolioVsBenchmark({
 
   const note = intraday
     ? "Benchmark is daily-only"
-    : daily.withSpy
+    : view.withSpy
       ? null
       : bench.error
         ? `SPY history unavailable — ${failure("/api/desktop/symbol/SPY/history", bench.error)}`
@@ -240,16 +261,18 @@ export function PortfolioVsBenchmark({
             bench.data?.source ? ` (${bench.data.source} has no closes on the portfolio's days)` : ""
           }`;
 
-  const subtitle = intraday
+  const subtitle = sim
+    ? `Indexed to 100 · ${sim.years} · live results replace this after ${MIN_DAYS} trading days`
+    : intraday
     ? `Intraday NAV${intra.length ? ` since ${unixLabel(intra[0].time as number)}` : ""}`
     : `Indexed to 100 at the start of the range${
         daily.total > 0 && daily.total <= 30 ? ` · ${plural(daily.total, "trading day")} recorded` : ""
       }`;
 
   const legend: LegendItem[] | undefined =
-    !intraday && daily.withSpy
+    !intraday && view.withSpy
       ? [
-          { label: "Portfolio", color: t.accent, value: idxOrDash(read?.values.port) },
+          { label: sim ? "Strategy" : "Portfolio", color: t.accent, value: idxOrDash(read?.values.port) },
           { label: "SPY", color: t.neutral, value: idxOrDash(read?.values.spy) },
         ]
       : undefined;
@@ -261,7 +284,7 @@ export function PortfolioVsBenchmark({
       subtitle={subtitle}
       legend={legend}
       toolbar={
-        rangeOverride == null ? (
+        rangeOverride == null && !sim ? (
           <Segmented options={RANGE_OPTIONS} value={range} onChange={pick} ariaLabel="Chart range" />
         ) : undefined
       }
@@ -272,11 +295,16 @@ export function PortfolioVsBenchmark({
       empty={empty}
       height={intraday ? height : height + DD_HEIGHT + 24}
     >
+      {sim && (
+        <p className="mb-2 inline-flex items-center gap-1.5 rounded border border-warn/40 bg-warn/10 px-2 py-0.5 text-2xs font-medium text-ink">
+          Simulated backtest · full strategy stack · {sim.years} · not live results
+        </p>
+      )}
       {note && <p className="mb-2 text-xs text-ink-3">{note}</p>}
       {/* Keyed by range: a fresh chart fits the new window, and intraday (unix) and
           daily (business-day) time scales never share an instance. */}
       <TimeSeries
-        key={range}
+        key={sim ? "sim" : range}
         series={main}
         height={height}
         syncKey={intraday ? undefined : syncKey}
@@ -290,7 +318,7 @@ export function PortfolioVsBenchmark({
             <span className="nums text-ink">{ddRead === null ? "—" : ddPct(ddRead)}</span>
           </div>
           <TimeSeries
-            key={range}
+            key={sim ? "sim" : range}
             series={ddSeries}
             height={DD_HEIGHT}
             syncKey={syncKey}

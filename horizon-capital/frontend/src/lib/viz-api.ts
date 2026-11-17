@@ -74,6 +74,30 @@ export const useBenchmark = (symbol = "SPY", range: BenchmarkRange = "5Y") =>
     refetchInterval: 300_000,
   });
 
+export interface ShowcasePoint {
+  date: string;
+  portfolio: number;
+  spy: number | null;
+}
+
+export interface BacktestShowcase {
+  available: boolean;
+  label?: string;
+  start?: string;
+  end?: string;
+  has_spy?: boolean;
+  points?: ShowcasePoint[];
+}
+
+/** Saved full-stack backtest vs SPY, shown while live history is too short. */
+export const useBacktestShowcase = (enabled: boolean) =>
+  useQuery({
+    queryKey: ["viz", "backtest-showcase"],
+    queryFn: () => get<BacktestShowcase>("/backtest-showcase"),
+    enabled,
+    staleTime: Infinity,
+  });
+
 export const useSleeves = () =>
   useQuery({
     queryKey: ["viz", "sleeves"],

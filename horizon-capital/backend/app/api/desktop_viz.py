@@ -98,3 +98,100 @@ async def sleeves(request: Request) -> dict[str, Any]:
     }
 # Originally authored by Aaryan Baadkar (aaryanbaadkar71@gmail.com).
 # Provenance token B27A5513BCC3 - verify with scripts/authorship.py verify
+
+
+# ---------------------------------------------------------------------------
+# Backtest showcase: the full strategy stack's saved 2019-2024 backtest vs SPY.
+# Shown by the Overview chart only while the live book has too little history,
+# and always labelled as a simulation (never as live results).
+# ---------------------------------------------------------------------------
+
+_SHOWCASE_FILE = "demo_v4_2019_2024_equity.csv"
+_SHOWCASE_CACHE: dict[str, Any] = {}
+
+
+async def _spy_closes(start: str, end: str) -> dict[str, float]:
+    """Dividend-adjusted daily SPY closes keyed by ISO date.
+
+    Adjusted (total-return) prices keep the comparison fair: raw closes ignore
+    SPY's dividends and would flatter the strategy. Alpaca first, yfinance
+    (auto-adjusted) as the fallback.
+    """
+    import asyncio
+
+    import httpx
+
+    from app.data_layer import alpaca_quotes
+
+    try:
+        if alpaca_quotes.is_configured():
+            url = f"{alpaca_quotes._rest_base()}/v2/stocks/SPY/bars"
+            params = {
+                "timeframe": "1Day", "start": start, "end": f"{end}T23:59:59Z",
+                "adjustment": "all", "limit": 10_000,
+            }
+            out: dict[str, float] = {}
+            async with httpx.AsyncClient(timeout=20) as client:
+                while True:
+                    resp = await client.get(
+                        url, params=params, headers=alpaca_quotes._auth_headers()
+                    )
+                    resp.raise_for_status()
+                    body = resp.json()
+                    for bar in body.get("bars") or []:
+                        out[bar["t"][:10]] = float(bar["c"])
+                    token = body.get("next_page_token")
+                    if not token:
+                        break
+                    params["page_token"] = token
+            if out:
+                return out
+    except Exception:
+        pass
+    try:
+        import yfinance as yf
+
+        df = await asyncio.get_running_loop().run_in_executor(
+            None,
+            lambda: yf.Ticker("SPY").history(start=start, end=end, interval="1d", auto_adjust=True),
+        )
+        if df is not None and not df.empty:
+            return {ts.date().isoformat(): float(c) for ts, c in df["Close"].items()}
+    except Exception:
+        pass
+    return {}
+
+
+@router.get("/backtest-showcase")
+async def backtest_showcase() -> dict[str, Any]:
+    if "result" in _SHOWCASE_CACHE:
+        return _SHOWCASE_CACHE["result"]
+
+    import csv
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / _SHOWCASE_FILE
+    if not path.exists():
+        return {"available": False}
+    with path.open(newline="", encoding="utf-8") as fh:
+        nav = {row["date"]: float(row["nav"]) for row in csv.DictReader(fh)}
+    if len(nav) < 2:
+        return {"available": False}
+
+    dates = sorted(nav)
+    spy = await _spy_closes(dates[0], dates[-1])
+    points = [
+        {"date": d, "portfolio": nav[d], "spy": spy.get(d)}
+        for d in dates
+    ]
+    result = {
+        "available": True,
+        "label": "Simulated backtest of the full strategy stack, 2019-2024 (not live results)",
+        "start": dates[0],
+        "end": dates[-1],
+        "has_spy": any(p["spy"] is not None for p in points),
+        "points": points,
+    }
+    if result["has_spy"]:
+        _SHOWCASE_CACHE["result"] = result  # only cache a complete answer
+    return result

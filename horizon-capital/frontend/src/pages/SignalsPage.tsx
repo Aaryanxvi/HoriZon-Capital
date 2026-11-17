@@ -5,13 +5,14 @@
 // HC-AUTH-AARYAN-BAADKAR-FAA1D5316308
 // ⁠​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​​‌​​​​​​‌​​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌​​​​​​​‌‌‌‌​​​‌‌​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌​​​‌​​‌‌​​​​‌​‌‌​​​​‌​‌‌​​‌​​​‌‌​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌​​​‌‌​‌‌‌​​‌‌​​​‌​‌​​​​​​​‌‌​​‌‌‌​‌‌​‌‌​‌​‌‌​​​​‌​‌‌​‌​​‌​‌‌​‌‌​​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌‌‌‌‌​​​‌​​​​​​‌‌​​‌‌‌​‌‌​‌​​‌​‌‌‌​‌​​​‌‌​‌​​​​‌‌‌​‌​‌​‌‌​​​‌​​​‌​‌‌‌​​‌‌​​​‌‌​‌‌​‌‌‌‌​‌‌​‌‌​‌​​‌​‌‌‌‌​‌​​​​​‌​‌‌​​​​‌​‌‌‌​​‌​​‌‌‌‌​​‌​‌‌​​​​‌​‌‌​‌‌‌​​‌‌‌‌​​​​‌‌‌​‌‌​​‌‌​‌​​‌⁠
 // --------------------------------------------------------------------------
+import clsx from "clsx";
 import { Radar, RefreshCw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { useCommand, useConfig, useOverview, usePositions, useSignals } from "@/lib/api";
-import { dateTime, num, timeAgo } from "@/lib/format";
+import { compactMoney, dateTime, num, timeAgo } from "@/lib/format";
 import { useSleeves } from "@/lib/viz-api";
-import { ChartCard, Dumbbell, HBarList, withSign } from "@/components/charts";
+import { ChartCard, HBarList } from "@/components/charts";
 import {
   Badge,
   Card,
@@ -32,7 +33,7 @@ const bare = (symbol: string) => symbol.toUpperCase().split(".")[0];
 
 const AGENT_DOWN = {
   message: "Strategy agent not running",
-  hint: "Start the engine to see sleeve targets.",
+  hint: "Start the engine to see the AI's trade ideas.",
 };
 
 /** Direction is up/down colour, so it always travels with its glyph. */
@@ -54,86 +55,138 @@ function DirectionChip({ direction }: { direction: string }) {
   );
 }
 
-function TargetsCard() {
+/** Plain-English names for the strategy sleeves. */
+const STRATEGY_LABEL: Record<string, string> = {
+  research_stack: "Research Stack strategy (market regime + momentum + quality)",
+  trend_filter: "Trend Filter strategy (follows the 200-day trend)",
+  gap_fade: "Gap Fade strategy (buys sharp overnight dips)",
+  momentum_rank: "Momentum strategy (owns the strongest performers)",
+  dual_momentum: "Dual Momentum strategy",
+  breadth_alpha: "Market Breadth strategy",
+  crypto_trend: "Crypto Trend strategy",
+  polymarket_momentum: "Prediction-market strategy",
+};
+
+const strategyLabel = (name: string) =>
+  STRATEGY_LABEL[name] ?? `${name.replace(/_/g, " ")} strategy`;
+
+/** Gaps smaller than this (percent of the fund) count as "already the right size". */
+const MIN_GAP_PCT = 0.5;
+
+/**
+ * Why the AI wants to trade, in plain English: for each stock a strategy wants
+ * to own, compare how much of the fund it should be with how much it is today,
+ * and say what the AI proposes to do about the difference.
+ */
+function TradeIdeasCard() {
   const sleevesQ = useSleeves();
   const positionsQ = usePositions();
   const overviewQ = useOverview();
   const sleeves = sleevesQ.data;
   const nav = overviewQ.data?.nav ?? 0;
 
-  // Current weight per symbol = |market value| / NAV.
+  // How much of the fund each symbol is today, in percent.
   const held = new Map<string, number>();
   for (const p of positionsQ.data?.positions ?? []) {
     const w = nav > 0 ? (Math.abs(p.market_value) / nav) * 100 : 0;
     held.set(bare(p.symbol), (held.get(bare(p.symbol)) ?? 0) + w);
   }
 
-  const groups = (sleeves?.sleeves ?? []).map((sleeve) => ({
-    sleeve,
-    rows: [...sleeve.signals]
-      .sort((a, b) => b.weight - a.weight)
-      .map((sig) => ({
-        key: sig.symbol,
-        label: sig.symbol,
-        current: held.get(bare(sig.symbol)) ?? 0,
-        target: sig.weight * 100,
-      })),
-  }));
-  // One scale across sleeves so a 2% gap looks the same in every group.
-  const max = Math.max(0, ...groups.flatMap((g) => g.rows.flatMap((r) => [r.current, r.target])));
+  const ideas = (sleeves?.sleeves ?? []).flatMap((sleeve) =>
+    sleeve.signals.map((sig) => {
+      const wantPct = sig.weight * 100;
+      const havePct = held.get(bare(sig.symbol)) ?? 0;
+      return {
+        sleeve: sleeve.name,
+        symbol: bare(sig.symbol),
+        wantPct,
+        havePct,
+        gapPct: wantPct - havePct,
+      };
+    }),
+  );
+  const actionable = ideas
+    .filter((i) => Math.abs(i.gapPct) >= MIN_GAP_PCT)
+    .sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+  const onTarget = ideas.length - actionable.length;
+  const amountOf = (gapPct: number) => compactMoney((Math.abs(gapPct) / 100) * nav);
   const error = sleevesQ.error ?? positionsQ.error ?? overviewQ.error;
 
   return (
     <ChartCard
-      title="Targets vs current weights"
+      title="Why the AI wants to trade"
       subtitle={
-        sleeves?.market_open == null
-          ? "% of NAV"
-          : `% of NAV · US market ${sleeves.market_open ? "open" : "closed"}`
+        "Each strategy decides how much of the fund a stock deserves" +
+        (sleeves?.market_open == null
+          ? ""
+          : ` · US market ${sleeves.market_open ? "open" : "closed"}`)
       }
       isLoading={sleevesQ.isLoading || positionsQ.isLoading || overviewQ.isLoading}
       isFetching={sleevesQ.isFetching}
-      error={error ? `Could not load sleeve targets — ${error.message}` : null}
+      error={error ? `Could not load trade ideas — ${error.message}` : null}
       empty={
         !sleeves?.available
           ? AGENT_DOWN
-          : !groups.some((g) => g.rows.length)
-            ? {
-                message: "No targets yet",
-                hint: "Sleeves fire during US market hours; `strategy tick` forces a cycle.",
-              }
+          : !ideas.length
+            ? { message: "No trade ideas yet", hint: "The strategies run during US market hours." }
             : null
       }
       table={{
-        columns: ["Sleeve", "Symbol", "Current", "Target", "Gap"],
-        rows: groups.flatMap((g) =>
-          g.rows.map((r) => [
-            g.sleeve.name,
-            r.label,
-            pct1(r.current),
-            pct1(r.target),
-            withSign(r.target - r.current, pct1),
-          ]),
-        ),
+        columns: ["Stock", "Strategy", "Should be", "Is today", "AI proposes"],
+        rows: actionable.map((i) => [
+          i.symbol,
+          strategyLabel(i.sleeve),
+          pct1(i.wantPct),
+          pct1(i.havePct),
+          `${i.gapPct > 0 ? "Buy" : "Sell"} ${amountOf(i.gapPct)}`,
+        ]),
       }}
     >
-      <div className="space-y-4">
-        {groups.map(({ sleeve, rows }) => (
-          <section key={sleeve.name}>
-            <h3 className="mb-1 flex items-baseline gap-2 px-1 text-2xs font-semibold uppercase tracking-wide text-ink-3">
-              {sleeve.name}
-              <span className="nums font-normal normal-case tracking-normal">
-                {pct1(sleeve.weight * 100)} of book
-              </span>
-            </h3>
-            {rows.length ? (
-              <Dumbbell rows={rows} format={pct1} max={max} />
-            ) : (
-              <p className="px-1 text-xs text-ink-3">No targets yet</p>
-            )}
-          </section>
-        ))}
-      </div>
+      {actionable.length === 0 ? (
+        <p className="px-1 py-2 text-sm text-ink-2">
+          Every holding is already the size its strategy wants. Nothing to trade right now.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {actionable.slice(0, 6).map((i) => {
+            const buy = i.gapPct > 0;
+            return (
+              <li
+                key={`${i.sleeve}-${i.symbol}`}
+                className="flex items-start gap-3 rounded border border-line px-3 py-2.5"
+              >
+                <span
+                  className={clsx(
+                    "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase",
+                    buy ? "bg-up/10 text-up" : "bg-down/10 text-down",
+                  )}
+                >
+                  {buy ? "Buy" : "Sell"}
+                </span>
+                <p className="text-sm leading-relaxed text-ink-2">
+                  The {strategyLabel(i.sleeve)} wants{" "}
+                  <span className="font-semibold text-ink">{i.symbol}</span> to be{" "}
+                  <span className="nums font-medium text-ink">{pct1(i.wantPct)}</span> of the fund.
+                  It is <span className="nums font-medium text-ink">{pct1(i.havePct)}</span> today,
+                  so the AI proposes to {buy ? "buy" : "sell"} about{" "}
+                  <span className="nums font-medium text-ink">{amountOf(i.gapPct)}</span>. The AI
+                  debate reviews it before any order is placed.
+                </p>
+              </li>
+            );
+          })}
+          {actionable.length > 6 && (
+            <li className="px-1 text-xs text-ink-3">
+              +{actionable.length - 6} more. Switch to the table view to see them all.
+            </li>
+          )}
+        </ul>
+      )}
+      {onTarget > 0 && (
+        <p className="mt-3 px-1 text-xs text-ink-3">
+          {onTarget} other holding{onTarget === 1 ? " is" : "s are"} already the right size.
+        </p>
+      )}
     </ChartCard>
   );
 }
@@ -287,7 +340,7 @@ export default function SignalsPage() {
     <>
       <PageHeader
         title="Signals"
-        subtitle="Strategy sleeve output — a signal only fires on >50bps drift from target weight"
+        subtitle="Trade ideas from the AI strategies, and the reason behind each one"
         actions={
           <button
             className="btn"
@@ -311,7 +364,7 @@ export default function SignalsPage() {
 
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
-          <TargetsCard />
+          <TradeIdeasCard />
 
           <Card
             title="Recent signals"
