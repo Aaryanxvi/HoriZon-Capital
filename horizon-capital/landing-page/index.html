@@ -35,9 +35,8 @@
       <div class="nav-content">
         <div class="logo">Horizon <span class="muted">Capital</span></div>
         <div class="nav-links">
-          <a href="#about" data-hover>About</a>
-          <a href="#architecture" data-hover>Architecture</a>
-          <a href="#deploy" data-hover>Deploy</a>
+          <a href="#architecture" data-hover>How it works</a>
+          <a href="#deploy" data-hover>Install</a>
           <a href="https://github.com/Aaryanxvi/HoriZon-Capital#readme" target="_blank" rel="noopener" data-hover>Docs</a>
         </div>
       </div>
@@ -51,13 +50,14 @@
           <div class="hero-content">
             <h1 class="hero-title">The Autonomous <br> Hedge Fund <br> <span class="accent-italic">Terminal Agent.</span></h1>
             <p class="hero-subtitle">
-              A multi-agent, department-structured trading platform that runs entirely locally. 
-              Zero infrastructure required. Powered by consensus-driven AI debate.
+              A full hedge fund team of AI agents (research, risk, operations and a CIO)
+              running on your own machine. Every trade is debated by competing AI models
+              before it is placed. No servers to set up.
             </p>
             <div class="hero-actions">
               <a href="https://github.com/Aaryanxvi/HoriZon-Capital/releases/latest/download/HorizonCapital-Setup.exe" class="btn btn-primary" download data-hover>Download for Windows</a>
-              <a href="#deploy" class="btn btn-primary" data-hover>Download Terminal</a>
-              <a href="#architecture" class="btn btn-secondary" data-hover>Learn More</a>
+              <a href="#deploy" class="btn btn-secondary" data-hover>Run from Source</a>
+              <a href="#architecture" class="btn btn-secondary" data-hover>How it Works</a>
             </div>
           </div>
           <!-- Right side is left empty for the 3D canvas to breathe -->
@@ -68,8 +68,8 @@
         <section id="deploy" class="install-section fade-up">
           <div class="bento-box install-container">
             <div class="install-text">
-              <h2 class="section-heading">Deploy Locally</h2>
-              <p>Run the Horizon Capital agent directly in your terminal. Python 3.11+, SQLite, and an in-memory message bus for zero-infrastructure deployment.</p>
+              <h2 class="section-heading">Run it in Your Terminal</h2>
+              <p>Prefer the command line? Clone the repo and start the agent in one line. Needs Python 3.11+. Everything is stored in a local SQLite file, with no database or servers to set up. Starts in paper trading mode.</p>
 
               <div class="cli-command">
                 <span class="prompt">$</span>
@@ -99,7 +99,7 @@
             <div class="section-header fade-up">
               <span class="section-label">Architecture</span>
               <h2 class="section-heading">Institutional-Grade Intelligence.<br><span class="accent-italic">Running on Your Machine.</span></h2>
-              <p>Every department of a quantitative hedge fund — alpha generation, risk management, settlement — replicated as autonomous AI agents collaborating in real time.</p>
+              <p>Every department of a quantitative hedge fund (finding trades, managing risk, keeping the books) rebuilt as AI agents that work together in real time.</p>
             </div>
 
             <div class="bento-grid">
@@ -112,7 +112,7 @@
                     <span class="card-badge">Alpha Generation</span>
                   </div>
                   <h3>Front Office</h3>
-                  <p>Deploys an ensemble of quantitative strategy agents — HMM regime detection, FinBERT sentiment scoring, and proprietary signal generators — to surface high-conviction trade opportunities before the market moves.</p>
+                  <p>A team of strategy agents reads the market: HMM regime detection spots whether conditions are calm or turbulent, FinBERT scores news sentiment, and technical signal generators propose trades for the rest of the firm to review.</p>
                   <div class="card-tags">
                     <span class="tag">HMM Regime Detection</span>
                     <span class="tag">FinBERT NLP</span>
@@ -128,10 +128,10 @@
                     <div class="card-icon"><i data-lucide="shield-alert"></i></div>
                   </div>
                   <h3>Middle Office</h3>
-                  <p>Real-time risk enforcement with continuous Value-at-Risk analysis. Automated circuit breakers halt exposure the instant predefined thresholds are breached.</p>
+                  <p>Every order is checked against position, drawdown and Value-at-Risk limits. A kill switch stops trading the moment a limit is breached.</p>
                   <div class="card-tags">
-                    <span class="tag">VaR Analysis</span>
-                    <span class="tag">Circuit Breaker</span>
+                    <span class="tag">VaR Limits</span>
+                    <span class="tag">Kill Switch</span>
                   </div>
                 </div>
               </div>
@@ -143,7 +143,7 @@
                     <div class="card-icon"><i data-lucide="database"></i></div>
                   </div>
                   <h3>Back Office</h3>
-                  <p>Manages the full data pipeline — feature integrity checks, real-time NAV calculation, and a durable SQLite store that keeps every record local and auditable.</p>
+                  <p>Records every fill, cash balance and NAV update in a local SQLite database, so every decision stays on your machine and can be audited.</p>
                   <div class="card-tags">
                     <span class="tag">SQLite</span>
                     <span class="tag">NAV Engine</span>
@@ -159,11 +159,11 @@
                     <span class="card-badge badge-accent">Core Differentiator</span>
                   </div>
                   <h3>Multi-Agent Debate Engine</h3>
-                  <p>No single model trades alone. Every signal is stress-tested through adversarial debate between four specialized LLM personas — bull, bear, quant, and risk. Execution requires <em>formal mathematical consensus</em>, eliminating single-point-of-failure decision making.</p>
+                  <p>No single model trades alone. Every signal is argued from four angles (strategy, risk, sentiment and portfolio) by competing AI models such as GPT, Claude and Gemini. A trade goes through only if their <em>confidence-weighted vote</em> clears the approval bar.</p>
                   <div class="card-tags">
-                    <span class="tag tag-accent">4 LLM Personas</span>
-                    <span class="tag tag-accent">Adversarial Debate</span>
-                    <span class="tag tag-accent">Consensus Protocol</span>
+                    <span class="tag tag-accent">4 Specialist Roles</span>
+                    <span class="tag tag-accent">Multi-Model Debate</span>
+                    <span class="tag tag-accent">Weighted Consensus</span>
                   </div>
                 </div>
               </div>
@@ -174,7 +174,7 @@
                   <div class="card-icon"><i data-lucide="crown"></i></div>
                   <div class="executive-text">
                     <h3>The Executive Layer</h3>
-                    <p>Two governance modes: <strong>Human-in-the-Loop</strong> for manual oversight of every decision, or <strong>Autonomous AI CIO</strong> for fully hands-free portfolio management. Switch between them at any time.</p>
+                    <p>You choose who has the final say: <strong>Human-in-the-Loop</strong>, where you approve or reject every trade, or an <strong>Autonomous AI CIO</strong> that runs the portfolio hands-free. Switch at any time.</p>
                   </div>
                   <div class="executive-modes">
                     <div class="mode-pill"><i data-lucide="user"></i> Manual</div>
@@ -192,7 +192,7 @@
           <div class="footer-content">
             <div class="footer-left">
               <p>Horizon Capital Agent Runtime</p>
-              <p class="version">v0.2.0</p>
+              <p class="version">v0.2.0 · Paper trading by default. Not investment advice.</p>
             </div>
             <div class="footer-right">
               <a href="https://github.com/Aaryanxvi/HoriZon-Capital#readme" target="_blank" rel="noopener" data-hover>Documentation</a>
