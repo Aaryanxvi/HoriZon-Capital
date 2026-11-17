@@ -45,6 +45,8 @@ CLAUDE_MODELS: list[ModelSpec] = [
               "mid", 3.0, 15.0),
     ModelSpec("claude", "claude-sonnet-4-6", "Claude Sonnet 4.6",
               "mid", 3.0, 15.0),
+    ModelSpec("claude", "claude-sonnet-5-5", "Claude Sonnet 5.5",
+              "mid", 3.0, 15.0),
     ModelSpec("claude", "claude-opus-4-7", "Claude Opus 4.7",
               "premium", 15.0, 75.0),
 ]

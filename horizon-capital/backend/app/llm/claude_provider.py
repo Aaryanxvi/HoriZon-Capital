@@ -17,7 +17,7 @@ class ClaudeProvider(BaseLLMProvider):
 
     provider_name = "claude"
 
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514") -> None:
+    def __init__(self, api_key: str, model: str = "claude-sonnet-5-5") -> None:
         super().__init__(api_key)
         self.model = model
         self._client = None
@@ -40,9 +40,12 @@ class ClaudeProvider(BaseLLMProvider):
             max_tokens=4096,
             system=system_prompt,
             messages=messages,
-            temperature=temperature,
+            # Claude 5-family models reject `temperature` (deprecated); omit it.
         )
-        return response.content[0].text
+        # Newer models may lead with thinking blocks; keep only the text blocks.
+        return "".join(
+            block.text for block in response.content if getattr(block, "type", "") == "text"
+        )
 
     async def is_available(self) -> bool:
         if not self.api_key:
